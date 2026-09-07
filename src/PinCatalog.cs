@@ -38,16 +38,27 @@ namespace CarturMapPins
 
         public static bool Built { get; private set; }
 
+        public static int Size => ByHash.Count;
+
         public static bool TryGet(int prefabHash, out PinCategory category) =>
             ByHash.TryGetValue(prefabHash, out category);
 
         public static PickableGroup GroupOf(int prefabHash) =>
             PickableGroups.TryGetValue(prefabHash, out PickableGroup g) ? g : PickableGroup.Other;
 
+        /// Diagnostics only: prefab names per category, so a probe can report what actually got
+        /// registered rather than just a count.
+        public static readonly Dictionary<PinCategory, List<string>> NamesByCategory =
+            new Dictionary<PinCategory, List<string>>();
+
+        public static bool Contains(int hash) => ByHash.ContainsKey(hash);
+
         public static void Build(ZNetScene scene)
         {
             ByHash.Clear();
             PickableGroups.Clear();
+            NamesByCategory.Clear();
+            OreQualifiedBy.Clear();
 
             if (scene == null || scene.m_prefabs == null)
                 return;
@@ -66,6 +77,13 @@ namespace CarturMapPins
                 ByHash[hash] = category;
                 counts.TryGetValue(category, out int n);
                 counts[category] = n + 1;
+
+                if (!NamesByCategory.TryGetValue(category, out List<string> names))
+                {
+                    names = new List<string>();
+                    NamesByCategory[category] = names;
+                }
+                names.Add(prefab.name);
 
                 if (category == PinCategory.Pickable)
                     PickableGroups[hash] = ClassifyPickable(prefab);
@@ -91,10 +109,17 @@ namespace CarturMapPins
                 category = PinCategory.Runestone;
                 return true;
             }
-            // MineRock5 is current; MineRock is the legacy component still on some deposits.
-            if (prefab.GetComponent<MineRock5>() != null || prefab.GetComponent<MineRock>() != null)
+            // Ore is classified by WHAT IT DROPS, not by component type.
+            //
+            // The obvious test - "has MineRock5 or MineRock" - is wrong twice over: the Black
+            // Forest copper deposit (`rock4_copper`) is a plain Destructible with neither
+            // component, while the prefabs that *do* carry MineRock are mostly destruction
+            // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...). That test registered
+            // 58 "ore" prefabs and matched no actual deposit.
+            if (!LooksLikeFragment(prefab.name) && YieldsOre(prefab, out string via))
             {
                 category = PinCategory.Ore;
+                OreQualifiedBy[prefab.name] = via;
                 return true;
             }
             if (prefab.GetComponent<Beehive>() != null)
@@ -109,6 +134,77 @@ namespace CarturMapPins
             }
 
             category = default;
+            return false;
+        }
+
+        /// Which dropped item caused a prefab to be treated as ore - diagnostics, so the catalog
+        /// dump is verifiable rather than a bare list of names.
+        public static readonly Dictionary<string, string> OreQualifiedBy = new Dictionary<string, string>();
+
+        /// Item prefab-name fragments that mark a drop as "ore worth pinning".
+        private static readonly string[] OreDropTokens =
+        {
+            "copperore", "tinore", "ironore", "silverore", "ironscrap",
+            "obsidian", "flametal", "sulfur", "blackmarble", "softtissue"
+        };
+
+        /// Destruction-debris prefabs carry the same mining components as real deposits but are
+        /// spawned only when a node shatters, so they must never be pinned.
+        private static bool LooksLikeFragment(string name)
+        {
+            string n = name.ToLowerInvariant();
+            return n.Contains("_frac") || n.Contains("_destruction") || n.Contains("fractured");
+        }
+
+        private static bool YieldsOre(GameObject prefab, out string via, int depth = 0)
+        {
+            via = null;
+
+            var tables = new List<DropTable>();
+            MineRock5 rock5 = prefab.GetComponent<MineRock5>();
+            if (rock5?.m_dropItems != null)
+                tables.Add(rock5.m_dropItems);
+            MineRock rock = prefab.GetComponent<MineRock>();
+            if (rock?.m_dropItems != null)
+                tables.Add(rock.m_dropItems);
+            DropOnDestroyed dropOnDestroyed = prefab.GetComponent<DropOnDestroyed>();
+            if (dropOnDestroyed?.m_dropWhenDestroyed != null)
+                tables.Add(dropOnDestroyed.m_dropWhenDestroyed);
+
+            foreach (DropTable table in tables)
+            {
+                if (table.m_drops == null)
+                    continue;
+                foreach (DropTable.DropData drop in table.m_drops)
+                {
+                    if (drop.m_item == null)
+                        continue;
+                    string itemName = drop.m_item.name.ToLowerInvariant();
+                    foreach (string token in OreDropTokens)
+                    {
+                        if (itemName.Contains(token))
+                        {
+                            via = drop.m_item.name;
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            // A big deposit often doesn't drop ore itself - it spawns a mineable chunk that does
+            // (Destructible.m_spawnWhenDestroyed). Follow that one level so the parent deposit,
+            // which is the thing you actually see and want pinned, still qualifies.
+            if (depth == 0)
+            {
+                Destructible destructible = prefab.GetComponent<Destructible>();
+                GameObject spawned = destructible?.m_spawnWhenDestroyed;
+                if (spawned != null && YieldsOre(spawned, out string innerVia, depth + 1))
+                {
+                    via = $"{innerVia} (via {spawned.name})";
+                    return true;
+                }
+            }
+
             return false;
         }
 

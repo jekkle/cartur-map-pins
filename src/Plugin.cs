@@ -17,6 +17,7 @@ namespace CarturMapPins
 
         public static ConfigEntry<float> DiscoveryRadius;
         public static ConfigEntry<float> ScanInterval;
+        public static ConfigEntry<bool> AutoProbe;
 
         private static ConfigEntry<bool> _pickHighValue;
         private static ConfigEntry<bool> _pickBerries;
@@ -48,6 +49,8 @@ namespace CarturMapPins
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
                 "How often to check pending objects and loaded locations against your position.");
+            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
+                "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned; turn off once things work.");
 
             Bind(PinCategory.Ore, enabled: true, Minimap.PinType.Icon3, dedupe: 15f,
                 "Ore deposits and mineable rocks (copper, tin, silver, obsidian, meteorite, flametal).");
@@ -126,6 +129,20 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
                 args => args.Context?.AddString($"{PinRecord.Count} pins on record."));
+
+            new Terminal.ConsoleCommand("carturpins_probe",
+                "Diagnostics: inspects nearby nodes and reports whether their prefab is in the catalog. Optional radius, default 20.",
+                args =>
+                {
+                    float radius = 20f;
+                    if (args.Args.Length > 1)
+                        float.TryParse(args.Args[1], out radius);
+                    Probe.Nearby(args, radius);
+                });
+
+            new Terminal.ConsoleCommand("carturpins_catalog",
+                "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
+                args => Probe.DumpCategory(args, args.Args.Length > 1 ? args.Args[1] : null));
         }
     }
 }

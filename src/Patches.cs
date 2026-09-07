@@ -22,14 +22,40 @@ namespace CarturMapPins
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.AddInstance))]
     internal static class Patch_ZNetScene_AddInstance
     {
+        // Diagnostics: the spawn-hook path went completely silent while the Location sweep
+        // worked, and there was no way to tell from outside whether the hook wasn't firing or
+        // every object was being filtered out. Counters + a periodic summary answer that.
+        private static int _seen;
+        private static int _matched;
+        private static int _enqueued;
+        private static int _skippedHive;
+        private static int _skippedPicked;
+        private static int _skippedGroup;
+        private static float _nextReport;
+
+        internal static void ReportIfDue()
+        {
+            if (UnityEngine.Time.realtimeSinceStartup < _nextReport)
+                return;
+            _nextReport = UnityEngine.Time.realtimeSinceStartup + 15f;
+            Plugin.Log.LogInfo(
+                $"AddInstance diag: seen={_seen} matched={_matched} enqueued={_enqueued} " +
+                $"skipped(hive={_skippedHive} picked={_skippedPicked} group={_skippedGroup}) " +
+                $"catalogBuilt={PinCatalog.Built} catalogSize={PinCatalog.Size} queue={PinPlacer.QueueSize}");
+        }
+
         private static void Postfix(ZDO zdo, ZNetView nview)
         {
             if (!PinCatalog.Built || zdo == null || nview == null)
                 return;
 
+            _seen++;
+
             int hash = zdo.GetPrefab();
             if (!PinCatalog.TryGet(hash, out PinCategory category))
                 return;   // the fast path: one int lookup for the overwhelming majority of calls
+
+            _matched++;
 
             // Locations (dungeons, altars, runestones) are handled by the Location sweep instead,
             // which gives us the Location component's own data to classify and label from.
@@ -37,12 +63,18 @@ namespace CarturMapPins
                 return;
 
             if (category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(PinCatalog.GroupOf(hash)))
+            {
+                _skippedGroup++;
                 return;
+            }
 
             GameObject go = nview.gameObject;
 
             if (category == PinCategory.Beehive && !IsWildHive(zdo))
+            {
+                _skippedHive++;
                 return;
+            }
 
             if (category == PinCategory.Pickable)
             {
@@ -50,9 +82,13 @@ namespace CarturMapPins
                 // something that is about to delete itself.
                 Pickable pickable = go.GetComponent<Pickable>();
                 if (pickable != null && !pickable.CanBePicked())
+                {
+                    _skippedPicked++;
                     return;
+                }
             }
 
+            _enqueued++;
             PinPlacer.Enqueue(category, zdo.GetPosition(), go);
         }
 

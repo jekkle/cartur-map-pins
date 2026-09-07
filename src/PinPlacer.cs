@@ -24,6 +24,8 @@ namespace CarturMapPins
         private static readonly List<Pending> Requeue = new List<Pending>();
         private static float _timer;
 
+        public static int QueueSize => PendingQueue.Count;
+
         public static void Enqueue(PinCategory category, Vector3 pos, GameObject go)
         {
             PendingQueue.Add(new Pending { Category = category, Pos = pos, Go = go });
@@ -46,6 +48,34 @@ namespace CarturMapPins
 
             DrainQueue(playerPos);
             SweepLocations(playerPos);
+            Patch_ZNetScene_AddInstance.ReportIfDue();
+            AutoProbe();
+        }
+
+        private static bool _autoProbeDone;
+        private static float _autoProbeAt = -1f;
+
+        /// Runs the probe once, a few seconds after the player is in-world, straight to the log.
+        /// Deliberately not dependent on the game console, which needs a `-console` launch
+        /// argument that isn't set up here.
+        ///
+        /// Uses an absolute realtimeSinceStartup deadline rather than subtracting deltaTime:
+        /// this is only called from the throttled tick (~3Hz), so accumulating per-frame deltas
+        /// here counted roughly 0.05s per real second and pushed a 12s delay out to ~4 minutes.
+        private static void AutoProbe()
+        {
+            if (_autoProbeDone || !Plugin.AutoProbe.Value)
+                return;
+
+            if (_autoProbeAt < 0f)
+                _autoProbeAt = Time.realtimeSinceStartup + 12f;
+            if (Time.realtimeSinceStartup < _autoProbeAt)
+                return;
+
+            _autoProbeDone = true;
+            Plugin.Log.LogInfo("=== auto-probe (set Diagnostics/AutoProbeOnSpawn=false to disable) ===");
+            Probe.Nearby(null, 25f);
+            Probe.DumpCategory(null, "Ore");
         }
 
         private static void DrainQueue(Vector3 playerPos)
@@ -56,16 +86,30 @@ namespace CarturMapPins
             float radius = Plugin.DiscoveryRadius.Value;
             Requeue.Clear();
 
+            int dropped = 0;
+            int interior = 0;
+            float nearest = float.MaxValue;
+
             foreach (Pending p in PendingQueue)
             {
                 // The object unloaded before we got close enough - drop it.
                 if (p.Go == null)
+                {
+                    dropped++;
                     continue;
+                }
 
                 if (p.Pos.y >= InteriorHeight)
+                {
+                    interior++;
                     continue;
+                }
 
-                if (DistanceXZ(p.Pos, playerPos) > radius)
+                float dist = DistanceXZ(p.Pos, playerPos);
+                if (dist < nearest)
+                    nearest = dist;
+
+                if (dist > radius)
                 {
                     // Still too far. Keep it so it pins when the player actually walks up,
                     // rather than pinning things that merely loaded behind them.
@@ -74,6 +118,13 @@ namespace CarturMapPins
                 }
 
                 TryPin(p.Category, p.Pos, ResolveLabel(p.Category, p.Go));
+            }
+
+            if (dropped > 0 || interior > 0 || nearest < float.MaxValue)
+            {
+                Plugin.Log.LogInfo($"Drain: queued={PendingQueue.Count} dropped(unloaded)={dropped} " +
+                                   $"interior={interior} nearest={(nearest < float.MaxValue ? nearest.ToString("F0") : "-")}m " +
+                                   $"radius={radius:F0}m");
             }
 
             PendingQueue.Clear();
@@ -130,9 +181,9 @@ namespace CarturMapPins
             if (loc.m_hasInterior || loc.m_generator != null)
             {
                 category = PinCategory.Dungeon;
-                label = !string.IsNullOrEmpty(loc.m_discoverLabel)
-                    ? loc.m_discoverLabel
-                    : Utils.GetPrefabName(loc.gameObject);
+                // Generalised short name from the prefab ("Crypt2" -> "Crypt") in preference to
+                // m_discoverLabel, which gives the game's full proper noun ("Burial Chambers").
+                label = Labels.ForLocation(Utils.GetPrefabName(loc.gameObject));
                 return true;
             }
 
@@ -171,13 +222,10 @@ namespace CarturMapPins
             switch (category)
             {
                 case PinCategory.Ore:
-                    MineRock5 rock5 = go.GetComponent<MineRock5>();
-                    if (rock5 != null && !string.IsNullOrEmpty(rock5.m_name))
-                        return rock5.m_name;
-                    MineRock rock = go.GetComponent<MineRock>();
-                    if (rock != null && !string.IsNullOrEmpty(rock.m_name))
-                        return rock.m_name;
-                    break;
+                    // Derived from the dropped item ("CopperOre" -> "Copper") rather than the
+                    // component's m_name: the deposits that matter are plain Destructibles with
+                    // no m_name at all, which is why these were showing up as "rock4_copper".
+                    return Labels.ForOre(Utils.GetPrefabName(go));
 
                 case PinCategory.Beehive:
                     Beehive hive = go.GetComponent<Beehive>();
@@ -202,10 +250,16 @@ namespace CarturMapPins
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             if (settings == null || !settings.Enabled.Value)
+            {
+                Plugin.Log.LogInfo($"Skip {category} '{label}': category disabled");
                 return;
+            }
 
             if (PinRecord.Exists(category, pos, settings.DedupeRadius.Value))
+            {
+                Plugin.Log.LogInfo($"Skip {category} '{label}': already pinned within {settings.DedupeRadius.Value:F0}m");
                 return;
+            }
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
