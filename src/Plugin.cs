@@ -49,17 +49,17 @@ namespace CarturMapPins
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
                 "How often to check pending objects and loaded locations against your position.");
 
-            Bind(PinCategory.Ore, enabled: true, Minimap.PinType.Icon0, dedupe: 15f,
+            Bind(PinCategory.Ore, enabled: true, Minimap.PinType.Icon3, dedupe: 15f,
                 "Ore deposits and mineable rocks (copper, tin, silver, obsidian, meteorite, flametal).");
-            Bind(PinCategory.Dungeon, enabled: true, Minimap.PinType.Icon3, dedupe: 5f,
+            Bind(PinCategory.Dungeon, enabled: true, Minimap.PinType.Icon4, dedupe: 5f,
                 "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).");
             Bind(PinCategory.BossAltar, enabled: false, Minimap.PinType.Boss, dedupe: 5f,
                 "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).");
-            Bind(PinCategory.Beehive, enabled: true, Minimap.PinType.Icon2, dedupe: 5f,
+            Bind(PinCategory.Beehive, enabled: true, Minimap.PinType.Icon3, dedupe: 5f,
                 "Wild beehives. Player-built hives are never pinned.");
-            Bind(PinCategory.Runestone, enabled: true, Minimap.PinType.Icon1, dedupe: 5f,
+            Bind(PinCategory.Runestone, enabled: true, Minimap.PinType.Icon2, dedupe: 5f,
                 "Runestones and Vegvisirs. Vanilla never pins these.");
-            Bind(PinCategory.Pickable, enabled: true, Minimap.PinType.Icon4, dedupe: 10f,
+            Bind(PinCategory.Pickable, enabled: true, Minimap.PinType.Icon3, dedupe: 10f,
                 "Pickables. See the Pickables section for which kinds - most are off by default because they are extremely numerous.");
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
