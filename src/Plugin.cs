@@ -76,7 +76,7 @@ namespace CarturMapPins
             // fallback used when custom icons are off.
             Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
                 "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section.",
-                iconIndex: 52);   // ore/crystal cluster
+                iconIndex: 47);   // pickaxe striking rock
             Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
                 "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).",
                 iconIndex: 22);   // cobwebbed arch
@@ -85,13 +85,13 @@ namespace CarturMapPins
                 iconIndex: 34);   // armed tent camp
             Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
                 "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).",
-                iconIndex: 72);   // totem pole
+                iconIndex: 61);   // crossed sword and spear
             Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
                 "Wild beehives. Player-built hives are never pinned.",
                 iconIndex: 6);    // bee
             Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
                 "Runestones and Vegvisirs. Vanilla never pins these.",
-                iconIndex: 71);   // carved stone slab
+                iconIndex: -1);   // -1 = keep the vanilla Icon2 below
             Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
                 "Loot chests found in the world. Player-built containers are never pinned.",
                 iconIndex: 45);   // treasure chest
