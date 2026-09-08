@@ -18,6 +18,7 @@ namespace CarturMapPins
         public static ConfigEntry<float> DiscoveryRadius;
         public static ConfigEntry<float> ScanInterval;
         public static ConfigEntry<bool> AutoProbe;
+        public static ConfigEntry<bool> CustomIconsEnabled;
 
         private static ConfigEntry<bool> _pickHighValue;
         private static ConfigEntry<bool> _pickBerries;
@@ -32,7 +33,11 @@ namespace CarturMapPins
         {
             public ConfigEntry<bool> Enabled;
             public ConfigEntry<Minimap.PinType> PinType;
+            public ConfigEntry<int> IconIndex;
             public ConfigEntry<float> DedupeRadius;
+
+            /// Custom icon when one is chosen and available, otherwise the vanilla pin type.
+            public Minimap.PinType ResolvedPinType => CustomIcons.Resolve(IconIndex.Value, PinType.Value);
         }
 
         private static readonly Dictionary<PinCategory, CategorySettings> Settings =
@@ -64,30 +69,44 @@ namespace CarturMapPins
             AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
                 "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
 
-            // Most categories use Icon3 (the plain dot) with a simple label; chests and
-            // runestones use Icon2, dungeons Icon4, boss altars the dedicated Boss icon.
+            CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
+                "Use the bundled icon sheet, adding its icons as extra pin types alongside the vanilla ones (nothing vanilla is replaced). If this is off, or the sheet fails to load, every category falls back to its vanilla PinType.");
+
+            // IconIndex values refer to Assets/pin_icons_numbered.png. PinType is the vanilla
+            // fallback used when custom icons are off.
             Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
-                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section.");
+                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section.",
+                iconIndex: 52);   // ore/crystal cluster
             Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
-                "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).");
+                "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).",
+                iconIndex: 22);   // cobwebbed arch
             Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
-                "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.");
+                "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
+                iconIndex: 34);   // armed tent camp
             Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
-                "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).");
+                "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).",
+                iconIndex: 72);   // totem pole
             Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
-                "Wild beehives. Player-built hives are never pinned.");
+                "Wild beehives. Player-built hives are never pinned.",
+                iconIndex: 6);    // bee
             Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
-                "Runestones and Vegvisirs. Vanilla never pins these.");
+                "Runestones and Vegvisirs. Vanilla never pins these.",
+                iconIndex: 71);   // carved stone slab
             Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
-                "Loot chests found in the world. Player-built containers are never pinned.");
+                "Loot chests found in the world. Player-built containers are never pinned.",
+                iconIndex: 45);   // treasure chest
             Bind(PinCategory.Spawner, true, Minimap.PinType.Icon3, 15f,
-                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding.");
+                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding.",
+                iconIndex: 48);   // nest with eggs
             Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
-                "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.");
+                "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.",
+                iconIndex: 59);   // sea serpent
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
-                "Traders (Haldor, Hildir). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.");
+                "Traders (Haldor, Hildir). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
+                iconIndex: 15);   // coin pouch
             Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
-                "Wisp spawners in the Mistlands. OFF by default - they are numerous.");
+                "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
+                iconIndex: 32);   // flame
 
             foreach ((string _, string type) in PinCatalog.OreTokens)
             {
@@ -108,6 +127,14 @@ namespace CarturMapPins
             _pickOther = Config.Bind("Pickables", "Unrecognised", false,
                 "Any pickable that didn't match a known group (including modded ones). Check the log to see what these are.");
 
+            // Pickable groups get their own icons - one shared icon for berries, crops and
+            // surtling cores alike would lose most of the value of pinning them at all.
+            BindGroupIcon(PickableGroup.Berries, 36);     // grape/berry cluster
+            BindGroupIcon(PickableGroup.Crops, 57);       // sprout in soil
+            BindGroupIcon(PickableGroup.HighValue, 44);   // chalice
+            BindGroupIcon(PickableGroup.Junk, 65);        // stone cluster
+            BindGroupIcon(PickableGroup.Other, 0);        // plain dot
+
             PinRecord.Load(Paths.ConfigPath);
 
             Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, PluginGuid);
@@ -116,17 +143,40 @@ namespace CarturMapPins
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         }
 
-        private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description)
+        private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex)
         {
             string section = category.ToString();
             Settings[category] = new CategorySettings
             {
                 Enabled = Config.Bind(section, "Enabled", enabled, description),
+                IconIndex = Config.Bind(section, "IconIndex", iconIndex,
+                    new ConfigDescription(
+                        "Which icon from the custom sheet to use (see Assets/pin_icons_numbered.png for the numbering). -1 uses the vanilla PinType below instead. Ignored unless CustomIcons/Enabled is on.",
+                        new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1))),
                 PinType = Config.Bind(section, "PinType", pinType,
-                    "Which vanilla map icon to use. Icon0-Icon4 are the five generic pin icons you cycle through when placing a pin by hand."),
+                    "Vanilla map icon, used when IconIndex is -1 or custom icons are off. Icon0-Icon4 are the five generic pins you cycle through when placing one by hand."),
                 DedupeRadius = Config.Bind(section, "DedupeRadius", dedupe,
                     "Don't place a second pin of this kind within this many metres. Ore dedupes per ore type, so copper never suppresses a nearby tin node."),
             };
+        }
+
+        private static readonly Dictionary<PickableGroup, ConfigEntry<int>> PickableIcons =
+            new Dictionary<PickableGroup, ConfigEntry<int>>();
+
+        private void BindGroupIcon(PickableGroup group, int iconIndex)
+        {
+            PickableIcons[group] = Config.Bind("Pickables", $"{group}Icon", iconIndex,
+                new ConfigDescription(
+                    $"Icon for {group} pickables (see Assets/pin_icons_numbered.png). -1 falls back to the Pickable category's PinType.",
+                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+        }
+
+        /// A pickable's icon comes from its group, falling back to the category's own setting.
+        public static Minimap.PinType PickableIconFor(PickableGroup group, Minimap.PinType fallback)
+        {
+            if (PickableIcons.TryGetValue(group, out ConfigEntry<int> entry))
+                return CustomIcons.Resolve(entry.Value, fallback);
+            return fallback;
         }
 
         public static bool PickableGroupEnabled(PickableGroup group)

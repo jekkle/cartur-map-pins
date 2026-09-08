@@ -305,9 +305,18 @@ namespace CarturMapPins
             if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
                 return;
 
+            // Pickables take their icon from their group so berries, crops and surtling cores
+            // don't all share one marker; everything else uses the category's own setting.
+            Minimap.PinType pinType = settings.ResolvedPinType;
+            if (category == PinCategory.Pickable &&
+                System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
+            {
+                pinType = Plugin.PickableIconFor(group, settings.PinType.Value);
+            }
+
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
-            Minimap.instance.AddPin(pos, settings.PinType.Value, label ?? string.Empty,
+            Minimap.instance.AddPin(pos, pinType, label ?? string.Empty,
                 save: true, isChecked: false);
 
             PinRecord.Add(key, pos);

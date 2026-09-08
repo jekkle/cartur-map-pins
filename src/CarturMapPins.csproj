@@ -19,6 +19,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Stays a PNG rather than the raw-RGBA dump the compass mod needed: the sheet is decoded
+         via reflection on Texture2D.LoadImage, which avoids referencing the ReadOnlySpan
+         overload set at compile time (CS0518 under net472 + this game's netstandard.dll). -->
+    <EmbeddedResource Include="Assets\pin_icons.png">
+      <LogicalName>CarturMapPins.pin_icons.png</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="assembly_valheim">
       <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\assembly_valheim.dll</HintPath>
       <Private>false</Private>
