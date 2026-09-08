@@ -88,9 +88,8 @@ namespace CarturMapPins
                 return;
 
             float radius = Plugin.DiscoveryRadius.Value;
-            Container[] containers = Object.FindObjectsByType<Container>(FindObjectsSortMode.None);
 
-            foreach (Container container in containers)
+            foreach (Container container in ChestRegistry.Alive())
             {
                 if (container == null)
                     continue;

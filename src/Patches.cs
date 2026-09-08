@@ -10,6 +10,8 @@ namespace CarturMapPins
         {
             PinCatalog.Build(__instance);
             PinPlacer.Clear();
+            // Containers from the previous world would otherwise linger as stale references.
+            ChestRegistry.Clear();
         }
     }
 
@@ -92,6 +94,11 @@ namespace CarturMapPins
                     return;
                 }
             }
+
+            // Wild loot containers are also kept in a registry, so the looted-chest sweep can
+            // walk just these instead of every Container in the scene (bases included).
+            if (category == PinCategory.Chest)
+                ChestRegistry.Add(go.GetComponent<Container>());
 
             _enqueued++;
             // Ore carries its type through so the pin can be labelled "Copper" and deduped

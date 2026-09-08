@@ -71,10 +71,19 @@ namespace CarturMapPins
         /// too tight for an ore field where deposits sit a few metres apart.
         public static bool Exists(string key, Vector3 pos, float radius)
         {
+            // Records written before subtypes existed use the bare category ("Ore", "Pickable")
+            // where we now write "Ore:Copper". The ore type can't be recovered from them, but a
+            // legacy entry still means "we pinned something of this category here", so it counts
+            // as a match - otherwise every previously-pinned node would pin a second time.
+            string legacyKey = null;
+            int colon = key.IndexOf(':');
+            if (colon > 0)
+                legacyKey = key.Substring(0, colon);
+
             float sqr = radius * radius;
             foreach (Entry e in Entries)
             {
-                if (e.Key != key)
+                if (e.Key != key && (legacyKey == null || e.Key != legacyKey))
                     continue;
                 Vector3 d = e.Pos - pos;
                 if (d.x * d.x + d.z * d.z <= sqr)
