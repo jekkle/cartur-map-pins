@@ -272,6 +272,10 @@ namespace CarturMapPins
                     Probe.Nearby(args, radius);
                 });
 
+            new Terminal.ConsoleCommand("carturpins_locations",
+                "Diagnostics: dumps every location prefab name the world generator knows, which is the authoritative source for the dungeon/camp subtype tables.",
+                args => Probe.DumpLocations(args));
+
             new Terminal.ConsoleCommand("carturpins_catalog",
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
                 args => Probe.DumpCategory(args, args.Args.Length > 1 ? args.Args[1] : null));

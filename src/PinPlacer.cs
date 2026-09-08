@@ -156,6 +156,7 @@ namespace CarturMapPins
             Plugin.Log.LogInfo("=== auto-probe (set Diagnostics/AutoProbeOnSpawn=false to disable) ===");
             Probe.Nearby(null, 25f);
             Probe.DumpCategory(null, "Ore");
+            Probe.DumpLocations(null);
             Probe.DumpFonts(null);
         }
 
@@ -264,6 +265,10 @@ namespace CarturMapPins
             // use the same DungeonGenerator with a CampGrid/CampRadial algorithm. Splitting on
             // that keeps "went in a crypt" and "found a Fuling village" as separate toggles.
             string prefabName = Utils.GetPrefabName(loc.gameObject);
+            // The generator's name (DG_ForestCrypt, DG_SunkenCrypt, DG_GoblinCamp...) is the
+            // reliable discriminator - those names are confirmed from the game's asset manifest,
+            // unlike the location prefab names.
+            string generatorName = loc.m_generator != null ? loc.m_generator.name : null;
 
             if (loc.m_hasInterior)
             {
@@ -271,18 +276,18 @@ namespace CarturMapPins
                 // The subtype drives both the icon and the label, so a Frost Cave and a Burial
                 // Chamber don't share a marker. Unmatched names fall back to a prettified prefab
                 // name ("Crypt2" -> "Crypt") and get logged so the table can be extended.
-                subtype = Subtypes.Match(Subtypes.Dungeons, prefabName);
+                subtype = Subtypes.Match(Subtypes.Dungeons, prefabName, generatorName);
                 label = subtype ?? Labels.ForLocation(prefabName);
-                WarnUnmatched("dungeon", prefabName, subtype);
+                WarnUnmatched("dungeon", $"{prefabName} (generator {generatorName ?? "none"})", subtype);
                 return true;
             }
 
             if (loc.m_generator != null)
             {
                 category = PinCategory.Camp;
-                subtype = Subtypes.Match(Subtypes.Camps, prefabName);
+                subtype = Subtypes.Match(Subtypes.Camps, prefabName, generatorName);
                 label = subtype ?? Labels.ForLocation(prefabName);
-                WarnUnmatched("camp", prefabName, subtype);
+                WarnUnmatched("camp", $"{prefabName} (generator {generatorName ?? "none"})", subtype);
                 return true;
             }
 

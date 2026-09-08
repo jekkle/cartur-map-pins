@@ -120,6 +120,32 @@ namespace CarturMapPins
             }
         }
 
+        /// Dumps every location the world generator knows about, by exact prefab name.
+        ///
+        /// This is the authoritative source for the subtype tables: location prefab names are
+        /// NOT string literals in assembly_valheim (they're Unity asset references), so they
+        /// can't be read offline - but ZoneSystem.m_locations is public and populated on clients
+        /// too, and it also picks up locations added by other mods.
+        public static void DumpLocations(Terminal.ConsoleEventArgs args)
+        {
+            ZoneSystem zs = ZoneSystem.instance;
+            if (zs == null || zs.m_locations == null)
+            {
+                Emit(args, "ZoneSystem not ready.");
+                return;
+            }
+
+            Emit(args, $"--- {zs.m_locations.Count} ZoneLocation definitions ---");
+            foreach (ZoneSystem.ZoneLocation zl in zs.m_locations)
+            {
+                if (zl == null)
+                    continue;
+                string name = !string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)";
+                string flags = zl.m_iconAlways ? " iconAlways" : (zl.m_iconPlaced ? " iconPlaced" : "");
+                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}");
+            }
+        }
+
         /// Lists the game's TMP font assets by exact name.
         ///
         /// Unrelated to pinning, but there's nowhere else that can answer it: mods that take a
