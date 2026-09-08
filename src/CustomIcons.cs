@@ -30,9 +30,17 @@ namespace CarturMapPins
         public const int IconCount = 83;
 
         private static Sprite[] _sprites;
-        private static bool _registered;
 
-        public static bool Ready => _registered && _sprites != null;
+        /// Which Minimap instance we've registered against.
+        ///
+        /// This must NOT be a plain "done" flag: returning to the menu and loading another world
+        /// builds a fresh Minimap with a fresh m_icons list and a fresh m_visibleIconTypes array
+        /// (Start recreates it). A static bool would skip re-registration, leaving custom types
+        /// unknown to that map - so AddPin would clamp them to Icon3 and write that into the new
+        /// world's saved pins. Keying on the instance re-registers whenever the map is rebuilt.
+        private static Minimap _registeredFor;
+
+        public static bool Ready => _sprites != null;
 
         public static int Count => _sprites?.Length ?? 0;
 
@@ -59,42 +67,60 @@ namespace CarturMapPins
 
         public static void Register(Minimap map)
         {
-            if (map == null || _registered)
+            if (map == null || _registeredFor == map)
                 return;
             if (!Plugin.CustomIconsEnabled.Value)
                 return;
 
             try
             {
-                Texture2D sheet = LoadSheet();
-                if (sheet == null)
-                    return;
-
-                _sprites = Slice(sheet);
+                // The sheet and its sprites survive a world reload; only this Minimap's icon
+                // list and filter array need redoing.
+                if (_sprites == null)
+                {
+                    Texture2D sheet = LoadSheet();
+                    if (sheet == null)
+                        return;
+                    _sprites = Slice(sheet);
+                }
 
                 // Grow the visibility filter FIRST - AddPin and the render loop both index it.
                 GrowVisibleIconTypes(map, FirstCustomType + _sprites.Length + 1);
 
+                int added = 0;
                 for (int i = 0; i < _sprites.Length; i++)
                 {
                     if (_sprites[i] == null)
+                        continue;
+                    if (AlreadyRegistered(map, TypeForIndex(i)))
                         continue;
                     map.m_icons.Add(new Minimap.SpriteData
                     {
                         m_name = TypeForIndex(i),
                         m_icon = _sprites[i]
                     });
+                    added++;
                 }
 
-                _registered = true;
-                Plugin.Log.LogInfo($"Registered {_sprites.Length} custom pin icons as types {FirstCustomType}-{FirstCustomType + _sprites.Length - 1}.");
+                _registeredFor = map;
+                Plugin.Log.LogInfo($"Registered {added} custom pin icons as types {FirstCustomType}-{FirstCustomType + _sprites.Length - 1}.");
             }
             catch (Exception e)
             {
                 Plugin.Log.LogError($"Custom icons failed to register, falling back to vanilla pin types: {e}");
                 _sprites = null;
-                _registered = false;
+                _registeredFor = null;
             }
+        }
+
+        private static bool AlreadyRegistered(Minimap map, Minimap.PinType type)
+        {
+            foreach (Minimap.SpriteData data in map.m_icons)
+            {
+                if (data.m_name == type)
+                    return true;
+            }
+            return false;
         }
 
         /// An override file next to the config wins, so the sheet can be swapped without a

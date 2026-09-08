@@ -163,8 +163,12 @@ namespace CarturMapPins
             }
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
-            // The clone inherits the prefab's own click wiring, which would select a vanilla type.
-            button.onClick.RemoveAllListeners();
+
+            // A whole fresh event object, NOT onClick.RemoveAllListeners(): that only drops
+            // listeners added at runtime and leaves the prefab's serialized (persistent) calls
+            // intact, so a cloned vanilla button would still fire vanilla's handler alongside
+            // ours and select a vanilla pin type as well.
+            button.onClick = new Button.ButtonClickedEvent();
             int captured = index;
             button.onClick.AddListener(() => Select(map, captured));
         }

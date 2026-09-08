@@ -69,7 +69,7 @@ namespace CarturMapPins
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
                 "How often to check pending objects and loaded locations against your position.");
-            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
+            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
                 "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
 
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,

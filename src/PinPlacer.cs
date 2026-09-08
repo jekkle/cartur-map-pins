@@ -49,7 +49,8 @@ namespace CarturMapPins
 
             DrainQueue(playerPos);
             SweepLocations(playerPos);
-            SweepLootedChests(playerPos, dt);
+            SweepLootedChests(playerPos);
+            PinRecord.Flush();
             Patch_ZNetScene_AddInstance.ReportIfDue();
             AutoProbe();
         }
@@ -63,7 +64,7 @@ namespace CarturMapPins
         /// which is far too expensive to do a few times a second. PinData.m_type is what persists
         /// in the save (the sprite is re-derived from it on load), so writing the type is enough
         /// to make this stick across relogs.
-        private static void SweepLootedChests(Vector3 playerPos, float dt)
+        private static void SweepLootedChests(Vector3 playerPos)
         {
             Plugin.CategorySettings chestSettings = Plugin.SettingsFor(PinCategory.Chest);
             if (chestSettings == null || !chestSettings.Enabled.Value)

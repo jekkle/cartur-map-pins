@@ -83,9 +83,23 @@ namespace CarturMapPins
             return false;
         }
 
+        private static bool _dirty;
+
         public static void Add(string key, Vector3 pos)
         {
             Entries.Add(new Entry { Key = key, Pos = pos });
+            // Marked dirty rather than written immediately: walking into a dense area can place
+            // pins several times a second, and rewriting the whole file per pin is needless disk
+            // churn. Flush() is called from the throttled tick.
+            _dirty = true;
+        }
+
+        /// Writes pending changes at most once per interval. Cheap no-op when nothing changed.
+        public static void Flush()
+        {
+            if (!_dirty)
+                return;
+            _dirty = false;
             Save();
         }
 
