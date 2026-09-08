@@ -10,6 +10,7 @@ namespace CarturMapPins
         private struct Pending
         {
             public PinCategory Category;
+            public string Subtype;
             public Vector3 Pos;
             public GameObject Go;
         }
@@ -26,9 +27,9 @@ namespace CarturMapPins
 
         public static int QueueSize => PendingQueue.Count;
 
-        public static void Enqueue(PinCategory category, Vector3 pos, GameObject go)
+        public static void Enqueue(PinCategory category, Vector3 pos, GameObject go, string subtype = null)
         {
-            PendingQueue.Add(new Pending { Category = category, Pos = pos, Go = go });
+            PendingQueue.Add(new Pending { Category = category, Subtype = subtype, Pos = pos, Go = go });
         }
 
         public static void Clear() => PendingQueue.Clear();
@@ -76,6 +77,7 @@ namespace CarturMapPins
             Plugin.Log.LogInfo("=== auto-probe (set Diagnostics/AutoProbeOnSpawn=false to disable) ===");
             Probe.Nearby(null, 25f);
             Probe.DumpCategory(null, "Ore");
+            Probe.DumpFonts(null);
         }
 
         private static void DrainQueue(Vector3 playerPos)
@@ -117,7 +119,7 @@ namespace CarturMapPins
                     continue;
                 }
 
-                TryPin(p.Category, p.Pos, ResolveLabel(p.Category, p.Go));
+                TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
             }
 
             if (dropped > 0 || interior > 0 || nearest < float.MaxValue)
@@ -153,7 +155,7 @@ namespace CarturMapPins
                 if (!TryClassifyLocation(loc, out PinCategory category, out string label))
                     continue;
 
-                TryPin(category, pos, label);
+                TryPin(category, null, pos, label);
             }
         }
 
@@ -176,13 +178,22 @@ namespace CarturMapPins
                 return true;
             }
 
-            // m_hasInterior / m_generator is what actually makes something a dungeon - it's the
-            // same data vanilla uses, and needs no prefab name list.
-            if (loc.m_hasInterior || loc.m_generator != null)
+            // m_hasInterior is what actually makes something a dungeon, and m_generator alone
+            // (without an interior) means a surface camp - Fuling villages and Greydwarf camps
+            // use the same DungeonGenerator with a CampGrid/CampRadial algorithm. Splitting on
+            // that keeps "went in a crypt" and "found a Fuling village" as separate toggles.
+            if (loc.m_hasInterior)
             {
                 category = PinCategory.Dungeon;
                 // Generalised short name from the prefab ("Crypt2" -> "Crypt") in preference to
                 // m_discoverLabel, which gives the game's full proper noun ("Burial Chambers").
+                label = Labels.ForLocation(Utils.GetPrefabName(loc.gameObject));
+                return true;
+            }
+
+            if (loc.m_generator != null)
+            {
+                category = PinCategory.Camp;
                 label = Labels.ForLocation(Utils.GetPrefabName(loc.gameObject));
                 return true;
             }
@@ -217,15 +228,36 @@ namespace CarturMapPins
         /// Labels are stored as raw "$token" strings wherever possible: Minimap.PinNameData runs
         /// pin names through Localization.Localize when rendering them, so this is both less code
         /// and correct in every language.
-        private static string ResolveLabel(PinCategory category, GameObject go)
+        private static string ResolveLabel(PinCategory category, GameObject go, string subtype)
         {
             switch (category)
             {
                 case PinCategory.Ore:
-                    // Derived from the dropped item ("CopperOre" -> "Copper") rather than the
-                    // component's m_name: the deposits that matter are plain Destructibles with
-                    // no m_name at all, which is why these were showing up as "rock4_copper".
-                    return Labels.ForOre(Utils.GetPrefabName(go));
+                    // The ore type resolved at catalog time ("Copper") is already the label we
+                    // want; fall back to deriving it from the dropped item. Either way it isn't
+                    // the component's m_name, because the deposits that matter are plain
+                    // Destructibles with no m_name - which is why these once read "rock4_copper".
+                    return !string.IsNullOrEmpty(subtype) ? subtype : Labels.ForOre(Utils.GetPrefabName(go));
+
+                case PinCategory.Leviathan:
+                    return "Leviathan";
+
+                case PinCategory.Trader:
+                    Trader trader = go.GetComponent<Trader>();
+                    if (trader != null && !string.IsNullOrEmpty(trader.m_name))
+                        return trader.m_name;
+                    break;
+
+                case PinCategory.Chest:
+                    Container container = go.GetComponent<Container>();
+                    if (container != null && !string.IsNullOrEmpty(container.m_name))
+                        return container.m_name;
+                    break;
+
+                case PinCategory.Spawner:
+                case PinCategory.Wisp:
+                    // "Spawner_GreydwarfNest" -> "Greydwarf Nest".
+                    return Labels.Prettify(StripSpawnerPrefix(Utils.GetPrefabName(go)));
 
                 case PinCategory.Beehive:
                     Beehive hive = go.GetComponent<Beehive>();
@@ -246,28 +278,40 @@ namespace CarturMapPins
             return Utils.GetPrefabName(go);
         }
 
-        private static void TryPin(PinCategory category, Vector3 pos, string label)
+        private static string StripSpawnerPrefix(string name)
+        {
+            foreach (string prefix in new[] { "Spawner_", "Spawn_" })
+            {
+                if (name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
+                    return name.Substring(prefix.Length);
+            }
+            return name;
+        }
+
+        private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             if (settings == null || !settings.Enabled.Value)
-            {
-                Plugin.Log.LogInfo($"Skip {category} '{label}': category disabled");
                 return;
-            }
 
-            if (PinRecord.Exists(category, pos, settings.DedupeRadius.Value))
-            {
-                Plugin.Log.LogInfo($"Skip {category} '{label}': already pinned within {settings.DedupeRadius.Value:F0}m");
+            // Ore additionally honours its per-type switch, so you can pin copper but ignore tin.
+            if (category == PinCategory.Ore && !Plugin.OreTypeEnabled(subtype))
                 return;
-            }
+
+            // Dedupe on category+subtype: a category-wide radius would let a copper pin suppress
+            // a tin node metres away, hiding a resource entirely.
+            string key = string.IsNullOrEmpty(subtype) ? category.ToString() : $"{category}:{subtype}";
+
+            if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
+                return;
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
             Minimap.instance.AddPin(pos, settings.PinType.Value, label ?? string.Empty,
                 save: true, isChecked: false);
 
-            PinRecord.Add(category, pos);
-            Plugin.Log.LogInfo($"Pinned {category} '{label}' at {pos.x:F0},{pos.z:F0}");
+            PinRecord.Add(key, pos);
+            Plugin.Log.LogInfo($"Pinned {key} '{label}' at {pos.x:F0},{pos.z:F0}");
         }
 
         private static float DistanceXZ(Vector3 a, Vector3 b)

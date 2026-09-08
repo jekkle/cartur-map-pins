@@ -19,9 +19,12 @@ namespace CarturMapPins
     /// in the save file. m_author is similarly load-bearing.
     internal static class PinRecord
     {
+        /// Key is "Category" or "Category:Subtype" (e.g. "Ore:Copper"). Keying dedupe on the
+        /// subtype is what stops a copper pin from suppressing a tin node a few metres away,
+        /// which a category-wide radius would otherwise do.
         private struct Entry
         {
-            public PinCategory Category;
+            public string Key;
             public Vector3 Pos;
         }
 
@@ -42,18 +45,18 @@ namespace CarturMapPins
             {
                 foreach (string line in File.ReadAllLines(_path))
                 {
-                    // category|x|y|z
+                    // key|x|y|z   (key is "Ore:Copper", "Dungeon", ...)
                     string[] parts = line.Split('|');
                     if (parts.Length != 4)
                         continue;
-                    if (!Enum.TryParse(parts[0], out PinCategory cat))
+                    if (string.IsNullOrEmpty(parts[0]))
                         continue;
                     if (!float.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ||
                         !float.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y) ||
                         !float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
                         continue;
 
-                    Entries.Add(new Entry { Category = cat, Pos = new Vector3(x, y, z) });
+                    Entries.Add(new Entry { Key = parts[0], Pos = new Vector3(x, y, z) });
                 }
                 Plugin.Log.LogInfo($"Loaded {Entries.Count} previously placed pins from record.");
             }
@@ -66,12 +69,12 @@ namespace CarturMapPins
         /// True when a pin of this category already exists within `radius` - our own dedupe,
         /// because Minimap.HaveSimilarPin is private AND hardcoded to a 1m radius, which is far
         /// too tight for an ore field where deposits sit a few metres apart.
-        public static bool Exists(PinCategory category, Vector3 pos, float radius)
+        public static bool Exists(string key, Vector3 pos, float radius)
         {
             float sqr = radius * radius;
             foreach (Entry e in Entries)
             {
-                if (e.Category != category)
+                if (e.Key != key)
                     continue;
                 Vector3 d = e.Pos - pos;
                 if (d.x * d.x + d.z * d.z <= sqr)
@@ -80,9 +83,9 @@ namespace CarturMapPins
             return false;
         }
 
-        public static void Add(PinCategory category, Vector3 pos)
+        public static void Add(string key, Vector3 pos)
         {
-            Entries.Add(new Entry { Category = category, Pos = pos });
+            Entries.Add(new Entry { Key = key, Pos = pos });
             Save();
         }
 
@@ -139,7 +142,7 @@ namespace CarturMapPins
                 foreach (Entry e in Entries)
                 {
                     lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}",
-                        e.Category, e.Pos.x, e.Pos.y, e.Pos.z));
+                        e.Key, e.Pos.x, e.Pos.y, e.Pos.z));
                 }
                 File.WriteAllLines(_path, lines.ToArray());
             }

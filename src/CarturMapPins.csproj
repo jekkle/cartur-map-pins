@@ -45,6 +45,12 @@
       <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- Only for the diagnostic font dump (see Probe.DumpFonts) - the game's TMP font asset
+         names can't be read from the compressed tmp_fonts bundle, only enumerated at runtime. -->
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
   </ItemGroup>
 
   <!-- Auto-deploy built DLL into the r2modman profile BepInEx actually loads -->

@@ -57,9 +57,10 @@ namespace CarturMapPins
 
             _matched++;
 
-            // Locations (dungeons, altars, runestones) are handled by the Location sweep instead,
-            // which gives us the Location component's own data to classify and label from.
-            if (category == PinCategory.BossAltar || category == PinCategory.Runestone)
+            // Boss altars sit inside location prefabs, where the Location sweep can classify and
+            // label them from the location's own data. Everything else is handled here - runestones
+            // included, since many are placed as standalone world objects rather than locations.
+            if (category == PinCategory.BossAltar)
                 return;
 
             if (category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(PinCatalog.GroupOf(hash)))
@@ -70,7 +71,11 @@ namespace CarturMapPins
 
             GameObject go = nview.gameObject;
 
-            if (category == PinCategory.Beehive && !IsWildHive(zdo))
+            // Beehives and loot chests both exist in player-built form, and pinning someone's
+            // base would be useless noise. Read the creator straight off the ZDO rather than via
+            // Piece.IsPlacedByPlayer(): Piece.m_creator is populated in Piece.Awake, Unity
+            // doesn't guarantee component Awake order, and a built one read too early looks wild.
+            if ((category == PinCategory.Beehive || category == PinCategory.Chest) && !IsWild(zdo))
             {
                 _skippedHive++;
                 return;
@@ -89,12 +94,11 @@ namespace CarturMapPins
             }
 
             _enqueued++;
-            PinPlacer.Enqueue(category, zdo.GetPosition(), go);
+            // Ore carries its type through so the pin can be labelled "Copper" and deduped
+            // against other copper only.
+            PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinCatalog.OreTypeOf(hash));
         }
 
-        /// Read the creator straight off the ZDO rather than using Piece.IsPlacedByPlayer():
-        /// Piece.m_creator is populated in Piece.Awake, Unity doesn't guarantee component Awake
-        /// order on the same GameObject, and a player-built hive read too early looks wild.
-        private static bool IsWildHive(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
+        private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
     }
 }

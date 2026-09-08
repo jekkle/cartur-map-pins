@@ -120,6 +120,24 @@ namespace CarturMapPins
             }
         }
 
+        /// Lists the game's TMP font assets by exact name.
+        ///
+        /// Unrelated to pinning, but there's nowhere else that can answer it: mods that take a
+        /// font name in config (e.g. Ammo Count's `AmmoTextFont`) match it exactly against
+        /// Resources.FindObjectsOfTypeAll&lt;TMP_FontAsset&gt;(), and a stale name silently yields a
+        /// null font - text renders as nothing while its icon still shows. The names can't be
+        /// read from the shipped tmp_fonts bundle because it's compressed.
+        public static void DumpFonts(Terminal.ConsoleEventArgs args)
+        {
+            TMPro.TMP_FontAsset[] fonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
+            Emit(args, $"--- {fonts.Length} TMP_FontAsset(s) loaded ---");
+            foreach (TMPro.TMP_FontAsset font in fonts)
+            {
+                if (font != null)
+                    Emit(args, $"    TMP font: '{font.name}'");
+            }
+        }
+
         /// `args` is null when the probe runs itself on spawn rather than from a console
         /// command - the log is the real output channel either way, which is what makes the
         /// auto-probe usable without the game's console being enabled at all.

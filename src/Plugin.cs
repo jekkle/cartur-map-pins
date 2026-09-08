@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.0.0";
+        public const string PluginVersion = "1.1.0";
 
         internal static ManualLogSource Log;
 
@@ -38,8 +38,20 @@ namespace CarturMapPins
         private static readonly Dictionary<PinCategory, CategorySettings> Settings =
             new Dictionary<PinCategory, CategorySettings>();
 
+        /// One toggle per ore type, generated from the same token table that detects them, so a
+        /// type can never exist in the detector without a matching switch in the menu.
+        private static readonly Dictionary<string, ConfigEntry<bool>> OreTypeToggles =
+            new Dictionary<string, ConfigEntry<bool>>();
+
         public static CategorySettings SettingsFor(PinCategory category) =>
             Settings.TryGetValue(category, out CategorySettings s) ? s : null;
+
+        public static bool OreTypeEnabled(string oreType)
+        {
+            if (string.IsNullOrEmpty(oreType))
+                return true;
+            return !OreTypeToggles.TryGetValue(oreType, out ConfigEntry<bool> entry) || entry.Value;
+        }
 
         private void Awake()
         {
@@ -49,21 +61,41 @@ namespace CarturMapPins
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
                 "How often to check pending objects and loaded locations against your position.");
-            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
-                "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned; turn off once things work.");
+            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
+                "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
 
-            Bind(PinCategory.Ore, enabled: true, Minimap.PinType.Icon3, dedupe: 15f,
-                "Ore deposits and mineable rocks (copper, tin, silver, obsidian, meteorite, flametal).");
-            Bind(PinCategory.Dungeon, enabled: true, Minimap.PinType.Icon4, dedupe: 5f,
+            // Most categories use Icon3 (the plain dot) with a simple label; chests and
+            // runestones use Icon2, dungeons Icon4, boss altars the dedicated Boss icon.
+            Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
+                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section.");
+            Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
                 "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).");
-            Bind(PinCategory.BossAltar, enabled: false, Minimap.PinType.Boss, dedupe: 5f,
+            Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
+                "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.");
+            Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
                 "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).");
-            Bind(PinCategory.Beehive, enabled: true, Minimap.PinType.Icon3, dedupe: 5f,
+            Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
                 "Wild beehives. Player-built hives are never pinned.");
-            Bind(PinCategory.Runestone, enabled: true, Minimap.PinType.Icon2, dedupe: 5f,
+            Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
                 "Runestones and Vegvisirs. Vanilla never pins these.");
-            Bind(PinCategory.Pickable, enabled: true, Minimap.PinType.Icon3, dedupe: 10f,
-                "Pickables. See the Pickables section for which kinds - most are off by default because they are extremely numerous.");
+            Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
+                "Loot chests found in the world. Player-built containers are never pinned.");
+            Bind(PinCategory.Spawner, true, Minimap.PinType.Icon3, 15f,
+                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding.");
+            Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
+                "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.");
+            Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
+                "Traders (Haldor, Hildir). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.");
+            Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
+                "Wisp spawners in the Mistlands. OFF by default - they are numerous.");
+
+            foreach ((string _, string type) in PinCatalog.OreTokens)
+            {
+                if (OreTypeToggles.ContainsKey(type))
+                    continue;   // Iron appears twice (ore + scrap) and needs only one switch
+                OreTypeToggles[type] = Config.Bind("Ore Types", type, true,
+                    $"Pin {type} deposits. Requires the Ore category to be enabled.");
+            }
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
@@ -93,7 +125,7 @@ namespace CarturMapPins
                 PinType = Config.Bind(section, "PinType", pinType,
                     "Which vanilla map icon to use. Icon0-Icon4 are the five generic pin icons you cycle through when placing a pin by hand."),
                 DedupeRadius = Config.Bind(section, "DedupeRadius", dedupe,
-                    "Don't place a second pin of this category within this many metres. Ore needs a wide radius so a deposit field doesn't become a pincushion."),
+                    "Don't place a second pin of this kind within this many metres. Ore dedupes per ore type, so copper never suppresses a nearby tin node."),
             };
         }
 

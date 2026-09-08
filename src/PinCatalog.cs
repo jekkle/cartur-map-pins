@@ -7,10 +7,16 @@ namespace CarturMapPins
     {
         Ore,
         Dungeon,
+        Camp,
         BossAltar,
         Beehive,
         Pickable,
-        Runestone
+        Runestone,
+        Chest,
+        Spawner,
+        Leviathan,
+        Trader,
+        Wisp
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the
@@ -20,43 +26,69 @@ namespace CarturMapPins
         HighValue,   // surtling cores, Yggdrasil shoots, eggs
         Berries,     // berries + mushrooms
         Crops,       // thistle, dandelion, seeds, barley, flax
-        Junk,        // branches, stones, flint, feathers - would carpet the map
+        Junk,        // branches, stones, flint - would carpet the map
         Other        // anything unrecognised; logged once so it can be classified later
     }
 
     /// Prefab-hash -> category lookup, built once at runtime.
     ///
-    /// Deliberately classifies by COMPONENT PRESENCE rather than by prefab name: not one
-    /// ore/pickable/beehive prefab name exists as a string literal anywhere in
-    /// assembly_valheim.dll (they're Unity asset references), so a hardcoded name list is
-    /// impossible to derive from the game and would rot on every update. Reading the live
+    /// Deliberately classifies by COMPONENT PRESENCE (and, for ore, by what a node drops) rather
+    /// than by prefab name: not one ore/pickable/beehive prefab name exists as a string literal
+    /// anywhere in assembly_valheim.dll (they're Unity asset references), so a hardcoded name
+    /// list is impossible to derive from the game and would rot on every update. Reading the live
     /// prefab list instead is self-maintaining, and picks up modded content for free.
     internal static class PinCatalog
     {
         private static readonly Dictionary<int, PinCategory> ByHash = new Dictionary<int, PinCategory>();
         private static readonly Dictionary<int, PickableGroup> PickableGroups = new Dictionary<int, PickableGroup>();
 
-        public static bool Built { get; private set; }
+        /// Ore type per prefab hash ("Copper", "Tin", ...) - drives both the label and the
+        /// per-ore-type toggle, and keys dedupe so a copper pin can't suppress nearby tin.
+        private static readonly Dictionary<int, string> OreTypes = new Dictionary<int, string>();
 
+        public static bool Built { get; private set; }
         public static int Size => ByHash.Count;
 
         public static bool TryGet(int prefabHash, out PinCategory category) =>
             ByHash.TryGetValue(prefabHash, out category);
 
+        public static bool Contains(int hash) => ByHash.ContainsKey(hash);
+
         public static PickableGroup GroupOf(int prefabHash) =>
             PickableGroups.TryGetValue(prefabHash, out PickableGroup g) ? g : PickableGroup.Other;
 
-        /// Diagnostics only: prefab names per category, so a probe can report what actually got
-        /// registered rather than just a count.
+        public static string OreTypeOf(int prefabHash) =>
+            OreTypes.TryGetValue(prefabHash, out string t) ? t : null;
+
+        /// Diagnostics only.
         public static readonly Dictionary<PinCategory, List<string>> NamesByCategory =
             new Dictionary<PinCategory, List<string>>();
+        public static readonly Dictionary<string, string> OreQualifiedBy = new Dictionary<string, string>();
 
-        public static bool Contains(int hash) => ByHash.ContainsKey(hash);
+        /// Drop-item name fragment -> the ore type shown on the map and used for its toggle.
+        /// This list is both the detector and the source of the per-type config entries, so a
+        /// type can't exist in one without the other.
+        public static readonly (string Token, string Type)[] OreTokens =
+        {
+            ("copperore",  "Copper"),
+            ("tinore",     "Tin"),
+            ("ironore",    "Iron"),
+            ("ironscrap",  "Iron"),
+            ("silverore",  "Silver"),
+            ("obsidian",   "Obsidian"),
+            ("flametal",   "Flametal"),
+            ("sulfur",     "Sulfur"),
+            ("blackmarble", "Black Marble"),
+            ("softtissue", "Giant Remains"),
+            ("chitin",     "Chitin"),
+            ("tar",        "Tar"),
+        };
 
         public static void Build(ZNetScene scene)
         {
             ByHash.Clear();
             PickableGroups.Clear();
+            OreTypes.Clear();
             NamesByCategory.Clear();
             OreQualifiedBy.Clear();
 
@@ -97,8 +129,8 @@ namespace CarturMapPins
 
         private static bool TryClassify(GameObject prefab, out PinCategory category)
         {
-            // Boss altars and runestones are checked first: they live inside location prefabs
-            // and would otherwise never be reached.
+            // Ordered so that the more specific components win: a boss altar or runestone can
+            // sit on an object that also matches something broader.
             if (prefab.GetComponent<OfferingBowl>() != null)
             {
                 category = PinCategory.BossAltar;
@@ -109,19 +141,51 @@ namespace CarturMapPins
                 category = PinCategory.Runestone;
                 return true;
             }
+            if (prefab.GetComponent<Leviathan>() != null)
+            {
+                category = PinCategory.Leviathan;
+                return true;
+            }
+            if (prefab.GetComponent<Trader>() != null)
+            {
+                category = PinCategory.Trader;
+                return true;
+            }
+            if (prefab.GetComponent<WispSpawner>() != null)
+            {
+                category = PinCategory.Wisp;
+                return true;
+            }
+            if (prefab.GetComponent<SpawnArea>() != null || prefab.GetComponent<CreatureSpawner>() != null)
+            {
+                category = PinCategory.Spawner;
+                return true;
+            }
+
+            // Loot containers. The wild/player-built distinction can't be made here (it's per
+            // instance, from the ZDO creator), so that check happens at pin time.
+            Container container = prefab.GetComponent<Container>();
+            if (container != null && container.m_defaultItems?.m_drops != null &&
+                container.m_defaultItems.m_drops.Count > 0)
+            {
+                category = PinCategory.Chest;
+                return true;
+            }
+
             // Ore is classified by WHAT IT DROPS, not by component type.
             //
             // The obvious test - "has MineRock5 or MineRock" - is wrong twice over: the Black
             // Forest copper deposit (`rock4_copper`) is a plain Destructible with neither
             // component, while the prefabs that *do* carry MineRock are mostly destruction
-            // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...). That test registered
-            // 58 "ore" prefabs and matched no actual deposit.
-            if (!LooksLikeFragment(prefab.name) && YieldsOre(prefab, out string via))
+            // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...).
+            if (!LooksLikeFragment(prefab.name) && YieldsOre(prefab, out string via, out string oreType))
             {
                 category = PinCategory.Ore;
                 OreQualifiedBy[prefab.name] = via;
+                OreTypes[prefab.name.GetStableHashCode()] = oreType;
                 return true;
             }
+
             if (prefab.GetComponent<Beehive>() != null)
             {
                 category = PinCategory.Beehive;
@@ -137,17 +201,6 @@ namespace CarturMapPins
             return false;
         }
 
-        /// Which dropped item caused a prefab to be treated as ore - diagnostics, so the catalog
-        /// dump is verifiable rather than a bare list of names.
-        public static readonly Dictionary<string, string> OreQualifiedBy = new Dictionary<string, string>();
-
-        /// Item prefab-name fragments that mark a drop as "ore worth pinning".
-        private static readonly string[] OreDropTokens =
-        {
-            "copperore", "tinore", "ironore", "silverore", "ironscrap",
-            "obsidian", "flametal", "sulfur", "blackmarble", "softtissue"
-        };
-
         /// Destruction-debris prefabs carry the same mining components as real deposits but are
         /// spawned only when a node shatters, so they must never be pinned.
         private static bool LooksLikeFragment(string name)
@@ -156,9 +209,10 @@ namespace CarturMapPins
             return n.Contains("_frac") || n.Contains("_destruction") || n.Contains("fractured");
         }
 
-        private static bool YieldsOre(GameObject prefab, out string via, int depth = 0)
+        private static bool YieldsOre(GameObject prefab, out string via, out string oreType, int depth = 0)
         {
             via = null;
+            oreType = null;
 
             var tables = new List<DropTable>();
             MineRock5 rock5 = prefab.GetComponent<MineRock5>();
@@ -180,11 +234,12 @@ namespace CarturMapPins
                     if (drop.m_item == null)
                         continue;
                     string itemName = drop.m_item.name.ToLowerInvariant();
-                    foreach (string token in OreDropTokens)
+                    foreach ((string token, string type) in OreTokens)
                     {
                         if (itemName.Contains(token))
                         {
                             via = drop.m_item.name;
+                            oreType = type;
                             return true;
                         }
                     }
@@ -198,9 +253,10 @@ namespace CarturMapPins
             {
                 Destructible destructible = prefab.GetComponent<Destructible>();
                 GameObject spawned = destructible?.m_spawnWhenDestroyed;
-                if (spawned != null && YieldsOre(spawned, out string innerVia, depth + 1))
+                if (spawned != null && YieldsOre(spawned, out string innerVia, out string innerType, depth + 1))
                 {
                     via = $"{innerVia} (via {spawned.name})";
+                    oreType = innerType;
                     return true;
                 }
             }
