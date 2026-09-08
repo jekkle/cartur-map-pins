@@ -19,6 +19,9 @@ namespace CarturMapPins
         public static ConfigEntry<float> ScanInterval;
         public static ConfigEntry<bool> AutoProbe;
         public static ConfigEntry<bool> CustomIconsEnabled;
+        public static ConfigEntry<bool> MapPickerEnabled;
+        public static ConfigEntry<float> MapPickerX;
+        public static ConfigEntry<float> MapPickerY;
 
         private static ConfigEntry<bool> _pickHighValue;
         private static ConfigEntry<bool> _pickBerries;
@@ -69,6 +72,13 @@ namespace CarturMapPins
             AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
                 "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
 
+            MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
+                "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
+            MapPickerX = Config.Bind("CustomIcons", "MapPickerX", 20f,
+                "Horizontal offset of the picker panel from the bottom-left of the map screen.");
+            MapPickerY = Config.Bind("CustomIcons", "MapPickerY", 20f,
+                "Vertical offset of the picker panel from the bottom-left of the map screen.");
+
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
                 "Use the bundled icon sheet, adding its icons as extra pin types alongside the vanilla ones (nothing vanilla is replaced). If this is off, or the sheet fails to load, every category falls back to its vanilla PinType.");
 
@@ -85,7 +95,7 @@ namespace CarturMapPins
                 iconIndex: 34);   // armed tent camp
             Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
                 "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).",
-                iconIndex: 61);   // crossed sword and spear
+                iconIndex: -1);   // -1 = keep the vanilla Boss icon
             Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
                 "Wild beehives. Player-built hives are never pinned.",
                 iconIndex: 6);    // bee

@@ -45,7 +45,7 @@ namespace CarturMapPins
         private static void Inspect<T>(Vector3 origin, float radius, string label, List<string> report)
             where T : Component
         {
-            T[] found = Object.FindObjectsOfType<T>();
+            T[] found = Object.FindObjectsByType<T>(FindObjectsSortMode.None);
             foreach (T comp in found)
             {
                 if (comp == null)

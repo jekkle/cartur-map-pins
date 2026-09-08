@@ -36,6 +36,9 @@ namespace CarturMapPins
 
         public static int Count => _sprites?.Length ?? 0;
 
+        public static Sprite SpriteAt(int index) =>
+            _sprites != null && index >= 0 && index < _sprites.Length ? _sprites[index] : null;
+
         /// Maps an icon index (0-82) to the PinType that carries it.
         public static Minimap.PinType TypeForIndex(int index) =>
             (Minimap.PinType)(FirstCustomType + index);
@@ -222,6 +225,7 @@ namespace CarturMapPins
         private static void Postfix(Minimap __instance)
         {
             CustomIcons.Register(__instance);
+            MapIconPicker.Build(__instance);
         }
     }
 }
