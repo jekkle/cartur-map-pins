@@ -126,6 +126,17 @@ namespace CarturMapPins
                     $"Pin {type} deposits. Requires the Ore category to be enabled.");
             }
 
+            LootedChestIcon = Config.Bind("Chest", "LootedIconIndex", 51,
+                new ConfigDescription(
+                    "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
+                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+
+            // Dungeons and camps get an icon per kind, not one for the whole category.
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
+                BindSubtypeIcon("Dungeon Types", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Camps))
+                BindSubtypeIcon("Camp Types", e);
+
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
             _pickBerries = Config.Bind("Pickables", "BerriesAndMushrooms", false,
@@ -140,9 +151,10 @@ namespace CarturMapPins
             // Pickable groups get their own icons - one shared icon for berries, crops and
             // surtling cores alike would lose most of the value of pinning them at all.
             BindGroupIcon(PickableGroup.Berries, 36);     // grape/berry cluster
-            BindGroupIcon(PickableGroup.Crops, 57);       // sprout in soil
-            BindGroupIcon(PickableGroup.HighValue, 44);   // chalice
-            BindGroupIcon(PickableGroup.Junk, 65);        // stone cluster
+            BindGroupIcon(PickableGroup.Mushrooms, 76);   // split out of berries
+            BindGroupIcon(PickableGroup.Crops, 37);       // plant between rocks
+            BindGroupIcon(PickableGroup.HighValue, 21);   // egg with sparkles
+            BindGroupIcon(PickableGroup.Junk, 0);         // plain dot
             BindGroupIcon(PickableGroup.Other, 0);        // plain dot
 
             PinRecord.Load(Paths.ConfigPath);
@@ -172,6 +184,34 @@ namespace CarturMapPins
 
         private static readonly Dictionary<PickableGroup, ConfigEntry<int>> PickableIcons =
             new Dictionary<PickableGroup, ConfigEntry<int>>();
+
+        /// Icon per dungeon/camp kind, keyed by subtype name.
+        private static readonly Dictionary<string, ConfigEntry<int>> SubtypeIcons =
+            new Dictionary<string, ConfigEntry<int>>();
+
+        private void BindSubtypeIcon(string section, Subtypes.Entry entry)
+        {
+            if (SubtypeIcons.ContainsKey(entry.Name))
+                return;
+            SubtypeIcons[entry.Name] = Config.Bind(section, entry.Name, entry.DefaultIcon,
+                new ConfigDescription(
+                    $"Icon for {entry.Name} (see Assets/pin_icons_numbered.png). -1 falls back to the category's own icon.",
+                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+        }
+
+        /// A dungeon/camp subtype's icon, falling back to the category's setting when the
+        /// subtype is unknown or set to -1.
+        public static Minimap.PinType SubtypeIconFor(string subtype, CategorySettings settings)
+        {
+            if (!string.IsNullOrEmpty(subtype) && SubtypeIcons.TryGetValue(subtype, out ConfigEntry<int> entry))
+            {
+                Minimap.PinType resolved = CustomIcons.Resolve(entry.Value, settings.ResolvedPinType);
+                return resolved;
+            }
+            return settings.ResolvedPinType;
+        }
+
+        public static ConfigEntry<int> LootedChestIcon;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {

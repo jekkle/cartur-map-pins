@@ -49,8 +49,87 @@ namespace CarturMapPins
 
             DrainQueue(playerPos);
             SweepLocations(playerPos);
+            SweepLootedChests(playerPos, dt);
             Patch_ZNetScene_AddInstance.ReportIfDue();
             AutoProbe();
+        }
+
+        private static float _chestSweepAt = -1f;
+
+        /// Repoints a chest pin to the "looted" icon once its container is empty, and back again
+        /// if it gets refilled.
+        ///
+        /// Runs on its own slower timer than the main tick: it has to enumerate live Containers,
+        /// which is far too expensive to do a few times a second. PinData.m_type is what persists
+        /// in the save (the sprite is re-derived from it on load), so writing the type is enough
+        /// to make this stick across relogs.
+        private static void SweepLootedChests(Vector3 playerPos, float dt)
+        {
+            Plugin.CategorySettings chestSettings = Plugin.SettingsFor(PinCategory.Chest);
+            if (chestSettings == null || !chestSettings.Enabled.Value)
+                return;
+            if (Plugin.LootedChestIcon.Value < 0)
+                return;
+
+            if (_chestSweepAt < 0f)
+                _chestSweepAt = Time.realtimeSinceStartup + 2f;
+            if (Time.realtimeSinceStartup < _chestSweepAt)
+                return;
+            _chestSweepAt = Time.realtimeSinceStartup + 2f;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(Minimap.instance);
+            if (pins == null)
+                return;
+
+            Minimap.PinType normalType = chestSettings.ResolvedPinType;
+            Minimap.PinType lootedType = CustomIcons.Resolve(Plugin.LootedChestIcon.Value, normalType);
+            if (lootedType == normalType)
+                return;
+
+            float radius = Plugin.DiscoveryRadius.Value;
+            Container[] containers = Object.FindObjectsByType<Container>(FindObjectsSortMode.None);
+
+            foreach (Container container in containers)
+            {
+                if (container == null)
+                    continue;
+
+                Vector3 pos = container.transform.position;
+                if (pos.y >= InteriorHeight || DistanceXZ(pos, playerPos) > radius)
+                    continue;
+
+                Inventory inventory = container.GetInventory();
+                if (inventory == null)
+                    continue;
+
+                bool empty = inventory.NrOfItems() == 0;
+                Minimap.PinType wanted = empty ? lootedType : normalType;
+
+                Minimap.PinData match = null;
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (!pin.m_save)
+                        continue;
+                    if (pin.m_type != normalType && pin.m_type != lootedType)
+                        continue;   // not one of ours
+                    if (DistanceXZ(pin.m_pos, pos) > 3f)
+                        continue;
+                    match = pin;
+                    break;
+                }
+
+                if (match == null || match.m_type == wanted)
+                    continue;
+
+                // Replaced rather than mutated in place: a pin's sprite is resolved once when
+                // it's created, and the field that forces a UI rebuild is private. Re-adding is
+                // both simpler and guaranteed to render and persist correctly.
+                string name = match.m_name;
+                bool wasChecked = match.m_checked;
+                Minimap.instance.RemovePin(match);
+                Minimap.instance.AddPin(pos, wanted, name, save: true, isChecked: wasChecked);
+                Plugin.Log.LogInfo($"Chest pin at {pos.x:F0},{pos.z:F0} -> {(empty ? "looted" : "restocked")}");
+            }
         }
 
         private static bool _autoProbeDone;
@@ -152,16 +231,18 @@ namespace CarturMapPins
                 if (DistanceXZ(pos, playerPos) > radius)
                     continue;
 
-                if (!TryClassifyLocation(loc, out PinCategory category, out string label))
+                if (!TryClassifyLocation(loc, out PinCategory category, out string label, out string subtype))
                     continue;
 
-                TryPin(category, null, pos, label);
+                TryPin(category, subtype, pos, label);
             }
         }
 
         /// Classified from the location's own data, with no hardcoded prefab names.
-        private static bool TryClassifyLocation(Location loc, out PinCategory category, out string label)
+        private static bool TryClassifyLocation(Location loc, out PinCategory category, out string label, out string subtype)
         {
+            subtype = null;
+
             OfferingBowl bowl = loc.GetComponentInChildren<OfferingBowl>();
             if (bowl != null)
             {
@@ -182,25 +263,44 @@ namespace CarturMapPins
             // (without an interior) means a surface camp - Fuling villages and Greydwarf camps
             // use the same DungeonGenerator with a CampGrid/CampRadial algorithm. Splitting on
             // that keeps "went in a crypt" and "found a Fuling village" as separate toggles.
+            string prefabName = Utils.GetPrefabName(loc.gameObject);
+
             if (loc.m_hasInterior)
             {
                 category = PinCategory.Dungeon;
-                // Generalised short name from the prefab ("Crypt2" -> "Crypt") in preference to
-                // m_discoverLabel, which gives the game's full proper noun ("Burial Chambers").
-                label = Labels.ForLocation(Utils.GetPrefabName(loc.gameObject));
+                // The subtype drives both the icon and the label, so a Frost Cave and a Burial
+                // Chamber don't share a marker. Unmatched names fall back to a prettified prefab
+                // name ("Crypt2" -> "Crypt") and get logged so the table can be extended.
+                subtype = Subtypes.Match(Subtypes.Dungeons, prefabName);
+                label = subtype ?? Labels.ForLocation(prefabName);
+                WarnUnmatched("dungeon", prefabName, subtype);
                 return true;
             }
 
             if (loc.m_generator != null)
             {
                 category = PinCategory.Camp;
-                label = Labels.ForLocation(Utils.GetPrefabName(loc.gameObject));
+                subtype = Subtypes.Match(Subtypes.Camps, prefabName);
+                label = subtype ?? Labels.ForLocation(prefabName);
+                WarnUnmatched("camp", prefabName, subtype);
                 return true;
             }
 
             category = default;
             label = null;
             return false;
+        }
+
+        private static readonly HashSet<string> _warnedUnmatched = new HashSet<string>();
+
+        /// Logged once per prefab so an unknown dungeon/camp name can be added to the subtype
+        /// table rather than quietly showing the category's generic icon forever.
+        private static void WarnUnmatched(string kind, string prefabName, string subtype)
+        {
+            if (subtype != null || string.IsNullOrEmpty(prefabName))
+                return;
+            if (_warnedUnmatched.Add(prefabName))
+                Plugin.Log.LogInfo($"No {kind} subtype matched '{prefabName}' - using the category icon. Add a fragment to Subtypes if it deserves its own.");
         }
 
         private static string BossLabel(OfferingBowl bowl)
@@ -305,13 +405,17 @@ namespace CarturMapPins
             if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
                 return;
 
-            // Pickables take their icon from their group so berries, crops and surtling cores
-            // don't all share one marker; everything else uses the category's own setting.
+            // Icons resolve per subtype where one exists: pickables by group, dungeons and camps
+            // by kind. Otherwise the category's own setting applies.
             Minimap.PinType pinType = settings.ResolvedPinType;
             if (category == PinCategory.Pickable &&
                 System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
             {
                 pinType = Plugin.PickableIconFor(group, settings.PinType.Value);
+            }
+            else if (category == PinCategory.Dungeon || category == PinCategory.Camp)
+            {
+                pinType = Plugin.SubtypeIconFor(subtype, settings);
             }
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,

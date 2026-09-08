@@ -24,7 +24,8 @@ namespace CarturMapPins
     public enum PickableGroup
     {
         HighValue,   // surtling cores, Yggdrasil shoots, eggs
-        Berries,     // berries + mushrooms
+        Berries,     // berry bushes
+        Mushrooms,   // mushrooms, Jotun puffs, magecap - separate icon from berries
         Crops,       // thistle, dandelion, seeds, barley, flax
         Junk,        // branches, stones, flint - would carpet the map
         Other        // anything unrecognised; logged once so it can be classified later
@@ -281,7 +282,9 @@ namespace CarturMapPins
 
             if (ContainsAny(haystack, "surtlingcore", "yggdrasil", "egg"))
                 return PickableGroup.HighValue;
-            if (ContainsAny(haystack, "raspberr", "blueberr", "cloudberr", "mushroom", "jotunpuff", "magecap", "smokepuff"))
+            if (ContainsAny(haystack, "mushroom", "jotunpuff", "magecap", "smokepuff"))
+                return PickableGroup.Mushrooms;
+            if (ContainsAny(haystack, "raspberr", "blueberr", "cloudberr", "berry", "berries"))
                 return PickableGroup.Berries;
             if (ContainsAny(haystack, "thistle", "dandelion", "seed", "barley", "flax", "carrot", "turnip", "onion"))
                 return PickableGroup.Crops;
