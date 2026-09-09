@@ -1,0 +1,9 @@
+{
+  "name": "Carturs_Map_Pins",
+  "version_number": "1.1.0",
+  "website_url": "",
+  "description": "Drops labelled map pins on ore, dungeons, caves, beehives, runestones and boss altars as you find them. Saved to your map, one swappable icon per category, and emptied chests switch to a looted icon.",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2333"
+  ]
+}
