@@ -51,8 +51,12 @@ namespace CarturMapPins
             SweepLocations(playerPos);
             SweepLootedChests(playerPos);
             PinRecord.Flush();
+#if DIAGNOSTICS
             Patch_ZNetScene_AddInstance.ReportIfDue();
+#endif
+#if DIAGNOSTICS
             AutoProbe();
+#endif
         }
 
         private static float _chestSweepAt = -1f;
@@ -142,7 +146,8 @@ namespace CarturMapPins
         /// Uses an absolute realtimeSinceStartup deadline rather than subtracting deltaTime:
         /// this is only called from the throttled tick (~3Hz), so accumulating per-frame deltas
         /// here counted roughly 0.05s per real second and pushed a 12s delay out to ~4 minutes.
-        private static void AutoProbe()
+ #if DIAGNOSTICS
+       private static void AutoProbe()
         {
             if (_autoProbeDone || !Plugin.AutoProbe.Value)
                 return;
@@ -159,6 +164,7 @@ namespace CarturMapPins
             Probe.DumpLocations(null);
             Probe.DumpFonts(null);
         }
+#endif
 
         private static void DrainQueue(Vector3 playerPos)
         {
@@ -202,12 +208,14 @@ namespace CarturMapPins
                 TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
             }
 
+#if DIAGNOSTICS
             if (dropped > 0 || interior > 0 || nearest < float.MaxValue)
             {
                 Plugin.Log.LogInfo($"Drain: queued={PendingQueue.Count} dropped(unloaded)={dropped} " +
                                    $"interior={interior} nearest={(nearest < float.MaxValue ? nearest.ToString("F0") : "-")}m " +
                                    $"radius={radius:F0}m");
             }
+#endif
 
             PendingQueue.Clear();
             PendingQueue.AddRange(Requeue);

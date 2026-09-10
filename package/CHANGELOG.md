@@ -2,17 +2,31 @@
 
 ## 1.1.1
 
-Rebuilt for Valheim 1.0.7. No behaviour changes.
+Rebuilt for Valheim 1.0.7, and the diagnostics no longer ship.
 
-Valheim 1.0.7 added a parameter to `Terminal.ConsoleCommand`'s constructor. C#
-resolves optional arguments at compile time and writes the exact parameter count
-into the DLL, so the 1.1.0 build referenced a constructor that no longer exists and
-threw `MissingMethodException` while registering commands. That aborted `Awake`
-before the "loaded" line, taking all five `carturpins_*` commands with it. Pin
-placement itself was unaffected, because the Harmony patches are applied earlier.
+**Console commands work again.** Valheim 1.0.7 added a parameter to
+`Terminal.ConsoleCommand`'s constructor. C# resolves optional arguments at compile
+time and writes the exact parameter count into the DLL, so the 1.1.0 build referenced
+a constructor that no longer exists and threw `MissingMethodException` while
+registering commands. That aborted `Awake` before the "loaded" line and took
+`carturpins_clear` and `carturpins_count` with it. Pin placement was unaffected,
+since the Harmony patches are applied earlier. The source never named those
+parameters, so a recompile is the whole fix.
 
-The source was already correct - it never named those parameters - so a recompile
-against 1.0.7 is the whole fix.
+**The log is quiet now.** The probe tooling was being built into release. On a normal
+session this mod produced 3,569 of 4,857 log lines - 73% of the file - almost all of
+it one `Drain:` counter printed on every queue tick, plus an `AddInstance diag:`
+report every 15 seconds and a one-shot node dump that was **on by default**. None of
+it was useful to a player, and volume is exactly what makes a log useless to read
+when something has gone wrong.
+
+Release builds now contain none of it: no `carturpins_probe`, `carturpins_locations`
+or `carturpins_catalog` commands, no `Diagnostics/AutoProbeOnSpawn` option, and no
+per-tick logging. What remains is the load line, the catalog summary, pin events, and
+warnings.
+
+`carturpins_clear` and `carturpins_count` are unaffected - those are features, not
+diagnostics.
 
 ## 1.1.0
 

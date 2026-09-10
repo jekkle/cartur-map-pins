@@ -17,7 +17,9 @@ namespace CarturMapPins
 
         public static ConfigEntry<float> DiscoveryRadius;
         public static ConfigEntry<float> ScanInterval;
+#if DIAGNOSTICS
         public static ConfigEntry<bool> AutoProbe;
+#endif
         public static ConfigEntry<bool> CustomIconsEnabled;
         public static ConfigEntry<bool> MapPickerEnabled;
         public static ConfigEntry<float> MapPickerX;
@@ -69,8 +71,10 @@ namespace CarturMapPins
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
                 "How often to check pending objects and loaded locations against your position.");
+#if DIAGNOSTICS
             AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
                 "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
+#endif
 
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
@@ -262,6 +266,7 @@ namespace CarturMapPins
                 "Reports how many map pins Cartur's Map Pins has placed.",
                 args => args.Context?.AddString($"{PinRecord.Count} pins on record."));
 
+#if DIAGNOSTICS
             new Terminal.ConsoleCommand("carturpins_probe",
                 "Diagnostics: inspects nearby nodes and reports whether their prefab is in the catalog. Optional radius, default 20.",
                 args =>
@@ -279,6 +284,7 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_catalog",
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
                 args => Probe.DumpCategory(args, args.Args.Length > 1 ? args.Args[1] : null));
+#endif
         }
     }
 }

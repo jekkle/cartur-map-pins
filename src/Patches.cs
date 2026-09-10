@@ -33,6 +33,7 @@ namespace CarturMapPins
         private static int _skippedHive;
         private static int _skippedPicked;
         private static int _skippedGroup;
+#if DIAGNOSTICS
         private static float _nextReport;
 
         internal static void ReportIfDue()
@@ -45,6 +46,7 @@ namespace CarturMapPins
                 $"skipped(hive={_skippedHive} picked={_skippedPicked} group={_skippedGroup}) " +
                 $"catalogBuilt={PinCatalog.Built} catalogSize={PinCatalog.Size} queue={PinPlacer.QueueSize}");
         }
+#endif
 
         private static void Postfix(ZDO zdo, ZNetView nview)
         {

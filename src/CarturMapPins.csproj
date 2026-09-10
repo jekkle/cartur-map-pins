@@ -12,6 +12,20 @@
     <R2MODMAN_PROFILE Condition="'$(R2MODMAN_PROFILE)' == ''">$(APPDATA)\r2modmanPlus-local\Valheim\profiles\Default</R2MODMAN_PROFILE>
   </PropertyGroup>
 
+  <!-- The probe, the auto-probe and the per-tick counters exist to answer "why isn't this
+       being pinned". That is a development question. A Release build drops them: no
+       carturpins_probe / _locations / _catalog commands, no AutoProbeOnSpawn option, and
+       none of the per-tick Drain / AddInstance lines that made this mod 73% of the log.
+
+       Build Debug to get them back:  dotnet build -c Debug -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);DIAGNOSTICS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Probe.cs" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="BepInEx.Analyzers" Version="1.0.8" PrivateAssets="all" />
     <PackageReference Include="BepInEx.Core" Version="5.4.21" />
