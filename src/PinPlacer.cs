@@ -125,14 +125,22 @@ namespace CarturMapPins
                 bool empty = inventory.NrOfItems() == 0;
                 Minimap.PinType wanted = empty ? lootedType : normalType;
 
+                // Our record is the authority on whether a pin here is ours, not the icon it
+                // currently carries. Matching on icon alone stranded any chest pin sitting on a
+                // value neither of the current two - a chest left on a previous version's looted
+                // icon became invisible to this sweep and could never be corrected.
+                bool recorded = PinRecord.HasCategoryNear(PinCategory.Chest, pos, 3f);
+
                 Minimap.PinData match = null;
                 foreach (Minimap.PinData pin in pins)
                 {
                     if (!pin.m_save)
                         continue;
-                    if (pin.m_type != normalType && pin.m_type != lootedType)
-                        continue;   // not one of ours
                     if (DistanceXZ(pin.m_pos, pos) > 3f)
+                        continue;
+                    bool ours = pin.m_type == normalType || pin.m_type == lootedType ||
+                                (recorded && CustomIcons.IsCustom(pin.m_type));
+                    if (!ours)
                         continue;
                     match = pin;
                     break;
