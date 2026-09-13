@@ -157,18 +157,26 @@ namespace CarturMapPins
         private static string Shape(ZoneSystem.ZoneLocation zl)
         {
             if (!zl.m_prefab.IsValid)
-                return " kind=?";
+                return " kind=? (no soft reference)";
 
             bool alreadyLoaded = zl.m_prefab.IsLoaded;
             if (!alreadyLoaded)
-                zl.m_prefab.Load();
+            {
+                SoftReferenceableAssets.LoadResult result = zl.m_prefab.Load();
+                // Says which of "the bundle would not give it up" and "it has no Location on it"
+                // a blank answer is. Nineteen locations came back unreadable with no way to tell.
+                if (result != SoftReferenceableAssets.LoadResult.Succeeded)
+                    return $" kind=? (load {result})";
+            }
 
             try
             {
                 GameObject asset = zl.m_prefab.Asset;
-                Location loc = asset != null ? asset.GetComponent<Location>() : null;
+                if (asset == null)
+                    return " kind=? (no asset)";
+                Location loc = asset.GetComponent<Location>();
                 if (loc == null)
-                    return " kind=?";
+                    return " kind=? (no Location component)";
 
                 string gen = loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
                 return (loc.m_hasInterior ? " kind=dungeon"
