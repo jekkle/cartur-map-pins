@@ -92,41 +92,41 @@ namespace CarturMapPins
             // IconIndex values refer to Assets/pin_icons_numbered.png. PinType is the vanilla
             // fallback used when custom icons are off.
             Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
-                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section.",
-                iconIndex: 47);   // pickaxe striking rock
+                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section and their own icons in Ore Icons.",
+                iconIndex: 119);  // generic ore chunk; per-type icons override this
             Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
                 "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).",
-                iconIndex: 22);   // cobwebbed arch
+                iconIndex: 39);   // stairs down
             Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
                 "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
-                iconIndex: 34);   // armed tent camp
+                iconIndex: 42);   // village
             Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
                 "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).",
-                iconIndex: -1);   // -1 = keep the vanilla Boss icon
+                iconIndex: 79);   // offering bowl; per-boss icons override this
             Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
                 "Wild beehives. Player-built hives are never pinned.",
-                iconIndex: 6);    // bee
+                iconIndex: 78);   // beehive
             Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
                 "Runestones and Vegvisirs. Vanilla never pins these.",
-                iconIndex: -1);   // -1 = keep the vanilla Icon2 below
+                iconIndex: 58);   // vegvisir
             Bind(PinCategory.LoreStone, false, Minimap.PinType.Icon2, 5f,
                 "Lore runestones - the eleven story stones scattered across the biomes (Boars, Meadows, Draugr, Black Forest...). Separate from the boss stones above. OFF by default: they are read-once curiosities, and pinning all of them clutters a map you actually navigate with.",
-                iconIndex: -1);
+                iconIndex: 57);   // runestone
             Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
                 "Loot chests found in the world. Player-built containers are never pinned.",
-                iconIndex: 45);   // treasure chest
+                iconIndex: 72);   // chest
             Bind(PinCategory.Spawner, true, Minimap.PinType.Icon3, 15f,
-                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding.",
-                iconIndex: 48);   // nest with eggs
+                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. Individual creatures have their own icons in Spawner Types.",
+                iconIndex: 9);    // summoning circle; per-creature icons override this
             Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
                 "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.",
-                iconIndex: 59);   // sea serpent
+                iconIndex: 50);   // leviathan
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
-                "Traders (Haldor, Hildir). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
-                iconIndex: 15);   // coin pouch
+                "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
+                iconIndex: 88);   // coins; per-trader icons override this
             Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
                 "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
-                iconIndex: 32);   // flame
+                iconIndex: 85);   // star
 
             foreach ((string _, string type) in PinCatalog.OreTokens)
             {
@@ -136,16 +136,26 @@ namespace CarturMapPins
                     $"Pin {type} deposits. Requires the Ore category to be enabled.");
             }
 
-            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.OpenChest,
+            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilCheck,
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1)));
 
-            // Dungeons and camps get an icon per kind, not one for the whole category.
+            // These categories get an icon per kind, not one for the whole category.
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
                 BindSubtypeIcon("Dungeon Types", e);
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Camps))
                 BindSubtypeIcon("Camp Types", e);
+            // "Ore Icons" rather than "Ore Types": that section already holds one bool per ore
+            // type, and a section+key pair can only carry one type of value.
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Ores))
+                BindSubtypeIcon("Ore Icons", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Bosses))
+                BindSubtypeIcon("Boss Types", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Traders))
+                BindSubtypeIcon("Trader Types", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Spawners))
+                BindSubtypeIcon("Spawner Types", e);
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
@@ -160,12 +170,12 @@ namespace CarturMapPins
 
             // Pickable groups get their own icons - one shared icon for berries, crops and
             // surtling cores alike would lose most of the value of pinning them at all.
-            BindGroupIcon(PickableGroup.Berries, 36);     // grape/berry cluster
-            BindGroupIcon(PickableGroup.Mushrooms, 76);   // split out of berries
-            BindGroupIcon(PickableGroup.Crops, 37);       // plant between rocks
-            BindGroupIcon(PickableGroup.HighValue, 21);   // egg with sparkles
-            BindGroupIcon(PickableGroup.Junk, 0);         // plain dot
-            BindGroupIcon(PickableGroup.Other, 0);        // plain dot
+            BindGroupIcon(PickableGroup.Berries, 90);     // raspberries
+            BindGroupIcon(PickableGroup.Mushrooms, 95);   // mushroom
+            BindGroupIcon(PickableGroup.Crops, 94);       // thistle
+            BindGroupIcon(PickableGroup.HighValue, 118);  // surtling core
+            BindGroupIcon(PickableGroup.Junk, 107);       // branch
+            BindGroupIcon(PickableGroup.Other, 84);       // question mark
 
             PinRecord.Load(Paths.ConfigPath);
 

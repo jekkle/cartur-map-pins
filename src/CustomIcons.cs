@@ -27,7 +27,11 @@ namespace CarturMapPins
         public const int FirstCustomType = 100;
 
         private const int SheetColumns = 10;
-        public const int IconCount = 83;
+
+        /// Derived from the enum rather than written down, because the enum and the sheet are
+        /// generated together by tools/build_sheet.py. A hardcoded count that fell behind the
+        /// sheet would slice off the last row; one that ran ahead would create null sprites.
+        public static readonly int IconCount = Enum.GetValues(typeof(PinIcon)).Length - 1;   // -1: Default
 
         private static Sprite[] _sprites;
 

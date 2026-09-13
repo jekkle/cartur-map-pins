@@ -103,15 +103,9 @@ namespace CarturMapPins
                 ChestRegistry.Add(go.GetComponent<Container>());
 
             _enqueued++;
-            // Ore carries its type through so the pin can be labelled "Copper" and deduped
-            // against other copper only; pickables carry their group so each group gets its own
-            // icon and its own dedupe radius.
-            string subtype = category == PinCategory.Ore
-                ? PinCatalog.OreTypeOf(hash)
-                : category == PinCategory.Pickable
-                    ? PinCatalog.GroupOf(hash).ToString()
-                    : null;
-            PinPlacer.Enqueue(category, zdo.GetPosition(), go, subtype);
+            // The subtype carries through so the pin gets its own icon and dedupes only against
+            // its own kind - copper against copper, a wolf den against other wolf dens.
+            PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinPlacer.SubtypeFor(category, hash, go));
         }
 
         private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;

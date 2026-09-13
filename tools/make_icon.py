@@ -19,8 +19,8 @@ COLUMNS = 10
 PARCHMENT = (242, 230, 206, 255)
 
 # Four of the icons the mod actually places, picked to read at thumbnail size:
-# mining, cave mouth, chest, beehive.
-PICKS = (24, 18, 45, 6)
+# copper ore, burial chamber, chest, beehive. Indices are into src/Assets/icons/order.txt.
+PICKS = (110, 30, 72, 78)
 
 sheet = Image.open(SHEET).convert("RGBA")
 cell = sheet.width / COLUMNS

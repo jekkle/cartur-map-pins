@@ -267,6 +267,11 @@ namespace CarturMapPins
             {
                 category = PinCategory.BossAltar;
                 label = BossLabel(bowl);
+                // Which boss decides the icon. m_bossPrefab's name is the boss's own prefab
+                // ("Eikthyr", "gd_king"), which is a far steadier signal than the altar's.
+                string bossPrefab = bowl.m_bossPrefab != null ? bowl.m_bossPrefab.name : bowl.m_name;
+                subtype = Subtypes.Match(Subtypes.Bosses, bossPrefab);
+                WarnUnmatched("boss", bossPrefab, subtype);
                 return true;
             }
 
@@ -536,23 +541,29 @@ namespace CarturMapPins
                 ? name.Substring(prefix.Length)
                 : name;
 
+        private static GameObject SpawnedCreaturePrefab(GameObject go)
+        {
+            CreatureSpawner spawner = go.GetComponent<CreatureSpawner>();
+            if (spawner != null && spawner.m_creaturePrefab != null)
+                return spawner.m_creaturePrefab;
+
+            // A SpawnArea can list several creatures; the first is representative enough for
+            // a map label, and they are usually variants of one thing anyway.
+            SpawnArea area = go.GetComponent<SpawnArea>();
+            if (area != null && area.m_prefabs != null && area.m_prefabs.Count > 0)
+                return area.m_prefabs[0].m_prefab;
+
+            return null;
+        }
+
+        /// The spawned creature's prefab name ("Greydwarf", "Goblin"), which is what the spawner
+        /// icon table matches on. Unlike the label, this must stay untranslated.
+        private static string SpawnedCreaturePrefabName(GameObject go) =>
+            SpawnedCreaturePrefab(go)?.name;
+
         private static string SpawnedCreatureName(GameObject go)
         {
-            GameObject creature = null;
-
-            CreatureSpawner spawner = go.GetComponent<CreatureSpawner>();
-            if (spawner != null)
-                creature = spawner.m_creaturePrefab;
-
-            if (creature == null)
-            {
-                // A SpawnArea can list several creatures; the first is representative enough for
-                // a map label, and they are usually variants of one thing anyway.
-                SpawnArea area = go.GetComponent<SpawnArea>();
-                if (area != null && area.m_prefabs != null && area.m_prefabs.Count > 0)
-                    creature = area.m_prefabs[0].m_prefab;
-            }
-
+            GameObject creature = SpawnedCreaturePrefab(go);
             if (creature == null)
                 return null;
 
@@ -566,6 +577,36 @@ namespace CarturMapPins
 
             name = Labels.StripRichText(name);
             return string.IsNullOrEmpty(name) ? null : name + " Spawner";
+        }
+
+        /// The subtype for something arriving through the spawn hook. It drives three things at
+        /// once: the icon, the dedupe key, and (for ore) the per-type toggle - so a copper pin
+        /// can't suppress a tin node metres away.
+        ///
+        /// Lives here rather than in the hook so that all subtype matching, and the logging of
+        /// what failed to match, stays in one place.
+        internal static string SubtypeFor(PinCategory category, int hash, GameObject go)
+        {
+            switch (category)
+            {
+                case PinCategory.Ore:
+                    return PinCatalog.OreTypeOf(hash);
+
+                case PinCategory.Pickable:
+                    return PinCatalog.GroupOf(hash).ToString();
+
+                case PinCategory.Trader:
+                    return Subtypes.Match(Subtypes.Traders, Utils.GetPrefabName(go));
+
+                case PinCategory.Spawner:
+                    string creature = SpawnedCreaturePrefabName(go);
+                    string matched = Subtypes.Match(Subtypes.Spawners, creature);
+                    WarnUnmatched("spawner", creature, matched);
+                    return matched;
+
+                default:
+                    return null;
+            }
         }
 
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
@@ -585,15 +626,19 @@ namespace CarturMapPins
             if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
                 return;
 
-            // Icons resolve per subtype where one exists: pickables by group, dungeons and camps
-            // by kind. Otherwise the category's own setting applies.
+            // Icons resolve per subtype where one exists: pickables by group, everything else by
+            // the name matched above. SubtypeIconFor falls back to the category's own setting
+            // when the subtype is null or has no icon bound, so listing a category here is safe
+            // even when a particular instance didn't match.
             Minimap.PinType pinType = settings.ResolvedPinType;
             if (category == PinCategory.Pickable &&
                 System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
             {
                 pinType = Plugin.PickableIconFor(group, settings.PinType.Value);
             }
-            else if (category == PinCategory.Dungeon || category == PinCategory.Camp)
+            else if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
+                     category == PinCategory.Ore || category == PinCategory.BossAltar ||
+                     category == PinCategory.Trader || category == PinCategory.Spawner)
             {
                 pinType = Plugin.SubtypeIconFor(subtype, settings);
             }
