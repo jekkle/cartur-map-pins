@@ -341,9 +341,20 @@ namespace CarturMapPins
                 return true;
             }
 
+            // Surface landmarks - wells, shipwrecks, dolmens, abandoned houses. These have no
+            // interior, no generator and no runestone, so everything above passes them over; they
+            // are matched by name against a table built from a live dump of all 232 ZoneLocations.
+            subtype = Subtypes.Match(Subtypes.Landmarks, prefabName);
+            if (subtype != null)
+            {
+                category = PinCategory.Landmark;
+                label = subtype;
+                return true;
+            }
+
             // Everything that reaches here is a location the mod will never pin: no interior, no
-            // generator, not a runestone. Logged once per prefab so the blind spot is a list you
-            // can read rather than a guess.
+            // generator, not a runestone, and no landmark name matched. Logged once per prefab so
+            // the blind spot is a list you can read rather than a guess.
             //
             // Reported from here rather than predicted from ZoneSystem.m_locations because a
             // ZoneLocation only holds a SoftReference to its prefab - deciding this up front would
@@ -673,7 +684,8 @@ namespace CarturMapPins
 
             if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
                 category == PinCategory.Ore || category == PinCategory.BossAltar ||
-                category == PinCategory.Trader || category == PinCategory.Spawner)
+                category == PinCategory.Trader || category == PinCategory.Spawner ||
+                category == PinCategory.Landmark)
             {
                 return Plugin.SubtypeIconFor(subtype, settings);
             }
@@ -689,6 +701,11 @@ namespace CarturMapPins
 
             // Ore additionally honours its per-type switch, so you can pin copper but ignore tin.
             if (category == PinCategory.Ore && !Plugin.OreTypeEnabled(subtype))
+                return;
+
+            // Landmarks likewise: there are thirteen abandoned houses to every well, and wanting
+            // one kind is not wanting all of them.
+            if (category == PinCategory.Landmark && !Plugin.LandmarkEnabled(subtype))
                 return;
 
             // Dedupe on category+subtype: a category-wide radius would let a copper pin suppress

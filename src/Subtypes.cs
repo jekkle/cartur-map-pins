@@ -201,6 +201,48 @@ namespace CarturMapPins
             E("voltureegg", "Volture Egg", 12),
         };
 
+        /// Surface landmarks: locations with no interior, no dungeon generator and no runestone,
+        /// which the sweep previously identified only to discard. Wells, docks, shipwrecks,
+        /// dolmens, stone circles, swamp huts, abandoned houses.
+        ///
+        /// Unlike the dungeon and camp tables these fragments are NOT guesses - every one is a
+        /// real prefab name from a live `carturpins_locations` dump of all 232 ZoneLocations.
+        ///
+        /// Locations already covered by another category are deliberately absent: the boss altars,
+        /// the eleven Runestone_* lore stones, Vendor_BlackForest (Haldor, handled as a Trader),
+        /// and the nest/spawner locations, all of which would otherwise pin twice.
+        public static readonly Entry[] Landmarks =
+        {
+            E("shipwreck", "Shipwreck", 47),
+            E("frozenship", "Shipwreck", 47),
+            E("shipsetting", "Ship Setting", 56),
+            E("swamphut", "Swamp Hut", 44),          // before the bare "hut"
+            E("swampwell", "Well", 48),
+            E("mountainwell", "Well", 48),
+            E("dolmen", "Dolmen", 46),
+            E("stonecircle", "Stone Circle", 45),
+            E("stonehenge", "Stone Circle", 45),
+            E("stonehouse", "Stone House", 43),
+            E("woodhouse", "Abandoned House", 43),
+            E("abandonedlogcabin", "Log Cabin", 43),
+            E("dn_hut", "Deep North Hut", 43),
+            E("firehole", "Fire Geyser", 49),
+            E("tarpit", "Tar Pit", 13),
+            E("sulfurarch", "Sulfur Arch", 129),
+            E("placeofmystery", "Place of Mystery", 127),
+            E("mistlands_viaduct", "Viaduct", 134),
+            E("mistlands_harbour", "Harbour", 55),
+            E("mistlands_swords", "Giant Sword", 52),
+            E("mistlands_giant", "Giant Skull", 51),  // "Giant Remains" is taken by the ore table
+            E("mistlands_excavation", "Dvergr Excavation", 38),
+            E("mistlands_lighthouse", "Lighthouse", 40),
+            E("gammeltroll", "Petrified Troll", 125),
+            E("leviathanlava", "Lava Leviathan", 128),
+            E("starttemple", "Sacrificial Stones", 59),
+            E("ancientupgradestation", "Ancient Upgrade Station", 75),
+            E("infestedtree", "Infested Tree", 14),
+        };
+
         /// Distinct subtype names in declaration order, for binding one config entry each.
         public static IEnumerable<Entry> DistinctOf(Entry[] table)
         {

@@ -17,7 +17,8 @@ namespace CarturMapPins
         Spawner,
         Leviathan,
         Trader,
-        Wisp
+        Wisp,
+        Landmark
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the

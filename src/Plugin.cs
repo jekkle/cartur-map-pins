@@ -56,6 +56,18 @@ namespace CarturMapPins
         public static CategorySettings SettingsFor(PinCategory category) =>
             Settings.TryGetValue(category, out CategorySettings s) ? s : null;
 
+        private static readonly Dictionary<string, ConfigEntry<bool>> LandmarkToggles =
+            new Dictionary<string, ConfigEntry<bool>>();
+
+        /// A landmark kind with no switch of its own is allowed through, so a name added to the
+        /// table but not yet to the menu still pins rather than silently vanishing.
+        public static bool LandmarkEnabled(string kind)
+        {
+            if (string.IsNullOrEmpty(kind))
+                return true;
+            return !LandmarkToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
+        }
+
         public static bool OreTypeEnabled(string oreType)
         {
             if (string.IsNullOrEmpty(oreType))
@@ -132,6 +144,9 @@ namespace CarturMapPins
             // classifier and the group icons were wired to nothing. Bound into the existing
             // "Pickables" section rather than a new "Pickable" one, so the category's own knobs
             // sit with the group toggles instead of in a near-identically named section.
+            Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
+                "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
+                iconIndex: 45);   // stone circle; per-kind icons override it
             Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
                 "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
                 iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
@@ -166,6 +181,18 @@ namespace CarturMapPins
                 BindSubtypeIcon("Spawner Types", e);
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Pickables))
                 BindSubtypeIcon("Pickable Types", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Landmarks))
+                BindSubtypeIcon("Landmark Icons", e);
+
+            // One switch per landmark kind, generated from the same table that detects them, so a
+            // kind can never exist in the matcher without a matching switch in the menu.
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Landmarks))
+            {
+                if (LandmarkToggles.ContainsKey(e.Name))
+                    continue;
+                LandmarkToggles[e.Name] = Config.Bind("Landmark Types", e.Name, true,
+                    $"Pin {e.Name} landmarks. Requires the Landmark category to be enabled.");
+            }
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
