@@ -73,7 +73,6 @@ namespace CarturMapPins
                 return;
             }
 
-            GameObject template = FindTemplateButton(map);
 
             _panel = new GameObject("CarturIconPicker");
             _panel.transform.SetParent(map.m_largeRoot.transform, false);
@@ -88,41 +87,6 @@ namespace CarturMapPins
             Image bg = _panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.55f);
 
-            // Viewport clips the scrolling content.
-            GameObject viewport = new GameObject("Viewport");
-            viewport.transform.SetParent(_panel.transform, false);
-            RectTransform viewRt = viewport.AddComponent<RectTransform>();
-            viewRt.anchorMin = Vector2.zero;
-            viewRt.anchorMax = Vector2.one;
-            viewRt.offsetMin = new Vector2(8f, 8f);
-            viewRt.offsetMax = new Vector2(-8f, -8f);
-            viewport.AddComponent<RectMask2D>();
-
-            GameObject content = new GameObject("Content");
-            content.transform.SetParent(viewport.transform, false);
-            RectTransform contentRt = content.AddComponent<RectTransform>();
-            contentRt.anchorMin = new Vector2(0f, 1f);
-            contentRt.anchorMax = new Vector2(1f, 1f);
-            contentRt.pivot = new Vector2(0f, 1f);
-
-            GridLayoutGroup grid = content.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(CellSize, CellSize);
-            grid.spacing = new Vector2(Spacing, Spacing);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = Columns;
-            ContentSizeFitter fitter = content.AddComponent<ContentSizeFitter>();
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            ScrollRect scroll = _panel.AddComponent<ScrollRect>();
-            scroll.content = contentRt;
-            scroll.viewport = viewRt;
-            scroll.horizontal = false;
-            scroll.vertical = true;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            // Two and a half rows per wheel tick. The old 24 was half a row, which was fine for
-            // the 83-icon sheet but means about 60 ticks to cross 153 icons in five columns.
-            scroll.scrollSensitivity = (CellSize + Spacing) * 2.5f;
-
             // A Screen Space - Overlay canvas must be hit-tested with a null camera; anything else
             // needs its own. Passing the wrong one puts the rect in the wrong coordinate space and
             // the test silently never matches.
@@ -132,81 +96,10 @@ namespace CarturMapPins
                 : null;
 
             _highlights.Clear();
-            for (int i = 0; i < CustomIcons.Count; i++)
-                CreateButton(map, content.transform, template, i);
+            _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
+                                                index => Select(map, index)));
 
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons.");
-        }
-
-        /// Vanilla's button root carries the icon Image; its child Image is the highlight. Using
-        /// one as a template keeps borders/hover styling consistent with the rest of the map UI.
-        private static GameObject FindTemplateButton(Minimap map)
-        {
-            Image[] candidates = { map.m_selectedIcon0, map.m_selectedIcon1, map.m_selectedIcon2, map.m_selectedIconBoss };
-            foreach (Image candidate in candidates)
-            {
-                if (candidate != null && candidate.transform.parent != null)
-                    return candidate.transform.parent.gameObject;
-            }
-            return null;
-        }
-
-        private static void CreateButton(Minimap map, Transform parent, GameObject template, int index)
-        {
-            GameObject cell;
-            Image highlight = null;
-
-            if (template != null)
-            {
-                cell = Object.Instantiate(template, parent);
-                cell.name = $"CarturIcon_{index}";
-
-                // The cloned child Image is vanilla's selection highlight; reuse it as ours.
-                foreach (Image img in cell.GetComponentsInChildren<Image>(true))
-                {
-                    if (img.gameObject != cell)
-                    {
-                        highlight = img;
-                        break;
-                    }
-                }
-            }
-            else
-            {
-                // No template available - plain button rather than giving up on the feature.
-                cell = new GameObject($"CarturIcon_{index}");
-                cell.transform.SetParent(parent, false);
-                cell.AddComponent<RectTransform>();
-                cell.AddComponent<Image>();
-            }
-
-            Image icon = cell.GetComponent<Image>();
-            if (icon != null)
-            {
-                icon.sprite = CustomIcons.SpriteAt(index);
-                icon.color = Color.white;
-                icon.enabled = true;
-            }
-
-            if (highlight != null)
-            {
-                highlight.enabled = false;
-                _highlights.Add(highlight);
-            }
-            else
-            {
-                _highlights.Add(null);
-            }
-
-            Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
-
-            // A whole fresh event object, NOT onClick.RemoveAllListeners(): that only drops
-            // listeners added at runtime and leaves the prefab's serialized (persistent) calls
-            // intact, so a cloned vanilla button would still fire vanilla's handler alongside
-            // ours and select a vanilla pin type as well.
-            button.onClick = new Button.ButtonClickedEvent();
-            int captured = index;
-            button.onClick.AddListener(() => Select(map, captured));
         }
 
         private static void Select(Minimap map, int index)
@@ -226,32 +119,25 @@ namespace CarturMapPins
 
         private static MethodInfo _closestPinToCursor;
 
-        /// Shift-click an existing pin to give it the icon currently selected, instead of vanilla's
-        /// plain left-click which ticks the pin off.
-        ///
-        /// Works on any pin, ours or hand-placed, which is the only way to repair a pin whose
-        /// artwork moved when the icon sheet was replaced - nothing records what icon the player
-        /// originally meant, but they can just point at it and pick again.
+        /// Shift-click an existing pin to open the editor on it, instead of vanilla's plain
+        /// left-click which ticks the pin off.
         ///
         /// Returns true when it handled the click, which suppresses the tick-off.
-        public static bool TryRepointPinUnderCursor(Minimap map)
+        public static bool TryEditPinUnderCursor(Minimap map)
         {
-            if (map == null || _selectedType == null || _closestPinToCursor == null)
+            if (map == null || _closestPinToCursor == null)
                 return false;
             if (!ZInput.GetKey(KeyCode.LeftShift, false) && !ZInput.GetKey(KeyCode.RightShift, false))
                 return false;
 
             var pin = _closestPinToCursor.Invoke(map, null) as Minimap.PinData;
             if (pin == null)
+            {
+                PinEditor.Close();
                 return false;
+            }
 
-            var selected = (Minimap.PinType)_selectedType.GetValue(map);
-            if (pin.m_type == selected || !PinRecord.Repoint(map, pin, selected))
-                return false;
-
-            // Written straight away rather than left to the next world save: this is a deliberate
-            // edit to someone's map and losing it to a crash would be worse than the write.
-            map.SaveMapData();
+            PinEditor.Open(map, pin);
             return true;
         }
 
@@ -279,7 +165,7 @@ namespace CarturMapPins
     internal static class Patch_Minimap_OnMapLeftClick
     {
         private static bool Prefix(Minimap __instance) =>
-            !MapIconPicker.TryRepointPinUnderCursor(__instance);
+            !MapIconPicker.TryEditPinUnderCursor(__instance);
     }
 
     [HarmonyPatch(typeof(Minimap), "SelectIcon")]
