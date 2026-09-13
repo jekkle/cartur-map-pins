@@ -136,7 +136,7 @@ namespace CarturMapPins
             E("volture", "Volture", 12),
             E("blobtar", "Tar Blob", 13),          // before the bare "blob"
             E("growth", "Growth", 16),
-            E("boar", "Boar", 15),
+            E("boar", "Boar", 138),         // the animal, not the boar spawn-stone glyph
             E("fenring", "Fenring", 17),
             E("fallenvalkyrie", "Fallen Valkyrie", 132),
             E("troll", "Troll", 21),
@@ -150,6 +150,55 @@ namespace CarturMapPins
             E("ghost", "Wraith", 27),
             E("stonegolem", "Stone Golem", 28),
             E("serpent", "Serpent", 29),
+        };
+
+        /// Matched against the pickable's prefab name, so a bush gets its own berry rather than
+        /// every berry sharing one glyph. Names confirmed from `carturpins_labels Pickable`.
+        ///
+        /// Order matters where one name contains another: every mushroom variant is listed
+        /// before the bare "mushroom", and the ore-bearing pickables use their full prefab
+        /// fragment so "tin" cannot catch something else.
+        ///
+        /// Anything unmatched falls back to its PickableGroup icon, which is why this table only
+        /// needs the pickables the sheet actually has art for.
+        public static readonly Entry[] Pickables =
+        {
+            E("raspberrybush", "Raspberry", 90),
+            E("blueberrybush", "Blueberry", 91),
+            E("cloudberrybush", "Cloudberry", 92),
+            E("lingonberrybush", "Lingonberry", 140),
+            E("vinegreen", "Vineberry", 141),
+            E("vineash", "Vineberry", 141),
+
+            E("mushroom_jotunpuffs", "Jotun Puffs", 98),   // before the bare "mushroom"
+            E("mushroom_magecap", "Magecap", 97),
+            E("mushroom_yellow", "Yellow Mushroom", 96),
+            E("smokepuff", "Smoke Puff", 142),
+            E("mushroom", "Mushroom", 95),
+
+            E("dandelion", "Dandelion", 93),
+            E("thistle", "Thistle", 94),
+            E("fiddlehead", "Fiddlehead", 99),
+            E("carrot", "Carrot", 100),                    // also catches SeedCarrot
+            E("turnip", "Turnip", 101),
+            E("onion", "Onion", 102),
+            E("barley", "Barley", 103),
+            E("flax", "Flax", 104),
+
+            E("pickable_flint", "Flint", 108),
+            E("pickable_branch", "Branch", 107),
+            E("surtlingcorestand", "Surtling Core", 118),
+            E("moltencorestand", "Molten Core", 143),
+            E("blackcorestand", "Black Core", 144),
+            E("mountaincavecrystal", "Cave Crystal", 117),
+            E("royaljelly", "Royal Jelly", 105),
+            E("pickable_obsidian", "Obsidian", 116),
+            E("pickable_tin", "Tin Nugget", 111),
+            E("bogironore", "Bog Iron", 112),
+            E("pickable_tar", "Tar", 13),
+            E("meteorite", "Meteorite", 115),
+            E("dragonegg", "Dragon Egg", 8),
+            E("voltureegg", "Volture Egg", 12),
         };
 
         /// Distinct subtype names in declaration order, for binding one config entry each.

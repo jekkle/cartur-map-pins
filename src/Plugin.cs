@@ -127,6 +127,14 @@ namespace CarturMapPins
             Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
                 "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
                 iconIndex: 85);   // star
+            // Pickable had no binding at all, which meant SettingsFor(Pickable) returned null and
+            // TryPin dropped every pickable on the floor - the whole Pickables section, the
+            // classifier and the group icons were wired to nothing. Bound into the existing
+            // "Pickables" section rather than a new "Pickable" one, so the category's own knobs
+            // sit with the group toggles instead of in a near-identically named section.
+            Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
+                "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
+                iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
 
             foreach ((string _, string type) in PinCatalog.OreTokens)
             {
@@ -156,6 +164,8 @@ namespace CarturMapPins
                 BindSubtypeIcon("Trader Types", e);
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Spawners))
                 BindSubtypeIcon("Spawner Types", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Pickables))
+                BindSubtypeIcon("Pickable Types", e);
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
@@ -192,9 +202,9 @@ namespace CarturMapPins
         private static ConfigurationManagerAttributes IconAttr(int order) =>
             new ConfigurationManagerAttributes { Order = order, CustomDrawer = IconDrawer.Draw };
 
-        private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex)
+        private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex, string sectionName = null)
         {
-            string section = category.ToString();
+            string section = sectionName ?? category.ToString();
             Settings[category] = new CategorySettings
             {
                 Enabled = Config.Bind(section, "Enabled", enabled,

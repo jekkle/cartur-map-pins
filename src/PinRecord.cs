@@ -259,7 +259,7 @@ namespace CarturMapPins
             if (pins == null)
                 return 0;
 
-            int migrated = 0;
+            int migrated = 0, notFound = 0, otherIcon = 0;
             var ours = new HashSet<Minimap.PinData>();
 
             foreach (Entry e in Entries)
@@ -274,7 +274,13 @@ namespace CarturMapPins
 
                 Minimap.PinData pin = FindPinAt(map, e.Pos);
                 if (pin == null)
+                {
+#if DIAGNOSTICS
+                    Plugin.Log.LogInfo($"  migrate: '{e.Key}' at {e.Pos.x:F0},{e.Pos.z:F0} - NO PIN FOUND within 0.5m");
+#endif
+                    notFound++;
                     continue;
+                }
 
                 ours.Add(pin);
 
@@ -283,7 +289,13 @@ namespace CarturMapPins
                 bool wasLooted = category == PinCategory.Chest &&
                                  pin.m_type == CustomIcons.TypeForIndex(LegacyLootedChestIcon);
                 if (!wasLooted && pin.m_type != CustomIcons.TypeForIndex(legacyIndex))
+                {
+#if DIAGNOSTICS
+                    Plugin.Log.LogInfo($"  migrate: '{e.Key}' at {e.Pos.x:F0},{e.Pos.z:F0} - on type {(int)pin.m_type}, 1.2.2 would have written {100 + legacyIndex} - left alone");
+#endif
+                    otherIcon++;
                     continue;   // already migrated, or the player chose this icon
+                }
 
                 Minimap.PinType wanted = wasLooted
                     ? CustomIcons.Resolve((int)Plugin.LootedChestIcon.Value, settings.ResolvedPinType)
@@ -314,8 +326,17 @@ namespace CarturMapPins
                     handPlaced++;
             }
             if (handPlaced > 0)
-                Plugin.Log.LogInfo($"{handPlaced} hand-placed pin(s) use a custom icon and may look different after the icon sheet changed - re-pick them from the map picker if so.");
+                Plugin.Log.LogInfo($"{handPlaced} pin(s) carry a custom icon but are not in our record - hand-placed, so their artwork shifted with the sheet and cannot be recovered.");
 
+            Plugin.Log.LogInfo($"Icon migration detail: {migrated} repointed, {notFound} record(s) had no pin, " +
+                               $"{otherIcon} already on another icon, {handPlaced} not ours.");
+#if DIAGNOSTICS
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin.m_save && CustomIcons.IsCustom(pin.m_type) && !ours.Contains(pin))
+                    Plugin.Log.LogInfo($"  not ours: type {(int)pin.m_type} '{pin.m_name}' at {pin.m_pos.x:F0},{pin.m_pos.z:F0}");
+            }
+#endif
             return migrated;
         }
 

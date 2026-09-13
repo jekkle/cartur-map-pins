@@ -54,9 +54,11 @@ namespace CarturMapPins
                 if (fixedUp > 0)
                     Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
 
+                // Logged even when it changes nothing: "no line in the log" would otherwise be
+                // indistinguishable from "the migration never ran", which is exactly the question
+                // you need answered when checking whether an upgrade repaired someone's map.
                 int repointed = PinRecord.MigrateIcons();
-                if (repointed > 0)
-                    Plugin.Log.LogInfo($"Repointed {repointed} pin(s) from the old icon sheet to the current one.");
+                Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
             }
 
             Vector3 playerPos = player.transform.position;
@@ -176,6 +178,12 @@ namespace CarturMapPins
             Probe.Nearby(null, 25f);
             Probe.DumpCategory(null, "Ore");
             Probe.DumpSpawners(null);
+            // Pickables are bucketed into six groups, so the per-plant names the icon sheet is
+            // drawn against only exist on the prefabs themselves - same problem as the spawners.
+            Probe.DumpLabels(null, "Pickable");
+            // Three prefabs, and the trader icon table is matched against their names - cheap to
+            // confirm rather than leave as the one guess nothing else would catch.
+            Probe.DumpLabels(null, "Trader");
             Probe.DumpLocations(null);
             Probe.DumpFonts(null);
         }
@@ -625,7 +633,11 @@ namespace CarturMapPins
                     return PinCatalog.OreTypeOf(hash);
 
                 case PinCategory.Pickable:
-                    return PinCatalog.GroupOf(hash).ToString();
+                    // The specific plant where the sheet has art for it, otherwise the group it
+                    // belongs to. Both are valid subtypes - IconFor tells them apart by whether
+                    // the string parses as a PickableGroup.
+                    return Subtypes.Match(Subtypes.Pickables, Utils.GetPrefabName(go))
+                           ?? PinCatalog.GroupOf(hash).ToString();
 
                 case PinCategory.Trader:
                     return Subtypes.Match(Subtypes.Traders, Utils.GetPrefabName(go));
@@ -652,10 +664,13 @@ namespace CarturMapPins
         /// listing a category here is safe even when a particular instance didn't match.
         internal static Minimap.PinType IconFor(PinCategory category, string subtype, Plugin.CategorySettings settings)
         {
-            if (category == PinCategory.Pickable &&
-                System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
+            if (category == PinCategory.Pickable)
             {
-                return Plugin.PickableIconFor(group, settings.PinType.Value);
+                // A subtype that names a group means no per-plant art matched; anything else is
+                // a specific plant with its own icon.
+                return System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group)
+                    ? Plugin.PickableIconFor(group, settings.PinType.Value)
+                    : Plugin.SubtypeIconFor(subtype, settings);
             }
 
             if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
