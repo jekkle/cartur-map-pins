@@ -704,16 +704,7 @@ namespace CarturMapPins
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
-            if (settings == null || !settings.Enabled.Value)
-                return;
-
-            // Ore additionally honours its per-type switch, so you can pin copper but ignore tin.
-            if (category == PinCategory.Ore && !Plugin.OreTypeEnabled(subtype))
-                return;
-
-            // Landmarks likewise: there are thirteen abandoned houses to every well, and wanting
-            // one kind is not wanting all of them.
-            if (category == PinCategory.Landmark && !Plugin.LandmarkEnabled(subtype))
+            if (settings == null)
                 return;
 
             // Dedupe on category+subtype: a category-wide radius would let a copper pin suppress
@@ -728,9 +719,26 @@ namespace CarturMapPins
                 // "Spawner" where we can now see it is a boar. Standing next to the thing is the
                 // only moment that information exists, so take it now rather than leave the pin
                 // on the generic category icon forever.
+                //
+                // Runs before the switches below on purpose. Turning a category off means "place
+                // no more of these", not "freeze the pins I already have on the generic glyph" -
+                // and with Spawner off by default, gating this behind Enabled left every pin from
+                // an older version stuck on the summoning circle with no way to ever repair it.
                 PinRecord.Upgrade(category, subtype, pos, settings.DedupeRadius.Value, pinType);
                 return;
             }
+
+            if (!settings.Enabled.Value)
+                return;
+
+            // Ore additionally honours its per-type switch, so you can pin copper but ignore tin.
+            if (category == PinCategory.Ore && !Plugin.OreTypeEnabled(subtype))
+                return;
+
+            // Landmarks likewise: there are thirteen abandoned houses to every well, and wanting
+            // one kind is not wanting all of them.
+            if (category == PinCategory.Landmark && !Plugin.LandmarkEnabled(subtype))
+                return;
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
