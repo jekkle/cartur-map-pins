@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
@@ -109,5 +111,56 @@ namespace CarturMapPins
         }
 
         private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
+    }
+
+    /// Removes vanilla's own boss-altar marker wherever we have placed ours, so enabling the
+    /// BossAltar category doesn't leave two icons stacked on the same altar.
+    ///
+    /// Vanilla keeps these in a separate Dictionary&lt;Vector3, PinData&gt; (m_locationPins), refilled
+    /// by UpdateLocationPins every 5s from ZoneSystem.GetLocationIcons - so this has to run after
+    /// each refill rather than once, and a Postfix on that method is exactly that moment.
+    ///
+    /// Deliberately NOT a Prefix returning false: that would suppress every location marker,
+    /// including Haldor's and the Ashlands upgrade station, which we do not replace. Only pins
+    /// that coincide with one of our own BossAltar records are dropped.
+    ///
+    /// Until an altar is actually discovered and pinned by us, vanilla's marker is left alone -
+    /// so nothing disappears, it is only ever replaced by the named, saved version.
+    [HarmonyPatch(typeof(Minimap), "UpdateLocationPins")]
+    internal static class Patch_Minimap_UpdateLocationPins
+    {
+        private static readonly FieldInfo LocationPins = AccessTools.Field(typeof(Minimap), "m_locationPins");
+
+        /// Altars are large; vanilla's marker sits at the location centre while ours lands on the
+        /// offering bowl, so this is generous rather than exact.
+        private const float SamePlace = 12f;
+
+        private static void Postfix(Minimap __instance)
+        {
+            Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.BossAltar);
+            if (settings == null || !settings.Enabled.Value)
+                return;
+
+            var pins = LocationPins?.GetValue(__instance) as Dictionary<Vector3, Minimap.PinData>;
+            if (pins == null || pins.Count == 0)
+                return;
+
+            List<Vector3> drop = null;
+            foreach (KeyValuePair<Vector3, Minimap.PinData> kv in pins)
+            {
+                if (!PinRecord.HasCategoryNear(PinCategory.BossAltar, kv.Key, SamePlace))
+                    continue;
+                (drop ?? (drop = new List<Vector3>())).Add(kv.Key);
+            }
+
+            if (drop == null)
+                return;
+
+            foreach (Vector3 key in drop)
+            {
+                __instance.RemovePin(pins[key]);
+                pins.Remove(key);
+            }
+        }
     }
 }

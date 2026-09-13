@@ -172,6 +172,23 @@ namespace CarturMapPins
             return dropped;
         }
 
+        /// True when we have a pin of this category within `radius` of a position. Used to decide
+        /// whether vanilla's own marker at the same spot is now a duplicate of ours.
+        public static bool HasCategoryNear(PinCategory category, Vector3 pos, float radius)
+        {
+            string bareKey = category.ToString();
+            float sqr = radius * radius;
+            foreach (Entry e in Entries)
+            {
+                if (e.Key != bareKey && !e.Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                    continue;
+                Vector3 d = e.Pos - pos;
+                if (d.x * d.x + d.z * d.z <= sqr)
+                    return true;
+            }
+            return false;
+        }
+
         /// Writes pending changes at most once per interval. Cheap no-op when nothing changed.
         public static void Flush()
         {
