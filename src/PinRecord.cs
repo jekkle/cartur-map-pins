@@ -310,7 +310,14 @@ namespace CarturMapPins
                 string name = pin.m_name;
                 bool wasChecked = pin.m_checked;
                 map.RemovePin(pin);
-                map.AddPin(e.Pos, wanted, name, save: true, isChecked: wasChecked);
+
+                // The replacement is a different PinData object, so it has to be recorded as ours
+                // too. Without this every pin we just repaired counts as "not in our record" in
+                // the tally below - which is exactly what reported 27 phantom hand-placed pins on
+                // the first live run, one per pin actually migrated.
+                Minimap.PinData added = map.AddPin(e.Pos, wanted, name, save: true, isChecked: wasChecked);
+                if (added != null)
+                    ours.Add(added);
                 migrated++;
             }
 
