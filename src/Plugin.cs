@@ -136,7 +136,7 @@ namespace CarturMapPins
                     $"Pin {type} deposits. Requires the Ore category to be enabled.");
             }
 
-            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilCheck,
+            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1)));
@@ -311,6 +311,10 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_locations",
                 "Diagnostics: dumps every location prefab name the world generator knows, which is the authoritative source for the dungeon/camp subtype tables.",
                 args => Probe.DumpLocations(args));
+
+            new Terminal.ConsoleCommand("carturpins_spawners",
+                "Diagnostics: every spawner prefab, the creature it spawns, and whether it has a subtype icon. The source for the spawner icon table.",
+                args => Probe.DumpSpawners(args));
 
             new Terminal.ConsoleCommand("carturpins_labels",
                 "Diagnostics: every catalogued prefab and the map label it would get, e.g. `carturpins_labels Chest`. No argument dumps all categories.",

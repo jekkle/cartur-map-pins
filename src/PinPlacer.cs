@@ -53,6 +53,10 @@ namespace CarturMapPins
                 int fixedUp = PinRecord.RelabelSpawners();
                 if (fixedUp > 0)
                     Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
+
+                int repointed = PinRecord.MigrateIcons();
+                if (repointed > 0)
+                    Plugin.Log.LogInfo($"Repointed {repointed} pin(s) from the old icon sheet to the current one.");
             }
 
             Vector3 playerPos = player.transform.position;
@@ -171,6 +175,7 @@ namespace CarturMapPins
             Plugin.Log.LogInfo("=== auto-probe (set Diagnostics/AutoProbeOnSpawn=false to disable) ===");
             Probe.Nearby(null, 25f);
             Probe.DumpCategory(null, "Ore");
+            Probe.DumpSpawners(null);
             Probe.DumpLocations(null);
             Probe.DumpFonts(null);
         }
@@ -558,8 +563,35 @@ namespace CarturMapPins
 
         /// The spawned creature's prefab name ("Greydwarf", "Goblin"), which is what the spawner
         /// icon table matches on. Unlike the label, this must stay untranslated.
-        private static string SpawnedCreaturePrefabName(GameObject go) =>
+        ///
+        /// internal so the probe can dump it: this is the one value the Subtypes.Spawners table
+        /// is written against, and it cannot be read offline.
+        internal static string SpawnedCreaturePrefabName(GameObject go) =>
             SpawnedCreaturePrefab(go)?.name;
+
+        /// Every creature a spawner lists, for diagnostics. The matcher only uses the first, so
+        /// dumping all of them is what shows whether that is the right choice.
+        internal static string AllSpawnedCreatureNames(GameObject go)
+        {
+            CreatureSpawner spawner = go.GetComponent<CreatureSpawner>();
+            if (spawner != null && spawner.m_creaturePrefab != null)
+                return spawner.m_creaturePrefab.name;
+
+            SpawnArea area = go.GetComponent<SpawnArea>();
+            if (area == null || area.m_prefabs == null || area.m_prefabs.Count == 0)
+                return null;
+
+            var sb = new System.Text.StringBuilder();
+            foreach (SpawnArea.SpawnData sd in area.m_prefabs)
+            {
+                if (sd?.m_prefab == null)
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append(", ");
+                sb.Append(sd.m_prefab.name);
+            }
+            return sb.Length > 0 ? sb.ToString() : null;
+        }
 
         private static string SpawnedCreatureName(GameObject go)
         {
@@ -609,6 +641,33 @@ namespace CarturMapPins
             }
         }
 
+        /// The icon a pin of this kind should currently carry.
+        ///
+        /// Shared by the pinning path and the one-shot icon migration, deliberately: if the two
+        /// computed it separately they could disagree, and the migration would "fix" pins to
+        /// something the mod would never place.
+        ///
+        /// Pickables resolve by group, everything else by the subtype name. SubtypeIconFor falls
+        /// back to the category's own setting when the subtype is null or has no icon bound, so
+        /// listing a category here is safe even when a particular instance didn't match.
+        internal static Minimap.PinType IconFor(PinCategory category, string subtype, Plugin.CategorySettings settings)
+        {
+            if (category == PinCategory.Pickable &&
+                System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
+            {
+                return Plugin.PickableIconFor(group, settings.PinType.Value);
+            }
+
+            if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
+                category == PinCategory.Ore || category == PinCategory.BossAltar ||
+                category == PinCategory.Trader || category == PinCategory.Spawner)
+            {
+                return Plugin.SubtypeIconFor(subtype, settings);
+            }
+
+            return settings.ResolvedPinType;
+        }
+
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
@@ -626,22 +685,7 @@ namespace CarturMapPins
             if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
                 return;
 
-            // Icons resolve per subtype where one exists: pickables by group, everything else by
-            // the name matched above. SubtypeIconFor falls back to the category's own setting
-            // when the subtype is null or has no icon bound, so listing a category here is safe
-            // even when a particular instance didn't match.
-            Minimap.PinType pinType = settings.ResolvedPinType;
-            if (category == PinCategory.Pickable &&
-                System.Enum.TryParse(subtype ?? string.Empty, out PickableGroup group))
-            {
-                pinType = Plugin.PickableIconFor(group, settings.PinType.Value);
-            }
-            else if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
-                     category == PinCategory.Ore || category == PinCategory.BossAltar ||
-                     category == PinCategory.Trader || category == PinCategory.Spawner)
-            {
-                pinType = Plugin.SubtypeIconFor(subtype, settings);
-            }
+            Minimap.PinType pinType = IconFor(category, subtype, settings);
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.

@@ -222,6 +222,53 @@ namespace CarturMapPins
             }
         }
 
+        /// Every registered spawner, with the creature prefab name it actually spawns and whether
+        /// Subtypes.Spawners currently matches it.
+        ///
+        /// This is the authoritative source for that table and there is no offline substitute:
+        /// creature prefab names are Unity asset references, not string literals, so the table
+        /// can only be written from a list the running game hands over. Anything reported NONE
+        /// here is a spawner showing the generic category icon.
+        public static void DumpSpawners(Terminal.ConsoleEventArgs args)
+        {
+            ZNetScene scene = ZNetScene.instance;
+            if (scene == null)
+            {
+                Emit(args, "No ZNetScene - load into a world first.");
+                return;
+            }
+
+            if (!PinCatalog.NamesByCategory.TryGetValue(PinCategory.Spawner, out List<string> names))
+            {
+                Emit(args, "No Spawner prefabs in the catalog.");
+                return;
+            }
+
+            Emit(args, $"--- {names.Count} Spawner prefabs: spawner -> creature -> matched subtype ---");
+
+            int unmatched = 0;
+            foreach (string prefabName in names)
+            {
+                GameObject prefab = scene.GetPrefab(prefabName.GetStableHashCode());
+                if (prefab == null)
+                {
+                    Emit(args, $"    {prefabName,-38} <prefab not in scene>");
+                    continue;
+                }
+
+                string creature = PinPlacer.SpawnedCreaturePrefabName(prefab);
+                string all = PinPlacer.AllSpawnedCreatureNames(prefab);
+                string matched = Subtypes.Match(Subtypes.Spawners, creature);
+                if (matched == null)
+                    unmatched++;
+
+                string extra = all != null && all != creature ? $"  [all: {all}]" : "";
+                Emit(args, $"    {prefabName,-38} -> {creature ?? "(none)",-24} -> {matched ?? "NONE"}{extra}");
+            }
+
+            Emit(args, $"--- {unmatched} of {names.Count} spawners have no subtype icon ---");
+        }
+
         private static void Emit(Terminal.ConsoleEventArgs args, string line)
         {
             Plugin.Log.LogInfo(line);

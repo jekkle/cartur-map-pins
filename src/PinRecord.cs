@@ -179,6 +179,146 @@ namespace CarturMapPins
             return renamed;
         }
 
+        /// What 1.2.2 wrote into saved pins, by category and by dungeon/camp/pickable subtype.
+        ///
+        /// FROZEN HISTORICAL DATA - do not update these to follow the current defaults. They are
+        /// what makes the migration below able to tell "this pin still carries the old sheet's
+        /// icon" from "the player chose this". Changing a value here would make the migration
+        /// either miss pins or overwrite deliberate choices.
+        ///
+        /// Categories whose 1.2.2 icon was -1 (BossAltar, Runestone) are deliberately absent:
+        /// they resolved to a vanilla PinType, which the sheet swap never touched.
+        /// Tomb and Dvergr Tower are 1.2.2 subtypes the current table no longer has - their pins
+        /// still need migrating, and they correctly land on the category icon.
+        private static readonly Dictionary<string, int> LegacyCategoryIcon = new Dictionary<string, int>
+        {
+            { "Ore", 47 }, { "Dungeon", 22 }, { "Camp", 34 }, { "Beehive", 6 },
+            { "Chest", 45 }, { "Spawner", 48 }, { "Leviathan", 59 }, { "Trader", 15 },
+            { "Wisp", 32 },
+        };
+
+        private static readonly Dictionary<string, int> LegacySubtypeIcon = new Dictionary<string, int>
+        {
+            { "Hildir Crypt", 22 }, { "Hildir Cave", 18 }, { "Sunken Crypt", 28 },
+            { "Infested Citadel", 67 }, { "Infested Mine", 57 }, { "Frost Cave", 18 },
+            { "Troll Cave", 50 }, { "Putrid Hole", 73 }, { "Tomb", 71 }, { "Crypt", 22 },
+            { "Hildir Fortress", 16 }, { "Fuling Village", 77 }, { "Charred Fortress", 16 },
+            { "Ashlands Ruin", 74 }, { "Abandoned Village", 79 }, { "Abandoned Farm", 41 },
+            { "Greydwarf Camp", 13 }, { "Dvergr Tower", 67 }, { "Hildir Camp", 34 },
+            { "Berries", 36 }, { "Mushrooms", 76 }, { "Crops", 37 }, { "HighValue", 21 },
+            { "Junk", 0 }, { "Other", 0 },
+            // Ore types are absent on purpose: 1.2.2 had no per-ore icon, so "Ore:Tin" used the
+            // Ore category icon and must fall through to it.
+        };
+
+        /// The icon index 1.2.2 would have given a pin with this record key, or -1 for none.
+        private static int LegacyIconFor(string key, out PinCategory category, out string subtype)
+        {
+            category = default;
+            subtype = null;
+
+            int colon = key.IndexOf(':');
+            string categoryName = colon > 0 ? key.Substring(0, colon) : key;
+            if (colon > 0)
+                subtype = key.Substring(colon + 1);
+
+            if (!Enum.TryParse(categoryName, out category))
+                return -1;
+
+            if (subtype != null && LegacySubtypeIcon.TryGetValue(subtype, out int bySubtype))
+                return bySubtype;
+
+            return LegacyCategoryIcon.TryGetValue(categoryName, out int byCategory) ? byCategory : -1;
+        }
+
+        /// 1.2.2's looted-chest icon. A chest pin can be sitting on either this or the normal
+        /// chest icon, and which one it is says whether the chest was empty - information the
+        /// record itself does not carry.
+        private const int LegacyLootedChestIcon = 51;
+
+        /// Repoints pins placed by 1.2.2 at the icons they mean under the current sheet.
+        ///
+        /// The sheet was replaced wholesale, so an index that meant "pickaxe" now means
+        /// "shipwreck" - every pin 1.2.2 saved would otherwise show unrelated artwork.
+        ///
+        /// Self-limiting rather than version-stamped: a pin is only rewritten when it still
+        /// carries exactly the icon 1.2.2 would have given it. That makes this idempotent (after
+        /// the rewrite it no longer matches), safe across multiple worlds sharing one record
+        /// (a config stamp would mark the first world done and leave the rest broken), and
+        /// incapable of overwriting an icon the player picked themselves.
+        ///
+        /// Hand-placed pins are never touched: they aren't in the record. They are only counted,
+        /// because their artwork has shifted too and there is no way to recover what was meant.
+        public static int MigrateIcons()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return 0;
+
+            int migrated = 0;
+            var ours = new HashSet<Minimap.PinData>();
+
+            foreach (Entry e in Entries)
+            {
+                int legacyIndex = LegacyIconFor(e.Key, out PinCategory category, out string subtype);
+                if (legacyIndex < 0)
+                    continue;
+
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                if (settings == null)
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null)
+                    continue;
+
+                ours.Add(pin);
+
+                // A chest sitting on the old looted icon is one we knew was empty, so it has to
+                // migrate to the current looted icon rather than the normal one.
+                bool wasLooted = category == PinCategory.Chest &&
+                                 pin.m_type == CustomIcons.TypeForIndex(LegacyLootedChestIcon);
+                if (!wasLooted && pin.m_type != CustomIcons.TypeForIndex(legacyIndex))
+                    continue;   // already migrated, or the player chose this icon
+
+                Minimap.PinType wanted = wasLooted
+                    ? CustomIcons.Resolve((int)Plugin.LootedChestIcon.Value, settings.ResolvedPinType)
+                    : PinPlacer.IconFor(category, subtype, settings);
+
+                if (wanted == pin.m_type)
+                    continue;
+
+                // Replaced rather than mutated: a pin's sprite is resolved once when it is
+                // created and the field that forces a UI rebuild is private - the same reason
+                // the looted-chest sweep re-adds instead of writing m_type.
+                string name = pin.m_name;
+                bool wasChecked = pin.m_checked;
+                map.RemovePin(pin);
+                map.AddPin(e.Pos, wanted, name, save: true, isChecked: wasChecked);
+                migrated++;
+            }
+
+            if (migrated > 0)
+                map.SaveMapData();
+
+            // Pins carrying a custom icon that we did not place. Their artwork has shifted too,
+            // but nothing records which icon was chosen, so say so rather than guess.
+            int handPlaced = 0;
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin.m_save && CustomIcons.IsCustom(pin.m_type) && !ours.Contains(pin))
+                    handPlaced++;
+            }
+            if (handPlaced > 0)
+                Plugin.Log.LogInfo($"{handPlaced} hand-placed pin(s) use a custom icon and may look different after the icon sheet changed - re-pick them from the map picker if so.");
+
+            return migrated;
+        }
+
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(map);

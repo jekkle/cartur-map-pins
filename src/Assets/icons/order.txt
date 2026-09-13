@@ -150,3 +150,4 @@ util_longship
 poi_maypole
 util_longship_old
 util_sailboat_old
+util_chest_open

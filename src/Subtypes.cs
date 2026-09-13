@@ -138,8 +138,10 @@ namespace CarturMapPins
             E("growth", "Growth", 16),
             E("boar", "Boar", 15),
             E("fenring", "Fenring", 17),
+            E("fallenvalkyrie", "Fallen Valkyrie", 132),
             E("troll", "Troll", 21),
             E("wolf", "Wolf", 22),
+            E("ulv", "Ulv", 22),               // wolf-kin, and there is no ulv glyph
             E("deathsquito", "Deathsquito", 23),
             E("lox", "Lox", 24),
             E("gjall", "Gjall", 25),
