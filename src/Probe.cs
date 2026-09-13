@@ -142,16 +142,43 @@ namespace CarturMapPins
                     continue;
                 string name = !string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)";
                 string flags = zl.m_iconAlways ? " iconAlways" : (zl.m_iconPlaced ? " iconPlaced" : "");
-                // The two fields TryClassifyLocation actually branches on. Without them the dump
-                // cannot tell a location nobody pins from one pinned on the generic category
-                // icon, which is the whole question when deciding what deserves a subtype.
-                Location loc = zl.m_prefab.IsValid ? zl.m_prefab.Asset.GetComponent<Location>() : null;
-                string kind = loc == null ? " kind=?"
-                    : loc.m_hasInterior ? " kind=dungeon"
-                    : loc.m_generator != null ? " kind=camp"
-                    : " kind=surface";
-                string gen = loc != null && loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
-                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{kind}{gen}");
+                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{Shape(zl)}");
+            }
+        }
+
+        /// The two fields TryClassifyLocation branches on, read off the location prefab itself.
+        /// Without them the dump cannot tell a location nobody pins from one pinned on the generic
+        /// category icon, which is the whole question when deciding what deserves a subtype.
+        ///
+        /// ZoneLocation.m_prefab is a SoftReference, and its Asset getter throws until the prefab
+        /// is loaded - so this is the sequence ZoneSystem.SpawnLocation itself uses: Load, read,
+        /// Release. A location already held by the world stays held; only ones this loads are
+        /// released again.
+        private static string Shape(ZoneSystem.ZoneLocation zl)
+        {
+            if (!zl.m_prefab.IsValid)
+                return " kind=?";
+
+            bool alreadyLoaded = zl.m_prefab.IsLoaded;
+            if (!alreadyLoaded)
+                zl.m_prefab.Load();
+
+            try
+            {
+                GameObject asset = zl.m_prefab.Asset;
+                Location loc = asset != null ? asset.GetComponent<Location>() : null;
+                if (loc == null)
+                    return " kind=?";
+
+                string gen = loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
+                return (loc.m_hasInterior ? " kind=dungeon"
+                        : loc.m_generator != null ? " kind=camp"
+                        : " kind=surface") + gen;
+            }
+            finally
+            {
+                if (!alreadyLoaded)
+                    zl.m_prefab.Release();
             }
         }
 
