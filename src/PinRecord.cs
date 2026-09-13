@@ -307,17 +307,8 @@ namespace CarturMapPins
                 // Replaced rather than mutated: a pin's sprite is resolved once when it is
                 // created and the field that forces a UI rebuild is private - the same reason
                 // the looted-chest sweep re-adds instead of writing m_type.
-                string name = pin.m_name;
-                bool wasChecked = pin.m_checked;
-                map.RemovePin(pin);
-
-                // The replacement is a different PinData object, so it has to be recorded as ours
-                // too. Without this every pin we just repaired counts as "not in our record" in
-                // the tally below - which is exactly what reported 27 phantom hand-placed pins on
-                // the first live run, one per pin actually migrated.
-                Minimap.PinData added = map.AddPin(e.Pos, wanted, name, save: true, isChecked: wasChecked);
-                if (added != null)
-                    ours.Add(added);
+                if (!Repoint(map, pin, wanted))
+                    continue;
                 migrated++;
             }
 
@@ -345,6 +336,51 @@ namespace CarturMapPins
             }
 #endif
             return migrated;
+        }
+
+        /// Changes a pin's icon without removing it.
+        ///
+        /// The obvious approach - RemovePin then AddPin - is what the looted-chest sweep used to
+        /// do, on the reasoning that a pin's sprite is resolved once at creation and the rebuild
+        /// flag is private. Both halves of that are true and the conclusion still doesn't follow:
+        /// AddPin resolves GetSprite into PinData.m_icon, and m_type, m_icon and m_iconElement are
+        /// all public, so the cached sprite can simply be replaced in place.
+        ///
+        /// That matters for other people's saves. PinData carries sixteen fields; re-adding
+        /// carries five of them across and invents defaults for the rest - m_ownerID and m_author
+        /// among them, and m_ownerID is load-bearing, since the render loop hides any pin whose
+        /// owner is non-zero. Editing in place cannot lose a field nobody thought to copy, and
+        /// there is no instant where the pin does not exist.
+        ///
+        /// Returns false when the sprite can't be resolved, leaving the pin exactly as it was
+        /// rather than repointing m_type at an icon that would not render.
+        internal static bool Repoint(Minimap map, Minimap.PinData pin, Minimap.PinType wanted)
+        {
+            Sprite sprite = SpriteFor(map, wanted);
+            if (sprite == null)
+                return false;
+
+            pin.m_type = wanted;
+            pin.m_icon = sprite;
+            // Null until UpdatePins has built the pin's UI element; it reads m_icon when it does,
+            // so there is nothing to refresh in that case.
+            if (pin.m_iconElement != null)
+                pin.m_iconElement.sprite = sprite;
+            return true;
+        }
+
+        /// The same lookup Minimap.GetSprite does - m_icons is a public list, so this needs no
+        /// reflection and picks up the custom types registered by CustomIcons for free.
+        private static Sprite SpriteFor(Minimap map, Minimap.PinType type)
+        {
+            if (map.m_icons == null)
+                return null;
+            foreach (Minimap.SpriteData data in map.m_icons)
+            {
+                if (data.m_name == type)
+                    return data.m_icon;
+            }
+            return null;
         }
 
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)

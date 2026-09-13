@@ -141,13 +141,11 @@ namespace CarturMapPins
                 if (match == null || match.m_type == wanted)
                     continue;
 
-                // Replaced rather than mutated in place: a pin's sprite is resolved once when
-                // it's created, and the field that forces a UI rebuild is private. Re-adding is
-                // both simpler and guaranteed to render and persist correctly.
-                string name = match.m_name;
-                bool wasChecked = match.m_checked;
-                Minimap.instance.RemovePin(match);
-                Minimap.instance.AddPin(pos, wanted, name, save: true, isChecked: wasChecked);
+                // Edited in place rather than removed and re-added. PinData carries sixteen fields
+                // and AddPin takes five, so re-adding quietly reset the rest - and this runs every
+                // couple of seconds for every chest you walk past. See PinRecord.Repoint.
+                if (!PinRecord.Repoint(Minimap.instance, match, wanted))
+                    continue;
                 Plugin.Log.LogInfo($"Chest pin at {pos.x:F0},{pos.z:F0} -> {(empty ? "looted" : "restocked")}");
             }
         }
