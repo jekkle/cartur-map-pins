@@ -139,6 +139,21 @@ namespace CarturMapPins
                 category = PinCategory.BossAltar;
                 return true;
             }
+            // The seven guardian stones at the spawn temple - the ones you hang boss trophies on -
+            // carry a RuneStone component alongside their BossStone, so they classified as
+            // Runestones and put seven pins inside one 20 m ring at world spawn.
+            //
+            // Nothing is lost by dropping them: the temple has a marker of its own already.
+            // StartTemple is the one location in ZoneSystem flagged iconAlways, so vanilla draws
+            // it at world generation whether or not the player has been there.
+            //
+            // BossStone is the right test rather than the "BossStone_" prefab name: the component
+            // owns the trophy ItemStand, which is what makes one of these a temple stone.
+            if (prefab.GetComponent<BossStone>() != null)
+            {
+                category = default;
+                return false;
+            }
             if (prefab.GetComponent<Vegvisir>() != null || prefab.GetComponent<RuneStone>() != null)
             {
                 category = PinCategory.Runestone;

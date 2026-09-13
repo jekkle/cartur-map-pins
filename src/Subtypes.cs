@@ -211,6 +211,10 @@ namespace CarturMapPins
         /// Locations already covered by another category are deliberately absent: the boss altars,
         /// the eleven Runestone_* lore stones, Vendor_BlackForest (Haldor, handled as a Trader),
         /// and the nest/spawner locations, all of which would otherwise pin twice.
+        ///
+        /// StartTemple is absent for the same reason even though nothing of ours covers it:
+        /// it is the one location flagged iconAlways, so vanilla marks the spawn temple at world
+        /// generation and a landmark pin there would be the second icon on the same spot.
         public static readonly Entry[] Landmarks =
         {
             E("shipwreck", "Shipwreck", 47),
@@ -238,7 +242,6 @@ namespace CarturMapPins
             E("mistlands_lighthouse", "Lighthouse", 40),
             E("gammeltroll", "Petrified Troll", 125),
             E("leviathanlava", "Lava Leviathan", 128),
-            E("starttemple", "Sacrificial Stones", 59),
             E("ancientupgradestation", "Ancient Upgrade Station", 75),
             E("infestedtree", "Infested Tree", 14),
         };

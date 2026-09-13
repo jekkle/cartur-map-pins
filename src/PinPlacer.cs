@@ -468,8 +468,6 @@ namespace CarturMapPins
                     return Labels.ForSpawner(Utils.GetPrefabName(go));
 
                 case PinCategory.Runestone:
-                    // BossStone_* reach here through the spawn hook, not the location sweep, so
-                    // VegvisirLabel was never consulted and the map read "BossStone_Eikthyr".
                     Vegvisir vegvisir = go.GetComponent<Vegvisir>();
                     if (vegvisir != null)
                     {
@@ -477,35 +475,18 @@ namespace CarturMapPins
                         if (!string.IsNullOrEmpty(vegLabel))
                             return vegLabel;
                     }
-                    // The category is Vegvisir OR RuneStone, and the boss stones are the second
-                    // kind - a different component with its own pin name, which is why handling
-                    // only Vegvisir left them reading "BossStone_Eikthyr".
-                    // m_name before m_pinName, unlike Vegvisir above. Every BossStone ships
-                    // m_pinName = "Pin", a Unity default nobody filled in, and preferring it
-                    // labelled all seven boss stones "Pin".
+                    // The category is Vegvisir OR RuneStone, so the second component gets asked
+                    // too. m_name before m_pinName, unlike Vegvisir above: a RuneStone that never
+                    // had its pin name filled in ships the Unity default "Pin".
                     RuneStone runeStone = go.GetComponent<RuneStone>();
                     if (runeStone != null)
                     {
                         if (!string.IsNullOrEmpty(runeStone.m_name))
-                        {
-                            // All seven boss stones share one m_name ($guardianstone_name), so the
-                            // component alone cannot say which boss this is - only the prefab can.
-                            // Localization.Localize substitutes $tokens anywhere in a string, so
-                            // "Eikthyr $guardianstone_name" renders as "Eikthyr Guardian stone"
-                            // and stays correct in every language.
-                            string prefabName = Utils.GetPrefabName(go);
-                            const string bossPrefix = "BossStone_";
-                            if (prefabName.StartsWith(bossPrefix, System.StringComparison.OrdinalIgnoreCase))
-                                return Labels.Prettify(prefabName.Substring(bossPrefix.Length))
-                                       + " " + runeStone.m_name;
-
                             return runeStone.m_name;
-                        }
                         if (!string.IsNullOrEmpty(runeStone.m_pinName) && runeStone.m_pinName != "Pin")
                             return runeStone.m_pinName;
                     }
-                    // Nothing usable on the component: fall through to the prettified prefab name,
-                    // which gives "Boss Stone Eikthyr". Not ideal, but it names the thing.
+                    // Nothing usable on the component: fall through to the prettified prefab name.
                     break;
 
                 case PinCategory.BossAltar:
