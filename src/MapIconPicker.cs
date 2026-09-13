@@ -43,15 +43,7 @@ namespace CarturMapPins
         /// scroll wheel alone. Unity's own ScrollRect already handles the wheel through the event
         /// system; the map does not go through the event system at all, so the two would
         /// otherwise both act on one wheel tick.
-        public static bool PointerOverPanel()
-        {
-            if (_panel == null || _panelRect == null || !_panel.activeInHierarchy)
-                return false;
-
-            // ZInput.pointerPosition rather than Input.mousePosition: it is what the game itself
-            // treats as the cursor, so this still works when a gamepad is driving it.
-            return RectTransformUtility.RectangleContainsScreenPoint(_panelRect, ZInput.pointerPosition, _canvasCamera);
-        }
+        public static bool PointerOverPanel() => IconGrid.PointerOver(_panel, _panelRect, _canvasCamera);
 
         public static void Build(Minimap map)
         {
@@ -87,13 +79,7 @@ namespace CarturMapPins
             Image bg = _panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.55f);
 
-            // A Screen Space - Overlay canvas must be hit-tested with a null camera; anything else
-            // needs its own. Passing the wrong one puts the rect in the wrong coordinate space and
-            // the test silently never matches.
-            Canvas canvas = _panel.GetComponentInParent<Canvas>();
-            _canvasCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
-                ? canvas.worldCamera
-                : null;
+            _canvasCamera = IconGrid.CameraFor(_panel);
 
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
@@ -156,10 +142,10 @@ namespace CarturMapPins
     }
 
     /// Vanilla's left-click on a pin ticks it off (or clears a shared pin's owner first). Holding
-    /// shift repoints it to the selected icon instead, so an existing pin can be corrected without
+    /// shift opens the pin editor on it instead, so a pin can be renamed or re-iconed without
     /// deleting and replacing it.
     ///
-    /// Returning false skips the original deliberately: shift-click means "change this icon", and
+    /// Returning false skips the original deliberately: shift-click means "edit this pin", and
     /// letting vanilla also toggle the tick would make one click do two unrelated things.
     [HarmonyPatch(typeof(Minimap), nameof(Minimap.OnMapLeftClick))]
     internal static class Patch_Minimap_OnMapLeftClick
@@ -194,7 +180,9 @@ namespace CarturMapPins
     {
         private static bool Prefix(ref float __result)
         {
-            if (!MapIconPicker.PointerOverPanel())
+            // Both panels scroll their own grid, so the wheel has to be withheld from the map
+            // over either of them.
+            if (!MapIconPicker.PointerOverPanel() && !PinEditor.PointerOverPanel())
                 return true;
             __result = 0f;
             return false;

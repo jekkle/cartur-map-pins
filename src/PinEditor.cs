@@ -9,32 +9,39 @@ namespace CarturMapPins
 {
     /// A small panel for editing one existing pin: rename it, or give it a different icon.
     ///
-    /// Opened by shift-clicking a pin on the large map. Works on any pin, ours or hand-placed,
-    /// which is the only repair available for a pin whose artwork moved when the icon sheet was
-    /// replaced - nothing records which icon was originally meant, but the player can point at
-    /// the pin and choose again.
+    /// Opened by shift-clicking a pin on the large map, and placed beside that pin rather than in
+    /// a fixed corner, so the icon being changed stays visible while you choose its replacement.
     ///
-    /// Parented to Minimap.m_largeRoot so it disappears with the map rather than needing its own
-    /// open/close bookkeeping.
+    /// Works on any pin, ours or hand-placed, which is the only repair available for a pin whose
+    /// artwork moved when the icon sheet was replaced - nothing records which icon was originally
+    /// meant, but the player can point at the pin and choose again.
+    ///
+    /// Nothing is written until Confirm: picking an icon only marks the choice, so a misclick in
+    /// a 153-icon grid costs nothing.
     internal static class PinEditor
     {
         private const int Columns = 5;
         private const float VisibleRows = 5f;
-        private const float HeaderHeight = 34f;
+        private const float HeaderHeight = 30f;   // name field
+        private const float FooterHeight = 30f;   // confirm button
+        private const float GapFromPin = 26f;     // keeps the pin itself uncovered
 
         private static GameObject _panel;
+        private static RectTransform _panelRect;
+        private static Camera _canvasCamera;
         private static TMP_InputField _nameInput;
-        private static TMP_Text _title;
         private static List<Image> _highlights;
         private static Minimap.PinData _target;
         private static Minimap _map;
+        private static int _pending = -1;
 
         /// Minimap.m_nameInput is a GUIFramework.GuiInputField, which lives in gui_framework.dll.
         /// Read by reflection rather than referencing that assembly: the clone only needs to be a
         /// TMP_InputField, which GuiInputField derives from and which is already referenced.
         private static readonly FieldInfo NameInputField = AccessTools.Field(typeof(Minimap), "m_nameInput");
 
-        public static bool IsOpen => _panel != null && _panel.activeSelf;
+        /// Keeps the scroll wheel off the map while the cursor is over the editor.
+        public static bool PointerOverPanel() => IconGrid.PointerOver(_panel, _panelRect, _canvasCamera);
 
         public static void Open(Minimap map, Minimap.PinData pin)
         {
@@ -48,20 +55,65 @@ namespace CarturMapPins
                 return;
 
             _target = pin;
-            if (_title != null)
-                _title.text = string.IsNullOrEmpty(pin.m_name) ? "Unnamed pin" : pin.m_name;
+            _pending = CustomIcons.IsCustom(pin.m_type)
+                ? (int)pin.m_type - CustomIcons.FirstCustomType
+                : -1;
+
             if (_nameInput != null)
                 _nameInput.text = pin.m_name ?? string.Empty;
 
             RefreshHighlights();
             _panel.SetActive(true);
+            PlaceBeside(pin);
         }
 
         public static void Close()
         {
             _target = null;
+            _pending = -1;
             if (_panel != null)
                 _panel.SetActive(false);
+        }
+
+        /// Positions the panel next to the pin's own UI element, nudged clear of it, then pulled
+        /// back inside the screen so a pin near an edge doesn't open the panel off-screen.
+        private static void PlaceBeside(Minimap.PinData pin)
+        {
+            if (_panelRect == null)
+                return;
+
+            RectTransform pinRect = pin.m_uiElement;
+            if (pinRect == null)
+            {
+                // The pin has no UI element yet (off-screen, or not drawn this frame). Fall back
+                // to the cursor, which is where the click just happened anyway.
+                _panelRect.position = ZInput.pointerPosition + new Vector3(GapFromPin, 0f, 0f);
+            }
+            else
+            {
+                _panelRect.position = pinRect.position + new Vector3(GapFromPin, 0f, 0f);
+            }
+
+            ClampToScreen();
+        }
+
+        /// RectTransform.position is screen space for an overlay canvas, so the corners can be
+        /// compared against the screen directly and the whole panel shifted back into view.
+        private static void ClampToScreen()
+        {
+            var corners = new Vector3[4];
+            _panelRect.GetWorldCorners(corners);
+            float minX = corners[0].x, minY = corners[0].y;
+            float maxX = corners[2].x, maxY = corners[2].y;
+
+            float dx = 0f, dy = 0f;
+            if (maxX > Screen.width) dx -= maxX - Screen.width;
+            if (minX + dx < 0f) dx += -(minX + dx);
+            if (maxY > Screen.height) dy -= maxY - Screen.height;
+            if (minY + dy < 0f) dy += -(minY + dy);
+
+            if (dx != 0f || dy != 0f)
+                _panelRect.position += new Vector3(dx, dy, 0f);
         }
 
         private static void Build(Minimap map)
@@ -71,47 +123,27 @@ namespace CarturMapPins
 
             _panel = new GameObject("CarturPinEditor");
             _panel.transform.SetParent(map.m_largeRoot.transform, false);
-            RectTransform rt = _panel.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(1f, 0f);
-            rt.anchorMax = new Vector2(1f, 0f);
-            rt.pivot = new Vector2(1f, 0f);
-            rt.sizeDelta = new Vector2(IconGrid.PanelWidth(Columns),
-                                       IconGrid.PanelHeight(VisibleRows) + HeaderHeight);
-            rt.anchoredPosition = new Vector2(-Plugin.MapPickerX.Value, Plugin.MapPickerY.Value);
+            _panelRect = _panel.AddComponent<RectTransform>();
+            // Anchored to one corner so that setting .position places it outright, rather than
+            // being stretched by a parent whose size we don't control.
+            _panelRect.anchorMin = Vector2.zero;
+            _panelRect.anchorMax = Vector2.zero;
+            _panelRect.pivot = new Vector2(0f, 0.5f);
+            _panelRect.sizeDelta = new Vector2(IconGrid.PanelWidth(Columns),
+                                               IconGrid.PanelHeight(VisibleRows) + HeaderHeight + FooterHeight);
 
             Image bg = _panel.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.78f);
+            bg.color = new Color(0f, 0f, 0f, 0.85f);
 
-            _title = AddLabel(_panel.transform, "Edit pin", -6f);
             _nameInput = AddNameInput(map, _panel.transform);
+            AddConfirmButton(_panel.transform);
 
-            _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns, Apply, HeaderHeight);
+            _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
+                                         Choose, HeaderHeight, FooterHeight);
+            _canvasCamera = IconGrid.CameraFor(_panel);
             _panel.SetActive(false);
 
             Plugin.Log.LogInfo("Pin editor built.");
-        }
-
-        private static TMP_Text AddLabel(Transform parent, string text, float y)
-        {
-            var go = new GameObject("Title");
-            go.transform.SetParent(parent, false);
-            RectTransform rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.offsetMin = new Vector2(10f, 0f);
-            rt.offsetMax = new Vector2(-10f, y);
-            rt.sizeDelta = new Vector2(rt.sizeDelta.x, 16f);
-
-            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
-            label.text = text;
-            label.fontSize = 14f;
-            label.color = new Color(0.9f, 0.86f, 0.76f);
-            label.alignment = TextAlignmentOptions.Left;
-            label.raycastTarget = false;
-            // No font is assigned on purpose: TMP falls back to its default, and naming a font
-            // asset that may not exist yields invisible text rather than an obvious error.
-            return label;
         }
 
         /// Clones vanilla's pin-name field so the box matches the rest of the map UI. Returns null
@@ -135,8 +167,10 @@ namespace CarturMapPins
                 rt.anchorMin = new Vector2(0f, 1f);
                 rt.anchorMax = new Vector2(1f, 1f);
                 rt.pivot = new Vector2(0.5f, 1f);
-                rt.anchoredPosition = new Vector2(0f, -16f);
-                rt.sizeDelta = new Vector2(-20f, 22f);
+                rt.offsetMin = new Vector2(8f, 0f);
+                rt.offsetMax = new Vector2(-8f, 0f);
+                rt.anchoredPosition = new Vector2(0f, -5f);
+                rt.sizeDelta = new Vector2(rt.sizeDelta.x, HeaderHeight - 10f);
             }
 
             var input = clone.GetComponent<TMP_InputField>();
@@ -145,49 +179,95 @@ namespace CarturMapPins
 
             // Fresh event objects rather than RemoveAllListeners, which leaves the prefab's
             // serialized calls intact - vanilla's handler would otherwise also fire and try to
-            // name a pin that isn't the one being edited.
+            // name a pin that isn't the one being edited. Nothing is applied here: the name is
+            // read when Confirm is pressed.
             input.onSubmit = new TMP_InputField.SubmitEvent();
             input.onEndEdit = new TMP_InputField.SubmitEvent();
-            input.onSubmit.AddListener(Rename);
-            input.onEndEdit.AddListener(Rename);
             return input;
         }
 
-        private static void Rename(string text)
+        private static void AddConfirmButton(Transform parent)
         {
-            if (_target == null || _map == null)
-                return;
-            if (_target.m_name == text)
-                return;
+            var go = new GameObject("Confirm");
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.offsetMin = new Vector2(8f, 6f);
+            rt.offsetMax = new Vector2(-8f, 0f);
+            rt.sizeDelta = new Vector2(rt.sizeDelta.x, FooterHeight - 10f);
 
-            _target.m_name = text ?? string.Empty;
-            if (_title != null)
-                _title.text = string.IsNullOrEmpty(_target.m_name) ? "Unnamed pin" : _target.m_name;
-            _map.SaveMapData();
+            Image bg = go.AddComponent<Image>();
+            bg.color = new Color(0.35f, 0.30f, 0.20f, 0.95f);
+
+            Button button = go.AddComponent<Button>();
+            button.targetGraphic = bg;
+            button.onClick = new Button.ButtonClickedEvent();
+            button.onClick.AddListener(Confirm);
+
+            var labelGo = new GameObject("Label");
+            labelGo.transform.SetParent(go.transform, false);
+            RectTransform lrt = labelGo.AddComponent<RectTransform>();
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = Vector2.zero;
+
+            // No font assigned on purpose: TMP falls back to its default, whereas naming a font
+            // asset that may not exist yields invisible text rather than an obvious error.
+            TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
+            label.text = "Confirm";
+            label.fontSize = 15f;
+            label.color = new Color(0.95f, 0.92f, 0.82f);
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
         }
 
-        private static void Apply(int index)
+        /// Marks a choice without applying it, so a misclick in a 153-icon grid costs nothing.
+        private static void Choose(int index)
+        {
+            _pending = index;
+            RefreshHighlights();
+        }
+
+        private static void Confirm()
         {
             if (_target == null || _map == null)
+            {
+                Close();
                 return;
+            }
 
-            Minimap.PinType type = CustomIcons.TypeForIndex(index);
-            if (PinRecord.Repoint(_map, _target, type))
+            bool changed = false;
+
+            if (_nameInput != null && _nameInput.text != _target.m_name)
+            {
+                _target.m_name = _nameInput.text ?? string.Empty;
+                changed = true;
+            }
+
+            if (_pending >= 0)
+            {
+                Minimap.PinType wanted = CustomIcons.TypeForIndex(_pending);
+                if (wanted != _target.m_type && PinRecord.Repoint(_map, _target, wanted))
+                    changed = true;
+            }
+
+            if (changed)
                 _map.SaveMapData();
-            RefreshHighlights();
+
+            Close();
         }
 
         private static void RefreshHighlights()
         {
             if (_highlights == null)
                 return;
-            int current = _target != null && CustomIcons.IsCustom(_target.m_type)
-                ? (int)_target.m_type - CustomIcons.FirstCustomType
-                : -1;
             for (int i = 0; i < _highlights.Count; i++)
             {
                 if (_highlights[i] != null)
-                    _highlights[i].enabled = i == current;
+                    _highlights[i].enabled = i == _pending;
             }
         }
     }

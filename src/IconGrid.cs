@@ -26,7 +26,30 @@ namespace CarturMapPins
         /// `onClick` receives the icon index. Returns one entry per icon - the button's selection
         /// highlight, or null where the template had none - so the caller can show which is
         /// currently chosen.
-        public static List<Image> Build(GameObject panel, GameObject template, int columns, Action<int> onClick, float top = 0f)
+        /// True while the cursor is over `panel`. Both panels need this to keep the scroll wheel
+        /// off the map: Unity's ScrollRect goes through the event system, which respects the
+        /// pointer, while Minimap.UpdateMap reads the wheel raw and does not.
+        ///
+        /// `camera` must be null for a Screen Space - Overlay canvas and the canvas's own camera
+        /// otherwise; the wrong one puts the rect in the wrong coordinate space and the test
+        /// silently never matches.
+        public static bool PointerOver(GameObject panel, RectTransform rect, Camera camera)
+        {
+            if (panel == null || rect == null || !panel.activeInHierarchy)
+                return false;
+            return RectTransformUtility.RectangleContainsScreenPoint(rect, ZInput.pointerPosition, camera);
+        }
+
+        /// The camera a panel's canvas needs for hit-testing. Null is an answer, not a failure.
+        public static Camera CameraFor(GameObject panel)
+        {
+            Canvas canvas = panel != null ? panel.GetComponentInParent<Canvas>() : null;
+            return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? canvas.worldCamera
+                : null;
+        }
+
+        public static List<Image> Build(GameObject panel, GameObject template, int columns, Action<int> onClick, float top = 0f, float bottom = 0f)
         {
             // Viewport clips the scrolling content.
             var viewport = new GameObject("Viewport");
@@ -34,7 +57,7 @@ namespace CarturMapPins
             RectTransform viewRt = viewport.AddComponent<RectTransform>();
             viewRt.anchorMin = Vector2.zero;
             viewRt.anchorMax = Vector2.one;
-            viewRt.offsetMin = new Vector2(8f, 8f);
+            viewRt.offsetMin = new Vector2(8f, 8f + bottom);
             viewRt.offsetMax = new Vector2(-8f, -8f - top);
             viewport.AddComponent<RectMask2D>();
 
