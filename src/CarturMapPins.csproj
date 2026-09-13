@@ -54,6 +54,12 @@
       <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\assembly_guiutils.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <!-- ZoneLocation.m_prefab is a SoftReference<GameObject>, so reading a location's own
+         Location component - which is where m_hasInterior and m_generator live - needs this. -->
+    <Reference Include="SoftReferenceableAssets">
+      <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\SoftReferenceableAssets.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <!-- Minimap.AddPin's optional `PlatformUserID author` parameter lives here, so the overload
          can't be resolved without it even though we never pass that argument. -->
     <Reference Include="Splatform">

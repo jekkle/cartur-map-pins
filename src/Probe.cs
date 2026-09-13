@@ -142,7 +142,16 @@ namespace CarturMapPins
                     continue;
                 string name = !string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)";
                 string flags = zl.m_iconAlways ? " iconAlways" : (zl.m_iconPlaced ? " iconPlaced" : "");
-                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}");
+                // The two fields TryClassifyLocation actually branches on. Without them the dump
+                // cannot tell a location nobody pins from one pinned on the generic category
+                // icon, which is the whole question when deciding what deserves a subtype.
+                Location loc = zl.m_prefab.IsValid ? zl.m_prefab.Asset.GetComponent<Location>() : null;
+                string kind = loc == null ? " kind=?"
+                    : loc.m_hasInterior ? " kind=dungeon"
+                    : loc.m_generator != null ? " kind=camp"
+                    : " kind=surface";
+                string gen = loc != null && loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
+                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{kind}{gen}");
             }
         }
 

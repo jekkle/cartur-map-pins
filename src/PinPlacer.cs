@@ -339,8 +339,8 @@ namespace CarturMapPins
             // Runestone_Boars, _Meadows, _Draugr, _Greydwarfs, _Swamps, _Mountains, _BlackForest,
             // _Plains, _Mistlands, _Ashlands, _DeepNorth.
             //
-            // Nothing to do with PinCategory.Runestone, which is the seven BossStone_ prefabs and
-            // arrives through the spawn hook instead. Separate category so the two toggle apart.
+            // Nothing to do with PinCategory.Runestone, which is the standing runestones and
+            // vegvisirs arriving through the spawn hook. Separate category so the two toggle apart.
             if (prefabName != null &&
                 prefabName.StartsWith("Runestone_", System.StringComparison.OrdinalIgnoreCase))
             {
