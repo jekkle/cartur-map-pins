@@ -112,8 +112,8 @@ namespace CarturMapPins
             Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
                 "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
                 iconIndex: 42);   // village
-            Bind(PinCategory.BossAltar, false, Minimap.PinType.Boss, 5f,
-                "Boss summoning altars. OFF by default because vanilla already marks these with its own icon - turning this on adds a named, saved, tickable pin on top (vanilla's has no label and isn't saved).",
+            Bind(PinCategory.BossAltar, true, Minimap.PinType.Boss, 5f,
+                "Boss summoning altars, with a different icon per boss. Vanilla marks these itself, but its marker carries no name and isn't saved - so ours replaces it rather than stacking on top, and vanilla's is left alone for any altar you haven't found yet.",
                 iconIndex: 79);   // offering bowl; per-boss icons override this
             Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
                 "Wild beehives. Player-built hives are never pinned.",
