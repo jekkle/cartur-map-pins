@@ -31,6 +31,10 @@ namespace CarturMapPins
 
         private static Sprite[] _sprites;
 
+        /// The sliced icon sheet, for anything that needs to draw the icons itself - the map
+        /// picker and the settings-screen drawer. Null until the sheet has loaded.
+        public static Sprite[] Sprites => _sprites;
+
         /// Which Minimap instance we've registered against.
         ///
         /// This must NOT be a plain "done" flag: returning to the menu and loading another world

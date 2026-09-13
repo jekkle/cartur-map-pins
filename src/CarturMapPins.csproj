@@ -70,6 +70,12 @@
     </Reference>
     <!-- Only for the diagnostic font dump (see Probe.DumpFonts) - the game's TMP font asset
          names can't be read from the compressed tmp_fonts bundle, only enumerated at runtime. -->
+    <!-- IMGUI: the icon dropdown draws the sprites itself, and ConfigurationManager
+         renders in OnGUI. Nothing else in the mod uses it. -->
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.UI">
       <HintPath>$(VALHEIM_INSTALL)\valheim_Data\Managed\UnityEngine.UI.dll</HintPath>
       <Private>false</Private>

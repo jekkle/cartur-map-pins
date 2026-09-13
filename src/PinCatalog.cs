@@ -12,6 +12,7 @@ namespace CarturMapPins
         Beehive,
         Pickable,
         Runestone,
+        LoreStone,
         Chest,
         Spawner,
         Leviathan,
@@ -179,8 +180,10 @@ namespace CarturMapPins
             // Forest copper deposit (`rock4_copper`) is a plain Destructible with neither
             // component, while the prefabs that *do* carry MineRock are mostly destruction
             // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...).
-            if (!LooksLikeFragment(prefab.name) && YieldsOre(prefab, out string via, out string oreType))
+            if (!LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string how) &&
+                YieldsOre(prefab, out string via, out string oreType))
             {
+                via = $"{via} [{how}]";
                 category = PinCategory.Ore;
                 OreQualifiedBy[prefab.name] = via;
                 OreTypes[prefab.name.GetStableHashCode()] = oreType;
@@ -201,6 +204,81 @@ namespace CarturMapPins
             category = default;
             return false;
         }
+
+        /// Dropping an ore item is not enough to be an ore deposit. A barrel, a cauldron, a rusty
+        /// crypt gate, a weapon rack and a pile of giant bones all drop scrap or marble when you
+        /// break them, and all of them were being pinned as "Iron" or "Tin".
+        ///
+        /// What separates a deposit is that you cannot get into it with a weapon - the damage
+        /// modifiers let the pickaxe through and stop everything else. Props take ordinary slash
+        /// damage. That is the test, rather than a component type, because the component test was
+        /// already tried and fails both ways: rock4_copper is a plain Destructible with no
+        /// MineRock, while most MineRock prefabs are destruction debris.
+        ///
+        /// Reports which rule matched, so `carturpins_catalog Ore` shows the reasoning rather than
+        /// asking anyone to take the classification on trust.
+        private static bool LooksMineable(GameObject prefab, out string how)
+        {
+            how = null;
+
+            if (prefab.GetComponent<MineRock>() != null || prefab.GetComponent<MineRock5>() != null)
+            {
+                how = "minerock";
+                return true;
+            }
+
+            // Sulfur rocks and cave obsidian are picked rather than mined, but they are still the
+            // node you want on the map.
+            if (prefab.GetComponent<Pickable>() != null)
+            {
+                how = "pickable";
+                return true;
+            }
+
+            // A deposit shatters into a fractured mesh when you mine it; a prop just breaks.
+            // The game names those children differently and that is the whole distinction:
+            //   giant_ribs   -> giant_ribs_frac          mined for black marble
+            //   giant_sword1 -> giant_sword1_destruction scenery that drops scrap
+            // Confirmed against the catalog's own 33 entries - every real deposit spawns a _frac
+            // child or carries MineRock, and every false positive did neither.
+            Destructible destructible = prefab.GetComponent<Destructible>();
+            if (destructible == null)
+                return false;
+
+            GameObject shards = destructible.m_spawnWhenDestroyed;
+            if (shards != null && shards.name.ToLowerInvariant().Contains("_frac"))
+            {
+                how = "shatters";
+                return true;
+            }
+
+            // A _destruction mesh is the game saying this thing breaks like a prop rather than
+            // shattering like a node, and it is the only thing separating the giants' weapons and
+            // armour from a tin deposit: both are pickaxe-only, because both are big and stony.
+            //   giant_sword1 -> giant_sword1_destruction   scenery, drops scrap
+            //   MineRock_Tin -> no fragment child at all   a deposit
+            if (shards != null && shards.name.ToLowerInvariant().Contains("_destruction"))
+                return false;
+
+            // Not every deposit shatters. MineRock_Tin and MineRock_Obsidian are plain
+            // Destructibles that drop directly and spawn no fragments - and despite the name,
+            // they carry no MineRock component either, which is exactly the trap the comment on
+            // Classify warns about. What they do have is a deposit's damage profile: the pickaxe
+            // gets through and nothing else does. A barrel or a cauldron takes a sword.
+            HitData.DamageModifiers dmg = destructible.m_damages;
+            if (!Blocks(dmg.m_pickaxe) && Blocks(dmg.m_slash))
+            {
+                how = "pickaxe-only";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool Blocks(HitData.DamageModifier modifier) =>
+            modifier == HitData.DamageModifier.Immune ||
+            modifier == HitData.DamageModifier.Ignore ||
+            modifier == HitData.DamageModifier.VeryResistant;
 
         /// Destruction-debris prefabs carry the same mining components as real deposits but are
         /// spawned only when a node shatters, so they must never be pinned.

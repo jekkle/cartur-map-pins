@@ -24,6 +24,7 @@ namespace CarturMapPins
         private static readonly List<Pending> PendingQueue = new List<Pending>();
         private static readonly List<Pending> Requeue = new List<Pending>();
         private static float _timer;
+        private static bool _relabelled;
 
         public static int QueueSize => PendingQueue.Count;
 
@@ -44,6 +45,15 @@ namespace CarturMapPins
             Player player = Player.m_localPlayer;
             if (player == null || Minimap.instance == null)
                 return;
+
+            // First tick with a live map is the earliest the save's pins are loaded and readable.
+            if (!_relabelled)
+            {
+                _relabelled = true;
+                int fixedUp = PinRecord.RelabelSpawners();
+                if (fixedUp > 0)
+                    Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
+            }
 
             Vector3 playerPos = player.transform.position;
 
@@ -73,7 +83,7 @@ namespace CarturMapPins
             Plugin.CategorySettings chestSettings = Plugin.SettingsFor(PinCategory.Chest);
             if (chestSettings == null || !chestSettings.Enabled.Value)
                 return;
-            if (Plugin.LootedChestIcon.Value < 0)
+            if (Plugin.LootedChestIcon.Value == PinIcon.Default)
                 return;
 
             if (_chestSweepAt < 0f)
@@ -87,7 +97,7 @@ namespace CarturMapPins
                 return;
 
             Minimap.PinType normalType = chestSettings.ResolvedPinType;
-            Minimap.PinType lootedType = CustomIcons.Resolve(Plugin.LootedChestIcon.Value, normalType);
+            Minimap.PinType lootedType = CustomIcons.Resolve((int)Plugin.LootedChestIcon.Value, normalType);
             if (lootedType == normalType)
                 return;
 
@@ -299,10 +309,38 @@ namespace CarturMapPins
                 return true;
             }
 
+            // Lore runestones are the one location worth pinning that has neither an interior nor
+            // a generator, so they fell through this method and were never pinned at all. There
+            // are eleven, confirmed from the world generator's own 232 ZoneLocation definitions:
+            // Runestone_Boars, _Meadows, _Draugr, _Greydwarfs, _Swamps, _Mountains, _BlackForest,
+            // _Plains, _Mistlands, _Ashlands, _DeepNorth.
+            //
+            // Nothing to do with PinCategory.Runestone, which is the seven BossStone_ prefabs and
+            // arrives through the spawn hook instead. Separate category so the two toggle apart.
+            if (prefabName != null &&
+                prefabName.StartsWith("Runestone_", System.StringComparison.OrdinalIgnoreCase))
+            {
+                category = PinCategory.LoreStone;
+                label = Labels.ForLoreStone(prefabName);
+                return true;
+            }
+
+            // Everything that reaches here is a location the mod will never pin: no interior, no
+            // generator, not a runestone. Logged once per prefab so the blind spot is a list you
+            // can read rather than a guess.
+            //
+            // Reported from here rather than predicted from ZoneSystem.m_locations because a
+            // ZoneLocation only holds a SoftReference to its prefab - deciding this up front would
+            // mean loading all 232 location prefabs to look at two fields.
+            if (_warnedSkipped.Add(prefabName ?? "(unnamed)"))
+                Plugin.Log.LogInfo($"Location '{prefabName}' is not pinned: no interior, no generator, not a runestone.");
+
             category = default;
             label = null;
             return false;
         }
+
+        private static readonly HashSet<string> _warnedSkipped = new HashSet<string>();
 
         private static readonly HashSet<string> _warnedUnmatched = new HashSet<string>();
 
@@ -341,6 +379,13 @@ namespace CarturMapPins
         /// Labels are stored as raw "$token" strings wherever possible: Minimap.PinNameData runs
         /// pin names through Localization.Localize when rendering them, so this is both less code
         /// and correct in every language.
+#if DIAGNOSTICS
+        /// Diagnostics hook: resolve a label without pinning anything, so every catalogued prefab
+        /// can be previewed from one console command instead of by walking to each of them.
+        internal static string PreviewLabel(PinCategory category, GameObject go, string subtype) =>
+            ResolveLabel(category, go, subtype);
+#endif
+
         private static string ResolveLabel(PinCategory category, GameObject go, string subtype)
         {
             switch (category)
@@ -359,6 +404,10 @@ namespace CarturMapPins
                     Trader trader = go.GetComponent<Trader>();
                     if (trader != null && !string.IsNullOrEmpty(trader.m_name))
                         return trader.m_name;
+                    // BogWitch leaves Trader.m_name empty, so fall back to the NPC's own name.
+                    Character npc = go.GetComponent<Character>();
+                    if (npc != null && !string.IsNullOrEmpty(npc.m_name))
+                        return npc.m_name;
                     break;
 
                 case PinCategory.Chest:
@@ -367,10 +416,72 @@ namespace CarturMapPins
                         return container.m_name;
                     break;
 
-                case PinCategory.Spawner:
                 case PinCategory.Wisp:
-                    // "Spawner_GreydwarfNest" -> "Greydwarf Nest".
-                    return Labels.Prettify(StripSpawnerPrefix(Utils.GetPrefabName(go)));
+                    // piece_EternalPyre, piece_FaderEmbers, piece_wisplure - buildables, so they
+                    // carry a Piece.m_name token. Grouped with Spawner before, which leaked the
+                    // "piece_" prefix and called a wisplure a spawner.
+                    Piece wisp = go.GetComponent<Piece>();
+                    if (wisp != null && !string.IsNullOrEmpty(wisp.m_name))
+                        return wisp.m_name;
+                    break;
+
+                case PinCategory.Spawner:
+                    // Ask the spawner what it spawns before falling back to reading its name.
+                    string spawns = SpawnedCreatureName(go);
+                    if (!string.IsNullOrEmpty(spawns))
+                        return spawns;
+                    return Labels.ForSpawner(Utils.GetPrefabName(go));
+
+                case PinCategory.Runestone:
+                    // BossStone_* reach here through the spawn hook, not the location sweep, so
+                    // VegvisirLabel was never consulted and the map read "BossStone_Eikthyr".
+                    Vegvisir vegvisir = go.GetComponent<Vegvisir>();
+                    if (vegvisir != null)
+                    {
+                        string vegLabel = VegvisirLabel(vegvisir);
+                        if (!string.IsNullOrEmpty(vegLabel))
+                            return vegLabel;
+                    }
+                    // The category is Vegvisir OR RuneStone, and the boss stones are the second
+                    // kind - a different component with its own pin name, which is why handling
+                    // only Vegvisir left them reading "BossStone_Eikthyr".
+                    // m_name before m_pinName, unlike Vegvisir above. Every BossStone ships
+                    // m_pinName = "Pin", a Unity default nobody filled in, and preferring it
+                    // labelled all seven boss stones "Pin".
+                    RuneStone runeStone = go.GetComponent<RuneStone>();
+                    if (runeStone != null)
+                    {
+                        if (!string.IsNullOrEmpty(runeStone.m_name))
+                        {
+                            // All seven boss stones share one m_name ($guardianstone_name), so the
+                            // component alone cannot say which boss this is - only the prefab can.
+                            // Localization.Localize substitutes $tokens anywhere in a string, so
+                            // "Eikthyr $guardianstone_name" renders as "Eikthyr Guardian stone"
+                            // and stays correct in every language.
+                            string prefabName = Utils.GetPrefabName(go);
+                            const string bossPrefix = "BossStone_";
+                            if (prefabName.StartsWith(bossPrefix, System.StringComparison.OrdinalIgnoreCase))
+                                return Labels.Prettify(prefabName.Substring(bossPrefix.Length))
+                                       + " " + runeStone.m_name;
+
+                            return runeStone.m_name;
+                        }
+                        if (!string.IsNullOrEmpty(runeStone.m_pinName) && runeStone.m_pinName != "Pin")
+                            return runeStone.m_pinName;
+                    }
+                    // Nothing usable on the component: fall through to the prettified prefab name,
+                    // which gives "Boss Stone Eikthyr". Not ideal, but it names the thing.
+                    break;
+
+                case PinCategory.BossAltar:
+                    OfferingBowl altar = go.GetComponent<OfferingBowl>();
+                    if (altar != null)
+                    {
+                        string bossLabel = BossLabel(altar);
+                        if (!string.IsNullOrEmpty(bossLabel))
+                            return bossLabel;
+                    }
+                    break;
 
                 case PinCategory.Beehive:
                     Beehive hive = go.GetComponent<Beehive>();
@@ -381,24 +492,80 @@ namespace CarturMapPins
                 case PinCategory.Pickable:
                     Pickable pickable = go.GetComponent<Pickable>();
                     if (pickable != null)
-                        return pickable.GetHoverName();
+                    {
+                        string hover = pickable.GetHoverName();
+                        if (Usable(hover))
+                            return hover;
+                    }
                     PickableItem item = go.GetComponent<PickableItem>();
                     if (item != null)
-                        return item.GetHoverName();
-                    break;
+                    {
+                        string hover = item.GetHoverName();
+                        if (Usable(hover))
+                            return hover;
+                    }
+                    // Random-loot pickables roll their contents at spawn, so there is no item to
+                    // name and the hover text is the literal string "None" - the same kind of
+                    // placeholder as the boss stones' m_pinName of "Pin". Fall back to the prefab,
+                    // minus the "Pickable_" prefix, which would otherwise read "Pickable Item".
+                    return Labels.Prettify(StripPrefix(Utils.GetPrefabName(go), "Pickable_"));
             }
 
-            return Utils.GetPrefabName(go);
+            // Nothing claimed it. Prettify rather than returning the raw prefab name, so the
+            // worst case is "Bog Witch" instead of "BogWitch" - this is the net that catches any
+            // category whose component turns out not to carry a name.
+            return Labels.Prettify(Utils.GetPrefabName(go));
         }
 
-        private static string StripSpawnerPrefix(string name)
+        /// The creature a spawner spawns, read off the spawner's own component instead of guessed
+        /// from its prefab name. This is the same principle the catalog uses to decide what counts
+        /// as ore - ask the object, don't pattern-match its name - and it answers every case the
+        /// name cannot: Spawner_Hole, Spawner_Location_Elite and EvilHeart_Forest all name a place
+        /// or a tuning variant rather than what comes out of them.
+        ///
+        /// The creature's own m_name is a localisation token, so the label comes out in the
+        /// player's language for free, the way Pickable.GetHoverName already does.
+        ///
+        /// Null when anything is missing, so the caller falls back to reading the prefab name.
+        /// "None" is what the game hands back when a component has nothing to name - not a name.
+        private static bool Usable(string name) =>
+            !string.IsNullOrEmpty(name) && name != "None";
+
+        private static string StripPrefix(string name, string prefix) =>
+            name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase)
+                ? name.Substring(prefix.Length)
+                : name;
+
+        private static string SpawnedCreatureName(GameObject go)
         {
-            foreach (string prefix in new[] { "Spawner_", "Spawn_" })
+            GameObject creature = null;
+
+            CreatureSpawner spawner = go.GetComponent<CreatureSpawner>();
+            if (spawner != null)
+                creature = spawner.m_creaturePrefab;
+
+            if (creature == null)
             {
-                if (name.StartsWith(prefix, System.StringComparison.OrdinalIgnoreCase))
-                    return name.Substring(prefix.Length);
+                // A SpawnArea can list several creatures; the first is representative enough for
+                // a map label, and they are usually variants of one thing anyway.
+                SpawnArea area = go.GetComponent<SpawnArea>();
+                if (area != null && area.m_prefabs != null && area.m_prefabs.Count > 0)
+                    creature = area.m_prefabs[0].m_prefab;
             }
-            return name;
+
+            if (creature == null)
+                return null;
+
+            Character character = creature.GetComponent<Character>();
+            if (character == null || string.IsNullOrEmpty(character.m_name))
+                return null;
+
+            string name = Localization.instance != null
+                ? Localization.instance.Localize(character.m_name)
+                : character.m_name;
+
+            name = Labels.StripRichText(name);
+            return string.IsNullOrEmpty(name) ? null : name + " Spawner";
         }
 
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)

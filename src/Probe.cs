@@ -167,6 +167,61 @@ namespace CarturMapPins
         /// `args` is null when the probe runs itself on spawn rather than from a console
         /// command - the log is the real output channel either way, which is what makes the
         /// auto-probe usable without the game's console being enabled at all.
+        /// Every catalogued prefab and the label it would actually get, resolved through the same
+        /// code the pinning path uses. This is the coverage check: walking the whole world to see
+        /// each label is not a test anyone runs, so ask the catalog instead.
+        ///
+        /// Only covers categories fed by the spawn hook - Dungeon, Camp and LoreStone come from
+        /// ZoneLocations and are listed by carturpins_locations instead.
+        public static void DumpLabels(Terminal.ConsoleEventArgs args, string categoryName)
+        {
+            ZNetScene scene = ZNetScene.instance;
+            if (scene == null)
+            {
+                Emit(args, "No ZNetScene - load into a world first.");
+                return;
+            }
+
+            foreach (KeyValuePair<PinCategory, List<string>> kv in PinCatalog.NamesByCategory)
+            {
+                if (!string.IsNullOrEmpty(categoryName) &&
+                    !kv.Key.ToString().Equals(categoryName, System.StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                Emit(args, $"--- {kv.Key}: {kv.Value.Count} prefabs ---");
+
+                foreach (string prefabName in kv.Value)
+                {
+                    GameObject prefab = scene.GetPrefab(prefabName.GetStableHashCode());
+                    if (prefab == null)
+                    {
+                        Emit(args, $"    {prefabName,-42} <prefab not in scene>");
+                        continue;
+                    }
+
+                    string subtype = kv.Key == PinCategory.Ore
+                        ? PinCatalog.OreTypeOf(prefabName.GetStableHashCode())
+                        : null;
+
+                    string label;
+                    try { label = PinPlacer.PreviewLabel(kv.Key, prefab, subtype); }
+                    catch (System.Exception e) { label = "<threw: " + e.GetType().Name + ">"; }
+
+                    string flag = string.IsNullOrEmpty(label) || label == prefabName ? "   <-- UNCHANGED" : "";
+
+                    // Labels are stored as $tokens and localised when the pin is drawn, so the
+                    // raw value is not what anyone sees. Show both: the stored string, and what
+                    // it actually reads as on the map.
+                    string shown = label;
+                    if (!string.IsNullOrEmpty(label) && label.Contains("$") && Localization.instance != null)
+                        shown = Localization.instance.Localize(label);
+
+                    string asRead = shown != label ? $"   ==  {shown}" : "";
+                    Emit(args, $"    {prefabName,-42} -> {label}{asRead}{flag}");
+                }
+            }
+        }
+
         private static void Emit(Terminal.ConsoleEventArgs args, string line)
         {
             Plugin.Log.LogInfo(line);

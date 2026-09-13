@@ -137,6 +137,48 @@ namespace CarturMapPins
             return removed;
         }
 
+        /// Repairs spawner labels written by an older version, once, on the pins already sitting in
+        /// the player's save. Those used to be named after the creature alone ("Skeleton") or after
+        /// the spawner's tuning ("Skeleton Night Noarcher"), both of which read like the creature
+        /// was standing there rather than spawning from there.
+        ///
+        /// The prefab is gone by the time a pin comes back from the save, but the old label still
+        /// carries the creature's name, so the same word filtering that builds a new label repairs
+        /// an old one.
+        ///
+        /// Only Spawner entries are considered, and that restriction is the whole safety of this:
+        /// run over an Ore pin it would turn "Copper" into "Copper Spawner". Hand-placed pins are
+        /// never touched - they aren't in the record.
+        public static int RelabelSpawners()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return 0;
+
+            int renamed = 0;
+            foreach (Entry e in Entries)
+            {
+                if (!e.Key.StartsWith("Spawner", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || string.IsNullOrEmpty(pin.m_name))
+                    continue;
+
+                string repaired = Labels.CleanSpawnerLabel(pin.m_name);
+                if (repaired == pin.m_name)
+                    continue;
+
+                pin.m_name = repaired;
+                renamed++;
+            }
+
+            if (renamed > 0)
+                map.SaveMapData();
+
+            return renamed;
+        }
+
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(map);

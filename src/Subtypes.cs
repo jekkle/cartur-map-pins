@@ -35,23 +35,17 @@ namespace CarturMapPins
         public static readonly Entry[] Dungeons =
         {
             // Hildir variants first - they contain the base names they're variants of.
-            E("hildir_forestcrypt", "Hildir Crypt", 22),
+            E("hildir_crypt", "Hildir Crypt", 22),
             E("hildir_cave", "Hildir Cave", 18),
             E("dg_sunkencrypt", "Sunken Crypt", 28),
             E("sunkencrypt", "Sunken Crypt", 28),
             E("dg_dvergrboss", "Infested Citadel", 67),
             E("dvergrboss", "Infested Citadel", 67),
-            E("citadel", "Infested Citadel", 67),
             E("dg_dvergrtown", "Infested Mine", 57),
             E("dvergrtown", "Infested Mine", 57),
-            E("infestedmine", "Infested Mine", 57),
             E("mountaincave", "Frost Cave", 18),
-            E("frostcave", "Frost Cave", 18),
             E("trollcave", "Troll Cave", 50),
-            E("forestcave", "Troll Cave", 50),
             E("morgen", "Putrid Hole", 73),
-            E("mausoleum", "Tomb", 71),
-            E("tomb", "Tomb", 71),
             E("dg_forestcrypt", "Crypt", 22),
             E("crypt", "Crypt", 22),        // after sunkencrypt, so that wins
             E("dg_cave", "Frost Cave", 18), // last: bare "cave" is the vaguest signal
@@ -62,17 +56,13 @@ namespace CarturMapPins
             E("hildir_plainsfortress", "Hildir Fortress", 16),
             E("dg_goblincamp", "Fuling Village", 77),
             E("goblincamp", "Fuling Village", 77),
-            E("goblinvillage", "Fuling Village", 77),
-            E("fuling", "Fuling Village", 77),
             E("dg_fortressruins", "Charred Fortress", 16),
             E("dg_ashlandruins", "Ashlands Ruin", 74),
-            E("charred", "Charred Fortress", 16),
+            E("charredfortress", "Charred Fortress", 16),
             E("fortress", "Charred Fortress", 16),
             E("dg_meadowsvillage", "Abandoned Village", 79),
             E("dg_meadowsfarm", "Abandoned Farm", 41),
             E("greydwarf", "Greydwarf Camp", 13),
-            E("dvergrtower", "Dvergr Tower", 67),
-            E("sealedtower", "Dvergr Tower", 67),
             E("hildir", "Hildir Camp", 34),
         };
 

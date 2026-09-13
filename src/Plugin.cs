@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.1.1";
+        public const string PluginVersion = "1.2.2";
 
         internal static ManualLogSource Log;
 
@@ -38,11 +38,11 @@ namespace CarturMapPins
         {
             public ConfigEntry<bool> Enabled;
             public ConfigEntry<Minimap.PinType> PinType;
-            public ConfigEntry<int> IconIndex;
+            public ConfigEntry<PinIcon> IconIndex;
             public ConfigEntry<float> DedupeRadius;
 
             /// Custom icon when one is chosen and available, otherwise the vanilla pin type.
-            public Minimap.PinType ResolvedPinType => CustomIcons.Resolve(IconIndex.Value, PinType.Value);
+            public Minimap.PinType ResolvedPinType => CustomIcons.Resolve((int)IconIndex.Value, PinType.Value);
         }
 
         private static readonly Dictionary<PinCategory, CategorySettings> Settings =
@@ -70,7 +70,8 @@ namespace CarturMapPins
             DiscoveryRadius = Config.Bind("General", "DiscoveryRadius", 60f,
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
-                "How often to check pending objects and loaded locations against your position.");
+                new ConfigDescription("How often to check pending objects and loaded locations against your position.",
+                    null, Attr(advanced: true)));
 #if DIAGNOSTICS
             AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
                 "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
@@ -79,9 +80,11 @@ namespace CarturMapPins
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
             MapPickerX = Config.Bind("CustomIcons", "MapPickerX", 20f,
-                "Horizontal offset of the picker panel from the bottom-left of the map screen.");
+                new ConfigDescription("Horizontal offset of the picker panel from the bottom-left of the map screen.",
+                    null, Attr(advanced: true)));
             MapPickerY = Config.Bind("CustomIcons", "MapPickerY", 20f,
-                "Vertical offset of the picker panel from the bottom-left of the map screen.");
+                new ConfigDescription("Vertical offset of the picker panel from the bottom-left of the map screen.",
+                    null, Attr(advanced: true)));
 
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
                 "Use the bundled icon sheet, adding its icons as extra pin types alongside the vanilla ones (nothing vanilla is replaced). If this is off, or the sheet fails to load, every category falls back to its vanilla PinType.");
@@ -106,6 +109,9 @@ namespace CarturMapPins
             Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
                 "Runestones and Vegvisirs. Vanilla never pins these.",
                 iconIndex: -1);   // -1 = keep the vanilla Icon2 below
+            Bind(PinCategory.LoreStone, false, Minimap.PinType.Icon2, 5f,
+                "Lore runestones - the eleven story stones scattered across the biomes (Boars, Meadows, Draugr, Black Forest...). Separate from the boss stones above. OFF by default: they are read-once curiosities, and pinning all of them clutters a map you actually navigate with.",
+                iconIndex: -1);
             Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
                 "Loot chests found in the world. Player-built containers are never pinned.",
                 iconIndex: 45);   // treasure chest
@@ -130,10 +136,10 @@ namespace CarturMapPins
                     $"Pin {type} deposits. Requires the Ore category to be enabled.");
             }
 
-            LootedChestIcon = Config.Bind("Chest", "LootedIconIndex", 51,
+            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.OpenChest,
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
-                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+                    null, IconAttr(order: 1)));
 
             // Dungeons and camps get an icon per kind, not one for the whole category.
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
@@ -169,67 +175,82 @@ namespace CarturMapPins
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         }
 
+        /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
+        private static ConfigurationManagerAttributes Attr(bool? browsable = null, bool advanced = false, int order = 0) =>
+            new ConfigurationManagerAttributes { Browsable = browsable, IsAdvanced = advanced, Order = order };
+
+        private static ConfigurationManagerAttributes IconAttr(int order) =>
+            new ConfigurationManagerAttributes { Order = order, CustomDrawer = IconDrawer.Draw };
+
         private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex)
         {
             string section = category.ToString();
             Settings[category] = new CategorySettings
             {
-                Enabled = Config.Bind(section, "Enabled", enabled, description),
-                IconIndex = Config.Bind(section, "IconIndex", iconIndex,
-                    new ConfigDescription(
-                        "Which icon from the custom sheet to use (see Assets/pin_icons_numbered.png for the numbering). -1 uses the vanilla PinType below instead. Ignored unless CustomIcons/Enabled is on.",
-                        new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1))),
-                PinType = Config.Bind(section, "PinType", pinType,
-                    "Vanilla map icon, used when IconIndex is -1 or custom icons are off. Icon0-Icon4 are the five generic pins you cycle through when placing one by hand."),
-                DedupeRadius = Config.Bind(section, "DedupeRadius", dedupe,
-                    "Don't place a second pin of this kind within this many metres. Ore dedupes per ore type, so copper never suppresses a nearby tin node."),
+                Enabled = Config.Bind(section, "Enabled", enabled,
+                    new ConfigDescription(description, null, Attr(order: 2))),
+                IconIndex = Config.Bind(section, "Icon", (PinIcon)iconIndex,
+                    new ConfigDescription("Pin icon for this category. Pick one, or use the default.",
+                        null, IconAttr(order: 1))),
+                // Kept out of the settings screen. The vanilla icon is only ever a fallback for
+                // when the custom sheet fails to load, and choosing one is not a decision anybody
+                // needs to make from a menu.
+                PinType = Config.Bind(section, "PinTypeFallback", pinType,
+                    new ConfigDescription("Vanilla map icon used only if the custom icon sheet fails to load.",
+                        null, Attr(browsable: false))),
+                // Spacing between two pins of the same kind. Correct values differ per category -
+                // chests sit metres apart in a village, ore clusters do not - so these stay, but
+                // off the settings screen where they were 13 sliders nobody wanted.
+                DedupeRadius = Config.Bind(section, "MinimumSpacing", dedupe,
+                    new ConfigDescription("Don't place a second pin of this kind within this many metres.",
+                        null, Attr(advanced: true, order: 0))),
             };
         }
 
-        private static readonly Dictionary<PickableGroup, ConfigEntry<int>> PickableIcons =
-            new Dictionary<PickableGroup, ConfigEntry<int>>();
+        private static readonly Dictionary<PickableGroup, ConfigEntry<PinIcon>> PickableIcons =
+            new Dictionary<PickableGroup, ConfigEntry<PinIcon>>();
 
         /// Icon per dungeon/camp kind, keyed by subtype name.
-        private static readonly Dictionary<string, ConfigEntry<int>> SubtypeIcons =
-            new Dictionary<string, ConfigEntry<int>>();
+        private static readonly Dictionary<string, ConfigEntry<PinIcon>> SubtypeIcons =
+            new Dictionary<string, ConfigEntry<PinIcon>>();
 
         private void BindSubtypeIcon(string section, Subtypes.Entry entry)
         {
             if (SubtypeIcons.ContainsKey(entry.Name))
                 return;
-            SubtypeIcons[entry.Name] = Config.Bind(section, entry.Name, entry.DefaultIcon,
+            SubtypeIcons[entry.Name] = Config.Bind(section, entry.Name, (PinIcon)entry.DefaultIcon,
                 new ConfigDescription(
                     $"Icon for {entry.Name} (see Assets/pin_icons_numbered.png). -1 falls back to the category's own icon.",
-                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+                    null, IconAttr(order: 1)));
         }
 
         /// A dungeon/camp subtype's icon, falling back to the category's setting when the
         /// subtype is unknown or set to -1.
         public static Minimap.PinType SubtypeIconFor(string subtype, CategorySettings settings)
         {
-            if (!string.IsNullOrEmpty(subtype) && SubtypeIcons.TryGetValue(subtype, out ConfigEntry<int> entry))
+            if (!string.IsNullOrEmpty(subtype) && SubtypeIcons.TryGetValue(subtype, out ConfigEntry<PinIcon> entry))
             {
-                Minimap.PinType resolved = CustomIcons.Resolve(entry.Value, settings.ResolvedPinType);
+                Minimap.PinType resolved = CustomIcons.Resolve((int)entry.Value, settings.ResolvedPinType);
                 return resolved;
             }
             return settings.ResolvedPinType;
         }
 
-        public static ConfigEntry<int> LootedChestIcon;
+        public static ConfigEntry<PinIcon> LootedChestIcon;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
-            PickableIcons[group] = Config.Bind("Pickables", $"{group}Icon", iconIndex,
+            PickableIcons[group] = Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
                 new ConfigDescription(
                     $"Icon for {group} pickables (see Assets/pin_icons_numbered.png). -1 falls back to the Pickable category's PinType.",
-                    new AcceptableValueRange<int>(-1, CustomIcons.IconCount - 1)));
+                    null, IconAttr(order: 1)));
         }
 
         /// A pickable's icon comes from its group, falling back to the category's own setting.
         public static Minimap.PinType PickableIconFor(PickableGroup group, Minimap.PinType fallback)
         {
-            if (PickableIcons.TryGetValue(group, out ConfigEntry<int> entry))
-                return CustomIcons.Resolve(entry.Value, fallback);
+            if (PickableIcons.TryGetValue(group, out ConfigEntry<PinIcon> entry))
+                return CustomIcons.Resolve((int)entry.Value, fallback);
             return fallback;
         }
 
@@ -280,6 +301,10 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_locations",
                 "Diagnostics: dumps every location prefab name the world generator knows, which is the authoritative source for the dungeon/camp subtype tables.",
                 args => Probe.DumpLocations(args));
+
+            new Terminal.ConsoleCommand("carturpins_labels",
+                "Diagnostics: every catalogued prefab and the map label it would get, e.g. `carturpins_labels Chest`. No argument dumps all categories.",
+                args => Probe.DumpLabels(args, args.Args.Length > 1 ? args.Args[1] : null));
 
             new Terminal.ConsoleCommand("carturpins_catalog",
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
