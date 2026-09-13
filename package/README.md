@@ -1,5 +1,7 @@
 # Cartur's Map Pins
 
+*Free, and always will be — if it improved your game you can [tip me on Patreon](https://www.patreon.com/c/cartur).*
+
 Pins the world onto your map as you explore it, labelled, so you can find your
 way back to things without writing them down.
 
@@ -72,3 +74,12 @@ with. Pins go into your own map data.
 
 Pairs with **Cartur's Compass and Clock**, which puts these same pins on a
 compass bar and drops the ones you've ticked off or emptied.
+
+## More from Cartur
+
+- [Cartur's HD Blood](https://thunderstore.io/c/valheim/p/Cartur/Carturs_HD_Blood/) —
+  higher resolution ground blood and a real burst of blood on every hit and kill.
+- [Cartur's Compass and Clock](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Compass_and_Clock/) —
+  a Skyrim-style compass bar showing your pins at their real bearing, plus an in-game clock.
+- [Cartur's Safe Stamina](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Safe_Stamina/) —
+  stamina costs nothing until something hostile is actually near.

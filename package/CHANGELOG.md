@@ -1,5 +1,39 @@
 # Changelog
 
+## 1.2.1
+
+- Added links to my other mods.
+
+## 1.2.0
+
+**Names.** Spawners said "Skeleton" where they meant "Skeleton Spawner", and the
+eleven skeleton variants each said something different - "Skeleton Night Noarcher",
+"Skeleton Meadows Night Noarcher". Every spawner now asks what it actually spawns and
+says so: "Boar Spawner", "Greydwarf Elite Spawner", and the minibosses by name -
+"Brenna Spawner", "Lord Reto Spawner". 99 of 103 spawner labels changed.
+
+The boss stones read "BossStone_Eikthyr" and now read "Eikthyr Guardian stone".
+Wisps, the Bog Witch, boss altars and random-loot pickables were showing internal
+names or the literal word "None"; all of them now say what they are.
+
+**Ore.** 33 things counted as ore and 16 of them were not - a rusty crypt gate, a
+cauldron, a barrel, a weapon rack, a pickaxe hung on a wall, the giants' swords and
+helmets. All of them drop scrap when broken, which is not the same as being a
+deposit. Now 17, and every one is something you mine.
+
+**Lore runestones**, the eleven story stones, can be pinned. Off by default.
+
+**Settings.** Roughly 100 entries down to about 40. Icons are a dropdown showing the
+icons instead of a slider you dragged from -1 to 82. Per-category spacing and the
+timing knobs moved to Advanced. Nothing was lost, it is just not all on screen.
+
+Icon settings are stored by name now (`Icon = Pickaxe`), so your previous icon
+choices reset to the defaults once.
+
+**Fixes.** Hildir crypts were labelled "Crypt"; every charred ruin claimed to be the
+Charred Fortress. Eleven dungeon and camp names that never matched anything were
+removed.
+
 ## 1.1.1
 
 Rebuilt for Valheim 1.0.7, and the diagnostics no longer ship.
