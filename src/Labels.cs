@@ -30,6 +30,22 @@ namespace CarturMapPins
             return Prettify(StripOrePrefabNoise(prefabName));
         }
 
+        /// Resolves the "$token" strings that component m_name fields hold.
+        ///
+        /// The map draws a pin name exactly as it is stored. Minimap's only three Localize calls
+        /// are in OnLanguageChange, UpdateEventPin and UpdatePersistentEventPins - all of them on
+        /// event pins, none on ordinary ones (read off the installed assembly_valheim, not
+        /// assumed). So a label taken from RuneStone.m_name reaches the map as the literal text
+        /// "$guardianstone_name", which is what put "Eikthyr $guardianstone_name" on the seven
+        /// stones at the spawn temple.
+        ///
+        /// Localize substitutes tokens anywhere in a string, so a label that mixes a prefab-derived
+        /// word with a token - "Eikthyr $guardianstone_name" - comes out right in every language.
+        public static string Localize(string text) =>
+            string.IsNullOrEmpty(text) || Localization.instance == null
+                ? text
+                : Localization.instance.Localize(text);
+
         /// Valheim colours miniboss names in its own UI, so their Character.m_name arrives as
         /// "<color=orange>Brenna</color>". That markup would be written straight into the save and
         /// drawn on the pin, so the tags come off and the name stays.

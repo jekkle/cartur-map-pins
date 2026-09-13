@@ -411,9 +411,9 @@ namespace CarturMapPins
             return vegvisir.m_name;
         }
 
-        /// Labels are stored as raw "$token" strings wherever possible: Minimap.PinNameData runs
-        /// pin names through Localization.Localize when rendering them, so this is both less code
-        /// and correct in every language.
+        /// Labels come back as the raw "$token" strings the components hold; TryPin resolves them
+        /// through Labels.Localize on the way to the map. This used to say Minimap.PinNameData
+        /// localised pin names for us - it does not, and nothing else did either.
 #if DIAGNOSTICS
         /// Diagnostics hook: resolve a label without pinning anything, so every catalogued prefab
         /// can be previewed from one console command instead of by walking to each of them.
@@ -742,7 +742,7 @@ namespace CarturMapPins
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
-            Minimap.instance.AddPin(pos, pinType, label ?? string.Empty,
+            Minimap.instance.AddPin(pos, pinType, Labels.Localize(label) ?? string.Empty,
                 save: true, isChecked: false);
 
             PinRecord.Add(key, pos);
