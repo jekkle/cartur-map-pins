@@ -24,7 +24,8 @@ namespace CarturMapPins
         private const float CellSize = 46f;
         private const float Spacing = 4f;
         private const float PanelWidth = Columns * (CellSize + Spacing) + 24f;
-        private const float PanelHeight = 4f * (CellSize + Spacing) + 24f;
+        private const float VisibleRows = 6f;
+        private const float PanelHeight = VisibleRows * (CellSize + Spacing) + 24f;
 
         private static GameObject _panel;
         private static RectTransform _panelRect;
@@ -115,7 +116,9 @@ namespace CarturMapPins
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 24f;
+            // Two and a half rows per wheel tick. The old 24 was half a row, which was fine for
+            // the 83-icon sheet but means about 60 ticks to cross 153 icons in five columns.
+            scroll.scrollSensitivity = (CellSize + Spacing) * 2.5f;
 
             // A Screen Space - Overlay canvas must be hit-tested with a null camera; anything else
             // needs its own. Passing the wrong one puts the rect in the wrong coordinate space and

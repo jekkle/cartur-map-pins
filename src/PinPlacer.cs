@@ -695,10 +695,17 @@ namespace CarturMapPins
             // a tin node metres away, hiding a resource entirely.
             string key = string.IsNullOrEmpty(subtype) ? category.ToString() : $"{category}:{subtype}";
 
-            if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
-                return;
-
             Minimap.PinType pinType = IconFor(category, subtype, settings);
+
+            if (PinRecord.Exists(key, pos, settings.DedupeRadius.Value))
+            {
+                // Already pinned - but a record written before subtypes existed says only
+                // "Spawner" where we can now see it is a boar. Standing next to the thing is the
+                // only moment that information exists, so take it now rather than leave the pin
+                // on the generic category icon forever.
+                PinRecord.Upgrade(category, subtype, pos, settings.DedupeRadius.Value, pinType);
+                return;
+            }
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.

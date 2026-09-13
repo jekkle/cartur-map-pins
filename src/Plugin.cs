@@ -303,6 +303,16 @@ namespace CarturMapPins
                     args.Context?.AddString($"Removed {removed} of {before} recorded pins.");
                 });
 
+            new Terminal.ConsoleCommand("carturpins_forget_missing",
+                "Forgets records whose pin is no longer on your map, so those nodes can be pinned again. Use this if pins were lost to a crash; it will also bring back pins you deleted on purpose.",
+                args =>
+                {
+                    int dropped = PinRecord.ForgetMissing();
+                    args.Context?.AddString(dropped > 0
+                        ? $"Forgot {dropped} record(s) with no pin. They will pin again when you next go near them."
+                        : "Every record still has a pin - nothing to forget.");
+                });
+
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
                 args => args.Context?.AddString($"{PinRecord.Count} pins on record."));

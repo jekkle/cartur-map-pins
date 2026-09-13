@@ -103,6 +103,75 @@ namespace CarturMapPins
             _dirty = true;
         }
 
+        /// Promotes a bare record ("Spawner") to a subtyped one ("Spawner:Boar") the first time
+        /// the world is close enough to say what the thing actually is, and repoints its pin to
+        /// the matching icon.
+        ///
+        /// Records written before subtypes existed carry only the category, so the upgrade
+        /// migration could restore no more than the generic category icon - a boar spawner and a
+        /// draugr pile both ended up on the summoning-circle glyph. The missing information is
+        /// not recoverable from the record at any time; it exists only while the spawner itself is
+        /// loaded, which is exactly when this runs.
+        ///
+        /// Only the icon is touched, never the name: a pin can be renamed by hand, and there is
+        /// no way to tell a renamed pin from one still carrying our label.
+        ///
+        /// Returns true when an entry was promoted.
+        public static bool Upgrade(PinCategory category, string subtype, Vector3 pos, float radius, Minimap.PinType wanted)
+        {
+            if (string.IsNullOrEmpty(subtype))
+                return false;
+
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return false;
+
+            string bareKey = category.ToString();
+            float sqr = radius * radius;
+
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                if (Entries[i].Key != bareKey)
+                    continue;   // already subtyped, or a different category
+
+                Vector3 d = Entries[i].Pos - pos;
+                if (d.x * d.x + d.z * d.z > sqr)
+                    continue;
+
+                // Only promote when the pin is actually there to repoint. A record whose pin has
+                // gone stays bare, which keeps the record and the map saying the same thing.
+                Minimap.PinData pin = FindPinAt(map, Entries[i].Pos);
+                if (pin == null || !Repoint(map, pin, wanted))
+                    return false;
+
+                Entries[i] = new Entry { Key = bareKey + ":" + subtype, Pos = Entries[i].Pos };
+                _dirty = true;
+                map.SaveMapData();
+                Plugin.Log.LogInfo($"Upgraded '{bareKey}' pin at {pos.x:F0},{pos.z:F0} to '{bareKey}:{subtype}'.");
+                return true;
+            }
+
+            return false;
+        }
+
+        /// Drops records whose pin is no longer on the map, making those objects eligible to pin
+        /// again. Deliberately manual: a missing pin means either the pin was lost before the
+        /// character was saved, or the player deleted it on purpose, and nothing distinguishes
+        /// the two - so resurrecting pins is never done to somebody's map without them asking.
+        public static int ForgetMissing()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return 0;
+
+            int before = Entries.Count;
+            Entries.RemoveAll(e => FindPinAt(map, e.Pos) == null);
+            int dropped = before - Entries.Count;
+            if (dropped > 0)
+                Save();
+            return dropped;
+        }
+
         /// Writes pending changes at most once per interval. Cheap no-op when nothing changed.
         public static void Flush()
         {
