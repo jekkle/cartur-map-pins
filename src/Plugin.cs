@@ -370,6 +370,18 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_catalog",
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
                 args => Probe.DumpCategory(args, args.Args.Length > 1 ? args.Args[1] : null));
+
+            // Every dump in one go. Each of these needs a restart to pick up a code change, and
+            // running them one at a time means a restart per question.
+            new Terminal.ConsoleCommand("carturpins_dumpall",
+                "Diagnostics: runs every dump - locations, catalog, labels, spawners - into the log in one pass.",
+                args =>
+                {
+                    Probe.DumpLocations(args);
+                    Probe.DumpCategory(args, null);
+                    Probe.DumpLabels(args, null);
+                    Probe.DumpSpawners(args);
+                });
 #endif
         }
     }

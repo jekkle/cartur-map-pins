@@ -179,15 +179,34 @@ namespace CarturMapPins
                     return " kind=? (no Location component)";
 
                 string gen = loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
-                return (loc.m_hasInterior ? " kind=dungeon"
-                        : loc.m_generator != null ? " kind=camp"
-                        : " kind=surface") + gen;
+                string kind = (loc.m_hasInterior ? " kind=dungeon"
+                               : loc.m_generator != null ? " kind=camp"
+                               : " kind=surface") + gen;
+                return kind + Verdict(loc);
             }
             finally
             {
                 if (!alreadyLoaded)
                     zl.m_prefab.Release();
             }
+        }
+
+        /// What the mod would actually do with this location, asked of the real classifier rather
+        /// than worked out again here. Answers the question the rest of the line only hints at:
+        /// whether a location is pinned at all, which category claims it, and whether it lands on
+        /// a subtype icon or on the category's generic one.
+        private static string Verdict(Location loc)
+        {
+            if (!PinPlacer.TryClassifyLocation(loc, out PinCategory category, out string label, out string subtype))
+                return "  -> not pinned";
+
+            Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+            if (settings == null)
+                return $"  -> {category} (no settings bound)";
+
+            string icon = subtype != null ? $"{category}:{subtype}" : $"{category}, category icon";
+            string state = settings.Enabled.Value ? "on" : "OFF";
+            return $"  -> {icon} [{state}] \"{label}\"";
         }
 
         /// Lists the game's TMP font assets by exact name.

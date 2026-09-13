@@ -277,7 +277,11 @@ namespace CarturMapPins
         }
 
         /// Classified from the location's own data, with no hardcoded prefab names.
-        private static bool TryClassifyLocation(Location loc, out PinCategory category, out string label, out string subtype)
+        /// internal so the location dump can ask the real classifier what it would do with each of
+        /// the 232 definitions rather than reimplementing the same ladder beside it, which would
+        /// drift the moment either side changed. Everything it reads - the child components,
+        /// m_hasInterior, m_generator, the prefab name - is on the prefab as well as the instance.
+        internal static bool TryClassifyLocation(Location loc, out PinCategory category, out string label, out string subtype)
         {
             subtype = null;
 
