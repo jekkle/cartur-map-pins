@@ -64,6 +64,9 @@ namespace CarturMapPins
 
             _selectIcon = AccessTools.Method(typeof(Minimap), "SelectIcon", new[] { typeof(Minimap.PinType) });
             _selectedType = AccessTools.Field(typeof(Minimap), "m_selectedType");
+            // Private, and a thin forwarder onto GetClosestPin(pos, PinInteractRadius, true) -
+            // which is fine to call, since it applies vanilla's own cursor-to-pin radius.
+            _closestPinToCursor = AccessTools.Method(typeof(Minimap), "GetClosestPinToCursor");
             if (_selectIcon == null || _selectedType == null)
             {
                 Plugin.Log.LogWarning("Minimap.SelectIcon/m_selectedType not found - map icon picker disabled.");
@@ -221,6 +224,37 @@ namespace CarturMapPins
             }
         }
 
+        private static MethodInfo _closestPinToCursor;
+
+        /// Shift-click an existing pin to give it the icon currently selected, instead of vanilla's
+        /// plain left-click which ticks the pin off.
+        ///
+        /// Works on any pin, ours or hand-placed, which is the only way to repair a pin whose
+        /// artwork moved when the icon sheet was replaced - nothing records what icon the player
+        /// originally meant, but they can just point at it and pick again.
+        ///
+        /// Returns true when it handled the click, which suppresses the tick-off.
+        public static bool TryRepointPinUnderCursor(Minimap map)
+        {
+            if (map == null || _selectedType == null || _closestPinToCursor == null)
+                return false;
+            if (!ZInput.GetKey(KeyCode.LeftShift, false) && !ZInput.GetKey(KeyCode.RightShift, false))
+                return false;
+
+            var pin = _closestPinToCursor.Invoke(map, null) as Minimap.PinData;
+            if (pin == null)
+                return false;
+
+            var selected = (Minimap.PinType)_selectedType.GetValue(map);
+            if (pin.m_type == selected || !PinRecord.Repoint(map, pin, selected))
+                return false;
+
+            // Written straight away rather than left to the next world save: this is a deliberate
+            // edit to someone's map and losing it to a crash would be worse than the write.
+            map.SaveMapData();
+            return true;
+        }
+
         /// Vanilla selecting one of its own icons must clear our highlights, otherwise two
         /// icons look selected at once.
         public static void ClearHighlightsIfVanilla(Minimap.PinType type)
@@ -233,6 +267,19 @@ namespace CarturMapPins
                     highlight.enabled = false;
             }
         }
+    }
+
+    /// Vanilla's left-click on a pin ticks it off (or clears a shared pin's owner first). Holding
+    /// shift repoints it to the selected icon instead, so an existing pin can be corrected without
+    /// deleting and replacing it.
+    ///
+    /// Returning false skips the original deliberately: shift-click means "change this icon", and
+    /// letting vanilla also toggle the tick would make one click do two unrelated things.
+    [HarmonyPatch(typeof(Minimap), nameof(Minimap.OnMapLeftClick))]
+    internal static class Patch_Minimap_OnMapLeftClick
+    {
+        private static bool Prefix(Minimap __instance) =>
+            !MapIconPicker.TryRepointPinUnderCursor(__instance);
     }
 
     [HarmonyPatch(typeof(Minimap), "SelectIcon")]
