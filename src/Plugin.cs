@@ -127,8 +127,8 @@ namespace CarturMapPins
             Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
                 "Loot chests found in the world. Player-built containers are never pinned.",
                 iconIndex: 72);   // chest
-            Bind(PinCategory.Spawner, true, Minimap.PinType.Icon3, 15f,
-                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. Individual creatures have their own icons in Spawner Types.",
+            Bind(PinCategory.Spawner, false, Minimap.PinType.Icon3, 15f,
+                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. OFF by default - the catalog covers 103 spawner prefabs, including chicken, bat, fish and leech, so a fresh world would carpet the map. Individual creatures have their own icons in Spawner Types.",
                 iconIndex: 9);    // summoning circle; per-creature icons override this
             Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
                 "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.",
