@@ -39,6 +39,11 @@
     <EmbeddedResource Include="Assets\pin_icons.png">
       <LogicalName>CarturMapPins.pin_icons.png</LogicalName>
     </EmbeddedResource>
+    <!-- 1.2.2's sheet, kept so pins placed by hand before the replacement still show the picture
+         they were given. Registered on the type numbers it used; nothing selects it on its own. -->
+    <EmbeddedResource Include="Assets\pin_icons_legacy.png">
+      <LogicalName>CarturMapPins.pin_icons_legacy.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 
   <ItemGroup>

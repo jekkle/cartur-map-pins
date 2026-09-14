@@ -87,8 +87,8 @@ namespace CarturMapPins
             // near the bottom of the sheet.
             scroll.scrollSensitivity = (CellSize + Spacing) * 3.75f;
 
-            var highlights = new List<Image>(CustomIcons.Count);
-            for (int i = 0; i < CustomIcons.Count; i++)
+            var highlights = new List<Image>(CustomIcons.PickerCount);
+            for (int i = 0; i < CustomIcons.PickerCount; i++)
                 highlights.Add(CreateButton(content.transform, template, i, onClick));
             return highlights;
         }
@@ -126,7 +126,7 @@ namespace CarturMapPins
             Image icon = cell.GetComponent<Image>();
             if (icon != null)
             {
-                icon.sprite = CustomIcons.SpriteAt(index);
+                icon.sprite = CustomIcons.SpriteForPicker(index);
                 icon.color = Color.white;
                 icon.enabled = true;
             }

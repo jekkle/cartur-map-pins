@@ -249,7 +249,7 @@ namespace CarturMapPins
 
             if (_pending >= 0)
             {
-                Minimap.PinType wanted = CustomIcons.TypeForIndex(_pending);
+                Minimap.PinType wanted = CustomIcons.TypeForPicker(_pending);
                 if (wanted != _target.m_type && PinRecord.Repoint(_map, _target, wanted))
                     changed = true;
             }

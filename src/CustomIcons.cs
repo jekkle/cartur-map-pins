@@ -33,6 +33,24 @@ namespace CarturMapPins
         /// sheet would slice off the last row; one that ran ahead would create null sprites.
         public static readonly int IconCount = Enum.GetValues(typeof(PinIcon)).Length - 1;   // -1: Default
 
+        /// 1.2.2's sheet, still registered on the exact type numbers it used.
+        ///
+        /// It was replaced wholesale rather than extended, so every index means something else
+        /// now - and a pin the player placed by hand records nothing but its index. Keeping the
+        /// old sheet loaded at 100-182 is what lets those pins go on showing the picture they were
+        /// given, instead of whatever the new sheet happens to hold at that slot.
+        ///
+        /// Nothing selects these on its own. Categories take their icons from the current sheet;
+        /// the old ones are reachable only by picking one, which is the point - they exist to
+        /// preserve choices already made, not to compete with the new art.
+        private const int LegacyIconCount = 83;
+
+        private static Sprite[] _legacy;
+
+        /// Where the current sheet starts, after the old one. Moving it rather than the old one is
+        /// what keeps 1.2.2's saved pins pointing at 1.2.2's pictures.
+        public const int CurrentBase = FirstCustomType + LegacyIconCount;
+
         private static Sprite[] _sprites;
 
         /// The sliced icon sheet, for anything that needs to draw the icons itself - the map
@@ -55,9 +73,26 @@ namespace CarturMapPins
         public static Sprite SpriteAt(int index) =>
             _sprites != null && index >= 0 && index < _sprites.Length ? _sprites[index] : null;
 
-        /// Maps an icon index (0-82) to the PinType that carries it.
+        /// Maps an icon index on the current sheet to the PinType that carries it.
         public static Minimap.PinType TypeForIndex(int index) =>
+            (Minimap.PinType)(CurrentBase + index);
+
+        /// The same for 1.2.2's sheet, which sits below the current one.
+        public static Minimap.PinType LegacyTypeForIndex(int index) =>
             (Minimap.PinType)(FirstCustomType + index);
+
+        public static int LegacyCount => _legacy?.Length ?? 0;
+
+        /// The picker shows the current sheet first and the old one after it, so one index space
+        /// covers both: below Count is current art, above it is 1.2.2's.
+        public static int PickerCount => Count + LegacyCount;
+
+        public static Sprite SpriteForPicker(int index) =>
+            index < Count ? SpriteAt(index)
+            : (_legacy != null && index - Count < _legacy.Length ? _legacy[index - Count] : null);
+
+        public static Minimap.PinType TypeForPicker(int index) =>
+            index < Count ? TypeForIndex(index) : LegacyTypeForIndex(index - Count);
 
         public static bool IsCustom(Minimap.PinType type) => (int)type >= FirstCustomType;
 
@@ -89,26 +124,22 @@ namespace CarturMapPins
                     Texture2D sheet = LoadSheet();
                     if (sheet == null)
                         return;
-                    _sprites = Slice(sheet);
+                    _sprites = Slice(sheet, IconCount);
+                }
+
+                if (_legacy == null)
+                {
+                    Texture2D old = LoadSheet("pin_icons_legacy.png");
+                    // A missing old sheet is survivable: pins from 1.2.2 fall back to whatever the
+                    // new sheet holds at their index, which is what happened before this existed.
+                    _legacy = old != null ? Slice(old, LegacyIconCount) : new Sprite[0];
                 }
 
                 // Grow the visibility filter FIRST - AddPin and the render loop both index it.
-                GrowVisibleIconTypes(map, FirstCustomType + _sprites.Length + 1);
+                GrowVisibleIconTypes(map, CurrentBase + _sprites.Length + 1);
 
-                int added = 0;
-                for (int i = 0; i < _sprites.Length; i++)
-                {
-                    if (_sprites[i] == null)
-                        continue;
-                    if (AlreadyRegistered(map, TypeForIndex(i)))
-                        continue;
-                    map.m_icons.Add(new Minimap.SpriteData
-                    {
-                        m_name = TypeForIndex(i),
-                        m_icon = _sprites[i]
-                    });
-                    added++;
-                }
+                int added = Register(map, _sprites, TypeForIndex) +
+                            Register(map, _legacy, LegacyTypeForIndex);
 
                 ReplaceBedSprite(map);
 
@@ -166,6 +197,22 @@ namespace CarturMapPins
             return _sprites[iconIndex];
         }
 
+        private static int Register(Minimap map, Sprite[] sprites, Func<int, Minimap.PinType> typeFor)
+        {
+            if (sprites == null)
+                return 0;
+
+            int added = 0;
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i] == null || AlreadyRegistered(map, typeFor(i)))
+                    continue;
+                map.m_icons.Add(new Minimap.SpriteData { m_name = typeFor(i), m_icon = sprites[i] });
+                added++;
+            }
+            return added;
+        }
+
         private static bool AlreadyRegistered(Minimap map, Minimap.PinType type)
         {
             foreach (Minimap.SpriteData data in map.m_icons)
@@ -178,12 +225,16 @@ namespace CarturMapPins
 
         /// An override file next to the config wins, so the sheet can be swapped without a
         /// rebuild; otherwise the embedded copy is used.
-        private static Texture2D LoadSheet()
+        /// Only the current sheet honours the override file: swapping the art for the sheet the
+        /// mod draws from is a supported thing to do, but 1.2.2's sheet exists to keep old pins
+        /// looking the way they always did, and an override there would defeat the point.
+        private static Texture2D LoadSheet(string resource = "pin_icons.png")
         {
+            bool current = resource == "pin_icons.png";
             string overridePath = Path.Combine(BepInEx.Paths.ConfigPath, "carturmappins_icons.png");
             byte[] png;
 
-            if (File.Exists(overridePath))
+            if (current && File.Exists(overridePath))
             {
                 png = File.ReadAllBytes(overridePath);
                 Plugin.Log.LogInfo($"Loading icon sheet override from {overridePath}");
@@ -191,11 +242,11 @@ namespace CarturMapPins
             else
             {
                 using (Stream stream = Assembly.GetExecutingAssembly()
-                           .GetManifestResourceStream("CarturMapPins.pin_icons.png"))
+                           .GetManifestResourceStream("CarturMapPins." + resource))
                 {
                     if (stream == null)
                     {
-                        Plugin.Log.LogError("Embedded icon sheet not found.");
+                        Plugin.Log.LogError($"Embedded icon sheet {resource} not found.");
                         return null;
                     }
                     png = new byte[stream.Length];
@@ -253,12 +304,12 @@ namespace CarturMapPins
 
         /// The sheet is a uniform grid; cell pitch is the texture width divided by the column
         /// count, and rows are counted from the top while Unity's texture origin is bottom-left.
-        private static Sprite[] Slice(Texture2D sheet)
+        private static Sprite[] Slice(Texture2D sheet, int count)
         {
             float pitch = sheet.width / (float)SheetColumns;
-            var sprites = new Sprite[IconCount];
+            var sprites = new Sprite[count];
 
-            for (int i = 0; i < IconCount; i++)
+            for (int i = 0; i < count; i++)
             {
                 int col = i % SheetColumns;
                 int row = i / SheetColumns;

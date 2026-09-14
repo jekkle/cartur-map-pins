@@ -48,16 +48,6 @@ namespace CarturMapPins
                     // key|x|y|z   (key is "Ore:Copper", "Dungeon", ...)
                     string[] parts = line.Split('|');
 
-                    // "flagged|<world uid>" - a world whose hand-placed pins have already been
-                    // marked after the icon sheet changed. Two parts rather than four, so every
-                    // version including 1.2.2 skips the line as malformed instead of choking.
-                    if (parts.Length == 2 && parts[0] == FlaggedMarker &&
-                        long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out long uid))
-                    {
-                        FlaggedWorlds.Add(uid);
-                        continue;
-                    }
-
                     if (parts.Length != 4)
                         continue;
                     if (string.IsNullOrEmpty(parts[0]))
@@ -221,74 +211,6 @@ namespace CarturMapPins
             }
 
             return false;
-        }
-
-        private const string FlaggedMarker = "flagged";
-
-        private static readonly HashSet<long> FlaggedWorlds = new HashSet<long>();
-
-        /// Whether this world has already had its hand-placed pins marked.
-        ///
-        /// Per world, not per install: the record file is shared by every world, so a single
-        /// "done" flag would mark the first world you loaded and quietly skip all the others.
-        public static bool WorldFlagged(long worldUid) => FlaggedWorlds.Contains(worldUid);
-
-        public static void MarkWorldFlagged(long worldUid)
-        {
-            if (FlaggedWorlds.Add(worldUid))
-                Save();
-        }
-
-        /// True when a position is one this mod recorded - any category.
-        public static bool IsOurs(Vector3 pos, float radius)
-        {
-            float sqr = radius * radius;
-            foreach (Entry e in Entries)
-            {
-                Vector3 d = e.Pos - pos;
-                if (d.x * d.x + d.z * d.z <= sqr)
-                    return true;
-            }
-            return false;
-        }
-
-        /// Repaints every saved pin carrying a custom icon this mod did not place, so a player
-        /// updating from 1.2.2 can see which of their own pins need their icon picking again.
-        ///
-        /// The sheet was replaced, and a hand-placed pin records nothing but its icon slot - so
-        /// its artwork has changed to something unrelated and there is no way to work out what was
-        /// meant. This says "this one needs you" rather than leaving a wrong picture.
-        ///
-        /// Names are left exactly as they are: the label is the player's own writing and the only
-        /// clue left about what the pin was for.
-        ///
-        /// Deliberately a command rather than automatic. "A custom icon that isn't in our record"
-        /// also describes every pin the player places by hand after updating, and this runs on
-        /// demand instead of repainting those on every load for the rest of time.
-        public static int FlagUnknownCustomPins(Minimap.PinType warning)
-        {
-            Minimap map = Minimap.instance;
-            if (map == null)
-                return 0;
-
-            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
-            if (pins == null)
-                return 0;
-
-            int flagged = 0;
-            foreach (Minimap.PinData pin in pins)
-            {
-                if (!pin.m_save || pin.m_type == warning)
-                    continue;
-                if (!CustomIcons.IsCustom(pin.m_type) || IsOurs(pin.m_pos, 0.5f))
-                    continue;
-                if (Repoint(map, pin, warning))
-                    flagged++;
-            }
-
-            if (flagged > 0)
-                map.SaveMapData();
-            return flagged;
         }
 
         /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
@@ -562,8 +484,8 @@ namespace CarturMapPins
                 // A chest sitting on the old looted icon is one we knew was empty, so it has to
                 // migrate to the current looted icon rather than the normal one.
                 bool wasLooted = category == PinCategory.Chest &&
-                                 pin.m_type == CustomIcons.TypeForIndex(LegacyLootedChestIcon);
-                if (!wasLooted && pin.m_type != CustomIcons.TypeForIndex(legacyIndex))
+                                 pin.m_type == CustomIcons.LegacyTypeForIndex(LegacyLootedChestIcon);
+                if (!wasLooted && pin.m_type != CustomIcons.LegacyTypeForIndex(legacyIndex))
                 {
 #if DIAGNOSTICS
                     Plugin.Log.LogInfo($"  migrate: '{e.Key}' at {e.Pos.x:F0},{e.Pos.z:F0} - on type {(int)pin.m_type}, 1.2.2 would have written {100 + legacyIndex} - left alone");
@@ -682,9 +604,7 @@ namespace CarturMapPins
 
             try
             {
-                var lines = new List<string>(Entries.Count + FlaggedWorlds.Count);
-                foreach (long uid in FlaggedWorlds)
-                    lines.Add(FlaggedMarker + "|" + uid.ToString(CultureInfo.InvariantCulture));
+                var lines = new List<string>(Entries.Count);
                 foreach (Entry e in Entries)
                 {
                     lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}",

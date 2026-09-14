@@ -88,7 +88,7 @@ namespace CarturMapPins
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
                                                 index => Select(map, index), top: CaptionHeight));
 
-            Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons.");
+            Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons plus {CustomIcons.LegacyCount} from the old sheet.");
         }
 
         private const float CaptionHeight = 20f;
@@ -123,7 +123,7 @@ namespace CarturMapPins
 
         private static void Select(Minimap map, int index)
         {
-            Minimap.PinType type = CustomIcons.TypeForIndex(index);
+            Minimap.PinType type = CustomIcons.TypeForPicker(index);
 
             // Vanilla's SelectIcon also clears the seven vanilla highlights and flags a pin
             // refresh, so going through it keeps everything consistent.

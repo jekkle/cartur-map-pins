@@ -411,22 +411,6 @@ namespace CarturMapPins
                         : "Every record still has a pin - nothing to forget.");
                 });
 
-            new Terminal.ConsoleCommand("carturpins_flag_unknown",
-                "Marks pins you placed by hand that carry a custom icon, so you can see which ones need their icon picking again after the sheet changed. Names are left alone. Run it once after updating.",
-                args =>
-                {
-                    Minimap.PinType warning = CustomIcons.Resolve((int)PinIcon.UtilWarning, Minimap.PinType.Icon3);
-                    if (!CustomIcons.IsCustom(warning))
-                    {
-                        args.Context?.AddString("Custom icons are off, so there is no warning icon to use.");
-                        return;
-                    }
-                    int flagged = PinRecord.FlagUnknownCustomPins(warning);
-                    args.Context?.AddString(flagged > 0
-                        ? $"Marked {flagged} hand-placed pin(s) with the warning icon. Their names are unchanged - shift-click one to pick its icon again."
-                        : "No hand-placed pins with a custom icon - nothing to mark.");
-                });
-
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
                 args => args.Context?.AddString($"{PinRecord.Count} pins on record."));
