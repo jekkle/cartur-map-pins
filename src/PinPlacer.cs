@@ -108,11 +108,22 @@ namespace CarturMapPins
             // hand-placed pins would be re-checked forever.
             PinRecord.MarkWorldFlagged(world);
 
-            if (flagged > 0)
+            if (flagged == 0)
+                return;
+
+            Plugin.Log.LogInfo($"Marked {flagged} hand-placed pin(s) with the warning icon - " +
+                               "the icon sheet changed and what they were set to cannot be recovered. " +
+                               "Their names are untouched; shift-click one to pick its icon again.");
+
+            // Said on screen as well as in the log. Nobody reads a BepInEx log, and a warning
+            // triangle sitting on a pin you named yourself is alarming until you know what it
+            // means and that shift-click fixes it. Once per world, and only when there is
+            // something to say.
+            MessageHud hud = MessageHud.instance;
+            if (hud != null)
             {
-                Plugin.Log.LogInfo($"Marked {flagged} hand-placed pin(s) with the warning icon - " +
-                                   "the icon sheet changed and what they were set to cannot be recovered. " +
-                                   "Their names are untouched; shift-click one to pick its icon again.");
+                hud.ShowMessage(MessageHud.MessageType.Center,
+                    $"{flagged} of your own pins need a new icon - shift-click a pin to change it");
             }
         }
 

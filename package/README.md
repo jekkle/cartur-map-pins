@@ -26,6 +26,15 @@ Every category is a switch. Turn off what you don't care about.
 Berries, mushrooms, crops and surface flint are **off by default** — they would
 carpet the map and bloat your save. Turn them on if you want them.
 
+## Changing a pin's icon
+
+**Shift-click any pin on the map** to open an editor beside it: rename it, pick a
+different icon from the grid, confirm. It works on pins this mod placed and on
+pins you placed yourself.
+
+There is also an icon grid on the large map, next to vanilla's own row of pin
+buttons, for choosing what a pin you place by hand will look like.
+
 ## Notable bits
 
 - **Emptied chests change icon.** Loot a chest and its pin switches to a looted
@@ -48,6 +57,11 @@ carpet the map and bloat your save. Turn them on if you want them.
 - `carturpins_clear` — removes every pin this mod placed. Hand-placed pins are
   left alone.
 - `carturpins_count` — how many are on record.
+- `carturpins_forget_missing` — forgets records whose pin is gone, so those
+  places can be pinned again.
+- `carturpins_flag_unknown` — marks hand-placed pins carrying a custom icon with
+  a warning glyph, so you can spot the ones whose art changed with the sheet.
+  Runs itself once per world; this is only for doing it again.
 
 ## Install
 

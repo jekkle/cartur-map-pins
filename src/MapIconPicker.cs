@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,7 +26,7 @@ namespace CarturMapPins
         private const float Spacing = 4f;
         private const float PanelWidth = Columns * (CellSize + Spacing) + 24f;
         private const float VisibleRows = 6f;
-        private const float PanelHeight = VisibleRows * (CellSize + Spacing) + 24f;
+        private const float PanelHeight = VisibleRows * (CellSize + Spacing) + 24f + CaptionHeight;
 
         private static GameObject _panel;
         private static RectTransform _panelRect;
@@ -81,11 +82,43 @@ namespace CarturMapPins
 
             _canvasCamera = IconGrid.CameraFor(_panel);
 
+            AddCaption(_panel);
+
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
-                                                index => Select(map, index)));
+                                                index => Select(map, index), top: CaptionHeight));
 
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons.");
+        }
+
+        private const float CaptionHeight = 20f;
+
+        /// A line above the grid saying how to change a pin you have already placed.
+        ///
+        /// Shift-clicking a pin is the only way to reach the editor and nothing on screen says so,
+        /// which made it a feature only people who read the page knew about. The grid is where
+        /// somebody is already looking when they are thinking about icons, so the sentence belongs
+        /// here rather than in a toast they will miss.
+        private static void AddCaption(GameObject panel)
+        {
+            var go = new GameObject("Caption");
+            go.transform.SetParent(panel.transform, false);
+
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(8f, -CaptionHeight);
+            rt.offsetMax = new Vector2(-8f, -2f);
+
+            // No font assigned, same as the editor's own label: TMP falls back to its default,
+            // where naming a font asset that may not exist yields invisible text instead.
+            TextMeshProUGUI text = go.AddComponent<TextMeshProUGUI>();
+            text.text = "SHIFT CLICK ICON TO CHANGE";
+            text.fontSize = 14f;
+            text.color = new Color(0.95f, 0.92f, 0.82f, 0.85f);
+            text.alignment = TextAlignmentOptions.Center;
+            text.raycastTarget = false;
         }
 
         private static void Select(Minimap map, int index)
