@@ -150,6 +150,58 @@ namespace CarturMapPins
             }
         }
 
+        /// Every prefab the game registers, by name, with the components that decide whether this
+        /// mod can pin it.
+        ///
+        /// The catalog only reports what it accepted; this reports what exists. Without it,
+        /// "is there a maypole in the game, and what is it called" cannot be answered at all -
+        /// prefab names are Unity asset references, not strings in the assembly, so they cannot
+        /// be read offline. This is the list the icon sheet's names have to be matched against.
+        public static void DumpAllPrefabs(Terminal.ConsoleEventArgs args)
+        {
+            ZNetScene scene = ZNetScene.instance;
+            if (scene == null || scene.m_prefabs == null)
+            {
+                Emit(args, "ZNetScene not ready.");
+                return;
+            }
+
+            Emit(args, $"=== {scene.m_prefabs.Count} ZNetScene prefabs ===");
+            foreach (GameObject prefab in scene.m_prefabs)
+            {
+                if (prefab == null)
+                    continue;
+
+                var sb = new StringBuilder();
+                Note<Piece>(prefab, "piece", sb);
+                Note<Container>(prefab, "container", sb);
+                Note<Pickable>(prefab, "pickable", sb);
+                Note<CreatureSpawner>(prefab, "spawner", sb);
+                Note<SpawnArea>(prefab, "spawnarea", sb);
+                Note<Character>(prefab, "creature", sb);
+                Note<Destructible>(prefab, "destructible", sb);
+                Note<MineRock5>(prefab, "minerock5", sb);
+                Note<MineRock>(prefab, "minerock", sb);
+                Note<Vegvisir>(prefab, "vegvisir", sb);
+                Note<RuneStone>(prefab, "runestone", sb);
+                Note<OfferingBowl>(prefab, "altar", sb);
+                Note<Beehive>(prefab, "beehive", sb);
+                Note<Trader>(prefab, "trader", sb);
+
+                bool known = PinCatalog.Contains(prefab.name.GetStableHashCode());
+                Emit(args, $"    {prefab.name,-42} {(known ? "PINNED" : "      ")} {sb}");
+            }
+        }
+
+        private static void Note<T>(GameObject prefab, string label, StringBuilder sb) where T : Component
+        {
+            if (prefab.GetComponent<T>() == null)
+                return;
+            if (sb.Length > 0)
+                sb.Append(' ');
+            sb.Append(label);
+        }
+
         /// Every field of every location definition, written out once.
         ///
         /// The summary line above is chosen - biome, quantity, the two flags the classifier reads -
@@ -480,6 +532,7 @@ namespace CarturMapPins
         {
             DumpLocations(args);
             DumpLocationsFull(args);
+            DumpAllPrefabs(args);
             DumpCategory(args, null);
             DumpLabels(args, null);
             DumpSpawners(args);

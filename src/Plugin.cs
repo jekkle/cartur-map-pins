@@ -147,6 +147,9 @@ namespace CarturMapPins
             Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
                 "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
                 iconIndex: 45);   // stone circle; per-kind icons override it
+            Bind(PinCategory.Prop, true, Minimap.PinType.Icon2, 5f,
+                "One-off world objects that carry no component saying what they are, so the mod knows them by name - currently the maypole standing in an abandoned Meadows village. Anything you built yourself is never pinned.",
+                iconIndex: 149);  // maypole; per-prop icons override this
             Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
                 "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
                 iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
@@ -186,6 +189,8 @@ namespace CarturMapPins
             // Ruins that never get a pin of their own - their chest carries the name and icon.
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.ChestSites))
                 BindSubtypeIcon("Chest Sites", e);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Props))
+                BindSubtypeIcon("Prop Types", e);
 
             // One switch per landmark kind, generated from the same table that detects them, so a
             // kind can never exist in the matcher without a matching switch in the menu.

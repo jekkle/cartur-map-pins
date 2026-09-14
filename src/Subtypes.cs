@@ -84,6 +84,20 @@ namespace CarturMapPins
             E("hildir", "Hildir Camp", 61),
         };
 
+        /// World objects worth a pin that carry no component saying so.
+        ///
+        /// Everything else in the catalog is found by asking the object what it is - a Container
+        /// with loot, a Pickable, a spawner. A maypole is a Piece with a WearNTear, exactly like
+        /// a wooden wall, so the only thing that identifies it is its name. That makes this table
+        /// a deliberate allowlist rather than a rule: nothing lands here without being named.
+        ///
+        /// These all exist in player-built form too, so the spawn hook checks the ZDO creator and
+        /// skips anything somebody built - the same gate beehives and chests go through.
+        public static readonly Entry[] Props =
+        {
+            E("maypole", "Maypole", 149),
+        };
+
         /// Ruins worth recognising but not worth a pin of their own.
         ///
         /// There are four kinds of stone tower ruin at quantity 80 apiece and six Mistlands guard

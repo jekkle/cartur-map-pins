@@ -81,7 +81,8 @@ namespace CarturMapPins
             // base would be useless noise. Read the creator straight off the ZDO rather than via
             // Piece.IsPlacedByPlayer(): Piece.m_creator is populated in Piece.Awake, Unity
             // doesn't guarantee component Awake order, and a built one read too early looks wild.
-            if ((category == PinCategory.Beehive || category == PinCategory.Chest) && !IsWild(zdo))
+            if ((category == PinCategory.Beehive || category == PinCategory.Chest ||
+                 category == PinCategory.Prop) && !IsWild(zdo))
             {
                 _skippedHive++;
                 return;

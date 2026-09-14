@@ -521,6 +521,9 @@ namespace CarturMapPins
                 case PinCategory.Leviathan:
                     return "Leviathan";
 
+                case PinCategory.Prop:
+                    return !string.IsNullOrEmpty(subtype) ? subtype : Labels.ForLocation(Utils.GetPrefabName(go));
+
                 case PinCategory.Trader:
                     Trader trader = go.GetComponent<Trader>();
                     if (trader != null && !string.IsNullOrEmpty(trader.m_name))
@@ -729,6 +732,9 @@ namespace CarturMapPins
 
                 case PinCategory.Trader:
                     return Subtypes.Match(Subtypes.Traders, Utils.GetPrefabName(go));
+
+                case PinCategory.Prop:
+                    return Subtypes.Match(Subtypes.Props, Utils.GetPrefabName(go));
 
                 case PinCategory.Chest:
                     // A chest inside a ruin we recognise takes the ruin's name and icon. The ruin

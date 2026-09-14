@@ -18,7 +18,8 @@ namespace CarturMapPins
         Leviathan,
         Trader,
         Wisp,
-        Landmark
+        Landmark,
+        Prop
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the
@@ -132,6 +133,16 @@ namespace CarturMapPins
 
         private static bool TryClassify(GameObject prefab, out PinCategory category)
         {
+            // Props are matched by name, alone among the categories, because that is the only
+            // thing that distinguishes them. A maypole is a Piece with a WearNTear and nothing
+            // else - the same components a wall has - so no component test can find it, and the
+            // table is short and specific rather than a rule that could sweep in scenery.
+            if (Subtypes.Match(Subtypes.Props, prefab.name) != null)
+            {
+                category = PinCategory.Prop;
+                return true;
+            }
+
             // Ordered so that the more specific components win: a boss altar or runestone can
             // sit on an object that also matches something broader.
             if (prefab.GetComponent<OfferingBowl>() != null)
