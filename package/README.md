@@ -15,7 +15,7 @@ it lands on your map with a name on it. The pins are saved to your character lik
 hand-placed ones, and they stay put after you clear the node, so you can tick
 them off yourself when you're done.
 
-![The icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-all.png)
+![A Meadows map with pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/map-overview.jpg)
 
 ## What gets pinned
 
@@ -30,6 +30,8 @@ Every category is a switch. Turn off what you don't care about.
 Berries, mushrooms, crops and surface flint are **off by default** — they would
 carpet the map and bloat your save. Turn them on if you want them.
 
+![Ore pins coloured by what the ore is](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/map-close.jpg)
+
 ## Changing a pin's icon
 
 **Shift-click any pin on the map** to open an editor beside it: rename it, pick a
@@ -40,11 +42,21 @@ yourself.
 Ore pins are already coloured by what the ore is, so copper reads as copper without
 you doing anything.
 
+![The icon picker](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icon-picker.jpg)
+
 There is also an icon grid on the large map, next to vanilla's own row of pin
 buttons, for choosing what a pin you place by hand will look like. The old icon
 set is still in that grid, below the current one — pins you placed before the
 art changed keep exactly the picture you gave them, and you can still pick those
 icons if you prefer them. Nothing chooses them for you.
+
+## Finding a pin
+
+Type in the search box across the top of the map. Everything that does not match
+fades, so you can see where the copper is without losing the shape of the map
+around it.
+
+![Searching pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/search-bar.jpg)
 
 ## Notable bits
 
@@ -84,6 +96,8 @@ icons if you prefer them. Nothing chooses them for you.
 - `carturpins_reicon` — resets every pin this mod placed to its category's current
   icon. Useful after changing icon settings.
 
+![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-all.png)
+
 ![Icons added in 1.3.0](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-new.png)
 
 ## Install
@@ -107,6 +121,13 @@ Manually: drop `CarturMapPins.dll` into `BepInEx/plugins`.
 **Boss altars are off by default.** Vanilla already pins them. Its version is
 weaker — unsaved, unnamed, no hover label — so turn this on if you want a proper
 named pin, and leave it off if you'd rather not have two markers stacked.
+
+## If you use badgers Valheim Skies
+
+That mod opens its menu on a hotkey and does not check whether you are typing, so a
+letter typed into the search box - or into vanilla's own pin-name field - fires it.
+There is an optional download on this page that fixes it; install it only if you use
+that mod.
 
 ## Compatibility
 
