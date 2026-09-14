@@ -850,6 +850,11 @@ namespace CarturMapPins
             if (category == PinCategory.Landmark && !Plugin.LandmarkEnabled(subtype))
                 return;
 
+            // And camps, where a Greydwarf camp and a Fuling village are not the same decision:
+            // one is scenery you clear on the way past, the other is a trip you plan.
+            if (category == PinCategory.Camp && !Plugin.CampEnabled(subtype))
+                return;
+
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
             Minimap.instance.AddPin(pos, pinType, Labels.Localize(label) ?? string.Empty,

@@ -59,6 +59,25 @@ namespace CarturMapPins
         private static readonly Dictionary<string, ConfigEntry<bool>> LandmarkToggles =
             new Dictionary<string, ConfigEntry<bool>>();
 
+        private static readonly Dictionary<string, ConfigEntry<bool>> CampToggles =
+            new Dictionary<string, ConfigEntry<bool>>();
+
+        /// Camp kinds that start off. Greydwarf camps are the most common location in the Black
+        /// Forest - 450 world-generation attempts against 405 for Fuling villages and 40 for the
+        /// Meadows ones - and a camp you clear in twenty seconds is not a trip you plan. The rest
+        /// of the kinds are places you set out for, so they stay on.
+        private static readonly HashSet<string> CampsOffByDefault =
+            new HashSet<string> { "Greydwarf Camp" };
+
+        /// Same rule as the landmarks: a kind with no switch of its own is allowed through, so a
+        /// name added to the table but not yet to the menu still pins rather than vanishing.
+        public static bool CampEnabled(string kind)
+        {
+            if (string.IsNullOrEmpty(kind))
+                return true;
+            return !CampToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
+        }
+
         /// A landmark kind with no switch of its own is allowed through, so a name added to the
         /// table but not yet to the menu still pins rather than silently vanishing.
         public static bool LandmarkEnabled(string kind)
@@ -191,6 +210,20 @@ namespace CarturMapPins
                 BindSubtypeIcon("Chest Sites", e);
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Props))
                 BindSubtypeIcon("Prop Types", e);
+
+            // One switch per camp kind, generated from the same table that detects them. Camps
+            // pin by name now, which turned the category from one that matched a single location
+            // into the densest one in the mod - so it gets the same per-kind control Landmarks
+            // has rather than being all or nothing.
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Camps))
+            {
+                if (CampToggles.ContainsKey(e.Name))
+                    continue;
+                bool on = !CampsOffByDefault.Contains(e.Name);
+                CampToggles[e.Name] = Config.Bind("Camp Types", e.Name, on,
+                    $"Pin {e.Name}s. Requires the Camp category to be enabled."
+                    + (on ? "" : " OFF by default - they are the most common location in the Black Forest."));
+            }
 
             // One switch per landmark kind, generated from the same table that detects them, so a
             // kind can never exist in the matcher without a matching switch in the menu.
