@@ -93,6 +93,12 @@ namespace CarturMapPins
 
             AddCaption(_panel);
 
+            // TEMPORARY: drag the panel to move it, drag the grip in its top-left corner to
+            // resize it. Both log where they end up so the result can become the default.
+            // Remove these two lines with PickerDragger.cs and PickerResizer.cs.
+            _panel.AddComponent<PickerDragger>();
+            PickerResizer.Attach(_panel);
+
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
                                                 index => Select(map, index), top: CaptionHeight));

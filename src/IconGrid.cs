@@ -119,8 +119,10 @@ namespace CarturMapPins
             GridLayoutGroup grid = section.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(CellSize, CellSize);
             grid.spacing = new Vector2(Spacing, Spacing);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = columns;
+            // Flexible rather than a fixed column count: how many fit per row follows the panel's
+            // width, so resizing the panel reflows the grid instead of leaving a column hanging
+            // off the edge. The column count the caller asks for still sets the default width.
+            grid.constraint = GridLayoutGroup.Constraint.Flexible;
 
             ContentSizeFitter fitter = section.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
