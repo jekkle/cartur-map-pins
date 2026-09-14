@@ -59,6 +59,10 @@ namespace CarturMapPins
                 // you need answered when checking whether an upgrade repaired someone's map.
                 int repointed = PinRecord.MigrateIcons();
                 Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
+
+                int adopted = PinRecord.AdoptSubtypeIcons();
+                if (adopted > 0)
+                    Plugin.Log.LogInfo($"Moved {adopted} pin(s) from a generic icon onto their own kind's.");
             }
 
             Vector3 playerPos = player.transform.position;

@@ -390,6 +390,18 @@ namespace CarturMapPins
             RefreshHighlights();
         }
 
+        /// Minimap.UpdatePins only runs when the map asks for it, so a change made here sat
+        /// unpainted until the next click on the map. This is the flag the map itself sets when a
+        /// pin is added, removed or re-iconned.
+        private static readonly FieldInfo PinUpdateRequired =
+            AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
+
+        private static void RepaintPins()
+        {
+            if (_map != null)
+                PinUpdateRequired?.SetValue(_map, true);
+        }
+
         /// Throws away whatever was typed or clicked and shuts the panel.
         ///
         /// Nothing has to be undone: choosing an icon only marks it, and the name lives in the
@@ -414,6 +426,7 @@ namespace CarturMapPins
                 !Mathf.Approximately(existing.Alpha, _style.Alpha))
             {
                 PinStyles.Set(_target.m_pos, _style);
+                RepaintPins();
                 changed = true;
             }
 

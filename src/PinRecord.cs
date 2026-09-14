@@ -213,6 +213,54 @@ namespace CarturMapPins
             return false;
         }
 
+        /// Moves a pin still wearing its category's generic icon onto its own kind's icon.
+        ///
+        /// Narrower than RepointAllToCurrent on purpose, and safe to run unasked at every login:
+        /// it only touches a pin whose icon is exactly the category default, so an icon somebody
+        /// chose by hand is never overwritten. A pin recorded as "Ore:Copper" but still drawing
+        /// the generic ore lump is one the mod could always have drawn better and never did.
+        ///
+        /// It is also what makes ore colouring reach old pins: the colour is keyed by the pin type
+        /// that carries each ore's icon, so a pin on the generic icon has no ore colour to find.
+        public static int AdoptSubtypeIcons()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            int changed = 0;
+            foreach (Entry e in Entries)
+            {
+                int colon = e.Key.IndexOf(':');
+                if (colon <= 0)
+                    continue;   // no kind recorded, so there is nothing better to move it to
+
+                if (!Enum.TryParse(e.Key.Substring(0, colon), out PinCategory category))
+                    continue;
+
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                if (settings == null)
+                    continue;
+
+                string subtype = e.Key.Substring(colon + 1);
+                Minimap.PinType generic = settings.ResolvedPinType;
+                Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
+                if (wanted == generic)
+                    continue;   // this kind has no icon of its own
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_type != generic)
+                    continue;   // gone, or already on something somebody chose
+
+                if (Repoint(map, pin, wanted))
+                    changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
         /// Sets every pin we placed to the icon its category and kind say today.
         ///
         /// Unlike MigrateIcons this asks no questions: it does not care what a pin is currently

@@ -190,6 +190,8 @@ namespace CarturMapPins
             if (pins == null)
                 return;
 
+            Crowding.Measure(pins);
+
             foreach (Minimap.PinData pin in pins)
             {
                 if (pin?.m_iconElement == null)
@@ -200,7 +202,8 @@ namespace CarturMapPins
                 // Scale is set every pass rather than only when styled, so a pin whose style was
                 // taken away goes back to its old size instead of staying big forever.
                 Vector3 scale = pin.m_iconElement.transform.localScale;
-                float wanted = style.IsDefault ? 1f : Mathf.Clamp(style.Size, 0.4f, 3f);
+                float wanted = (style.IsDefault ? 1f : Mathf.Clamp(style.Size, 0.4f, 3f))
+                               * Crowding.ScaleFor(pin);
                 if (!Mathf.Approximately(scale.x, wanted))
                     pin.m_iconElement.transform.localScale = new Vector3(wanted, wanted, 1f);
 

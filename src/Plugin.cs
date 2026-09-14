@@ -200,6 +200,9 @@ namespace CarturMapPins
             ReplaceBedMarker = Config.Bind("Home", "ReplaceBedMarker", true,
                 "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
 
+            ShrinkCrowdedPins = Config.Bind("General", "ShrinkCrowdedPins", true,
+                "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
+
             TintOreByType = Config.Bind("Ore", "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
@@ -363,6 +366,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ReplaceBedMarker;
         public static ConfigEntry<bool> TickLootedDungeons;
         public static ConfigEntry<bool> TintOreByType;
+        public static ConfigEntry<bool> ShrinkCrowdedPins;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
