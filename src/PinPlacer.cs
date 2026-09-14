@@ -67,6 +67,7 @@ namespace CarturMapPins
             SweepLocations(playerPos);
             SweepLootedChests(playerPos);
             SweepMinedOre(playerPos);
+            SweepClearedDungeons(playerPos);
             PinRecord.Flush();
 #if DIAGNOSTICS
             Patch_ZNetScene_AddInstance.ReportIfDue();
@@ -163,6 +164,79 @@ namespace CarturMapPins
                     continue;
                 Plugin.Log.LogInfo($"Chest pin at {pos.x:F0},{pos.z:F0} -> {(empty ? "looted" : "restocked")}");
             }
+        }
+
+        private static float _dungeonSweepAt = -1f;
+
+        /// Ticks a dungeon's pin off once there is nothing left inside worth taking.
+        ///
+        /// The game has no idea whether a dungeon is cleared - there is no flag for it, and the
+        /// spawners carry m_respawnTimeMinuts, so the monsters come back. What does persist is
+        /// what you took: a chest's inventory and whether a mud pile is still standing. So
+        /// "cleared" here means looted, which is the question you actually ask of a crypt pin.
+        ///
+        /// Runs only while you are inside one. Interiors are instantiated 5000m up and keep their
+        /// surface zone's X/Z, so being above InteriorHeight in the same zone as an entrance pin
+        /// is what "in this dungeon" means - and everything inside is loaded, which is the only
+        /// moment the question can be answered honestly.
+        ///
+        /// Unticks again if a chest refills, for the same reason the looted-chest icon flips back.
+        private static void SweepClearedDungeons(Vector3 playerPos)
+        {
+            if (!Plugin.TickLootedDungeons.Value || playerPos.y < InteriorHeight)
+                return;
+
+            Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.Dungeon);
+            ZoneSystem zones = ZoneSystem.instance;
+            if (settings == null || zones == null || Minimap.instance == null)
+                return;
+
+            if (_dungeonSweepAt < 0f)
+                _dungeonSweepAt = Time.realtimeSinceStartup + 2f;
+            if (Time.realtimeSinceStartup < _dungeonSweepAt)
+                return;
+            _dungeonSweepAt = Time.realtimeSinceStartup + 2f;
+
+            Vector2s zone = ZoneSystem.GetZone(playerPos);
+            bool looted = !LootLeftInInterior(zone);
+
+            foreach (Vector3 pos in PinRecord.PositionsOf(PinCategory.Dungeon))
+            {
+                if (ZoneSystem.GetZone(pos) != zone)
+                    continue;
+                if (!PinRecord.SetChecked(PinCategory.Dungeon, pos, settings.DedupeRadius.Value, looted))
+                    continue;
+                Plugin.Log.LogInfo(looted
+                    ? $"Dungeon at {pos.x:F0},{pos.z:F0} ticked off - nothing left inside."
+                    : $"Dungeon at {pos.x:F0},{pos.z:F0} unticked - there is loot in it again.");
+            }
+        }
+
+        /// Whether anything worth taking is still standing in this zone's interior.
+        ///
+        /// Both registries are filled by the spawn hook as the interior loads, so this walks a
+        /// handful of remembered objects rather than every Container in the game. Mud piles are
+        /// ore as far as the catalog is concerned - they drop iron scrap - so a Sunken Crypt with
+        /// piles left is not cleared even though it holds barely a chest.
+        private static bool LootLeftInInterior(Vector2s zone)
+        {
+            foreach (Container container in ChestRegistry.Alive())
+            {
+                Vector3 pos = container.transform.position;
+                if (pos.y < InteriorHeight || ZoneSystem.GetZone(pos) != zone)
+                    continue;
+                Inventory inventory = container.GetInventory();
+                if (inventory != null && inventory.NrOfItems() > 0)
+                    return true;
+            }
+
+            foreach (Vector3 pos in OreRegistry.AlivePositions())
+            {
+                if (pos.y >= InteriorHeight && ZoneSystem.GetZone(pos) == zone)
+                    return true;
+            }
+
+            return false;
         }
 
         private static float _oreSweepAt = -1f;

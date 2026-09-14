@@ -40,6 +40,20 @@ namespace CarturMapPins
 
         public static void Clear() => Seen.Clear();
 
+        /// Every node we have seen that is still standing. Prunes as it goes, same as NodeNear.
+        public static IEnumerable<Vector3> AlivePositions()
+        {
+            for (int i = Seen.Count - 1; i >= 0; i--)
+            {
+                if (Seen[i].Go == null)
+                {
+                    Seen.RemoveAt(i);
+                    continue;
+                }
+                yield return Seen[i].Pos;
+            }
+        }
+
         /// True when a node we have seen is still standing within `radius` of a position.
         ///
         /// Prunes as it goes: an entry whose object Unity has nulled is either mined or unloaded,

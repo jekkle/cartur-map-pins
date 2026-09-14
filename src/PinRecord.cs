@@ -172,6 +172,46 @@ namespace CarturMapPins
             return dropped;
         }
 
+        /// Ticks or unticks our pin of this category near a position, and says whether anything
+        /// changed - so the caller can log the moment rather than every time it looks.
+        ///
+        /// m_checked is vanilla's own greyed-out state, saved with the map and set by clicking a
+        /// pin, so a dungeon the mod ticks looks exactly like one you ticked yourself.
+        public static bool SetChecked(PinCategory category, Vector3 pos, float radius, bool value)
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return false;
+
+            string bareKey = category.ToString();
+            float sqr = radius * radius;
+
+            foreach (Entry e in Entries)
+            {
+                if (e.Key != bareKey && !e.Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                    continue;
+
+                Vector3 d = e.Pos - pos;
+                if (d.x * d.x + d.z * d.z > sqr)
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_checked == value)
+                    return false;
+
+                // m_checked is what saves and what UpdatePins reads; the element is the tick
+                // already drawn on screen, a GameObject rather than a graphic, so it is shown or
+                // hidden rather than enabled.
+                pin.m_checked = value;
+                if (pin.m_checkedElement != null)
+                    pin.m_checkedElement.SetActive(value);
+                map.SaveMapData();
+                return true;
+            }
+
+            return false;
+        }
+
         /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
         /// because the caller removes entries as it goes.
         public static List<Vector3> PositionsOf(PinCategory category)

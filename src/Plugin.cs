@@ -178,6 +178,9 @@ namespace CarturMapPins
             foreach ((string _, string type) in PinCatalog.OreTokens)
                 BindKindToggle(PinCategory.Ore, "Ore Types", type, $"Pin {type} deposits.");
 
+            TickLootedDungeons = Config.Bind("Dungeon", "TickWhenLooted", true,
+                "Tick a dungeon's pin off once nothing inside is worth coming back for - every chest empty and every mud pile mined. The game tracks no such thing itself: dungeon spawners respawn on a timer, so what you took is the only lasting record of having been through. Unticks again if a chest refills.");
+
             ReplaceBedMarker = Config.Bind("Home", "ReplaceBedMarker", true,
                 "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
 
@@ -320,6 +323,7 @@ namespace CarturMapPins
         public static ConfigEntry<PinIcon> LootedChestIcon;
         public static ConfigEntry<bool> ForgetMinedOre;
         public static ConfigEntry<bool> ReplaceBedMarker;
+        public static ConfigEntry<bool> TickLootedDungeons;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
