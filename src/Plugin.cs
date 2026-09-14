@@ -253,6 +253,7 @@ namespace CarturMapPins
             BindGroupIcon(PickableGroup.Other, 84);       // question mark
 
             PinRecord.Load(Paths.ConfigPath);
+            PinStyles.Load(Paths.ConfigPath);
 
             Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, PluginGuid);
             RegisterCommands();

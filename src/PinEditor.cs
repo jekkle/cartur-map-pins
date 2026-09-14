@@ -23,7 +23,8 @@ namespace CarturMapPins
         private const int Columns = 5;
         private const float VisibleRows = 5f;
         private const float HeaderHeight = 30f;   // name field
-        private const float FooterHeight = 30f;   // confirm button
+        private const float FooterHeight = 30f;   // cancel and confirm
+        private const float StyleHeight = 72f;    // colour swatches and the two sliders
         private const float GapFromPin = 26f;     // keeps the pin itself uncovered
 
         private static GameObject _panel;
@@ -34,6 +35,11 @@ namespace CarturMapPins
         private static Minimap.PinData _target;
         private static Minimap _map;
         private static int _pending = -1;
+
+        private static PinStyles.Style _style = PinStyles.Default;
+        private static readonly List<Image> _swatches = new List<Image>();
+        private static Slider _sizeSlider;
+        private static Slider _alphaSlider;
 
         /// Minimap.m_nameInput is a GUIFramework.GuiInputField, which lives in gui_framework.dll.
         /// Read by reflection rather than referencing that assembly: the clone only needs to be a
@@ -65,6 +71,8 @@ namespace CarturMapPins
             // Opens showing the icon this pin already has, so the gold border says "this is what
             // it is" before it says "this is what you just picked".
             _pending = CustomIcons.PickerIndexFor(pin.m_type);
+            _style = PinStyles.For(pin.m_pos);
+            RefreshStyleControls();
 
             RefreshHighlights();
             _panel.SetActive(true);
@@ -134,7 +142,7 @@ namespace CarturMapPins
             _panelRect.anchorMax = Vector2.zero;
             _panelRect.pivot = new Vector2(0f, 0.5f);
             _panelRect.sizeDelta = new Vector2(IconGrid.PanelWidth(Columns),
-                                               IconGrid.PanelHeight(VisibleRows) + HeaderHeight + FooterHeight);
+                                               IconGrid.PanelHeight(VisibleRows) + HeaderHeight + FooterHeight + StyleHeight);
 
             Image bg = _panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.85f);
@@ -146,8 +154,10 @@ namespace CarturMapPins
             AddFooterButton(_panel.transform, "Confirm", 0.5f, 1f, Confirm,
                             new Color(0.35f, 0.30f, 0.20f, 0.95f));
 
+            AddStyleControls(_panel.transform);
+
             _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
-                                         Choose, HeaderHeight, FooterHeight);
+                                         Choose, HeaderHeight, FooterHeight + StyleHeight);
             _canvasCamera = IconGrid.CameraFor(_panel);
             _panel.SetActive(false);
 
@@ -192,6 +202,144 @@ namespace CarturMapPins
             input.onSubmit = new TMP_InputField.SubmitEvent();
             input.onEndEdit = new TMP_InputField.SubmitEvent();
             return input;
+        }
+
+        /// The colour swatches and the two sliders, sitting between the grid and the buttons.
+        ///
+        /// Nothing here touches the pin. Like the icon grid above it, this only records what you
+        /// have chosen - Confirm is what writes it, and Cancel is what throws it away.
+        private static void AddStyleControls(Transform parent)
+        {
+            var strip = new GameObject("Style");
+            strip.transform.SetParent(parent, false);
+            RectTransform rt = strip.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.offsetMin = new Vector2(8f, FooterHeight);
+            rt.offsetMax = new Vector2(-8f, FooterHeight + StyleHeight);
+
+            _swatches.Clear();
+            for (int i = 0; i < PinStyles.Palette.Length; i++)
+            {
+                int index = i;
+                var go = new GameObject(PinStyles.PaletteNames[i]);
+                go.transform.SetParent(strip.transform, false);
+
+                RectTransform srt = go.AddComponent<RectTransform>();
+                srt.anchorMin = new Vector2(0f, 1f);
+                srt.anchorMax = new Vector2(0f, 1f);
+                srt.pivot = new Vector2(0f, 1f);
+                srt.sizeDelta = new Vector2(22f, 22f);
+                srt.anchoredPosition = new Vector2(i * 26f, 0f);
+
+                Image swatch = go.AddComponent<Image>();
+                swatch.color = PinStyles.Palette[i];
+
+                Button button = go.AddComponent<Button>();
+                button.targetGraphic = swatch;
+                button.onClick = new Button.ButtonClickedEvent();
+                button.onClick.AddListener(() => ChooseColour(index));
+
+                // The frame around a swatch is what says which colour is chosen - the swatch
+                // itself cannot show it, since its own colour is the thing being chosen.
+                var frameGo = new GameObject("Border");
+                frameGo.transform.SetParent(go.transform, false);
+                RectTransform frt = frameGo.AddComponent<RectTransform>();
+                frt.anchorMin = new Vector2(-0.12f, -0.12f);
+                frt.anchorMax = new Vector2(1.12f, 1.12f);
+                frt.offsetMin = Vector2.zero;
+                frt.offsetMax = Vector2.zero;
+
+                Image frame = frameGo.AddComponent<Image>();
+                frame.sprite = IconGrid.Border;
+                frame.type = Image.Type.Sliced;
+                frame.color = IconGrid.Resting;
+                frame.raycastTarget = false;
+                _swatches.Add(frame);
+            }
+
+            _sizeSlider = AddSlider(strip.transform, "Size", -26f, 0.5f, 2f, v => _style.Size = v);
+            _alphaSlider = AddSlider(strip.transform, "Opacity", -50f, 0.2f, 1f, v => _style.Alpha = v);
+        }
+
+        /// A slider built from three plain images: a track, a fill and a handle. Vanilla has
+        /// sliders of its own, but they live on prefabs reached through the settings screen rather
+        /// than anything the map holds, and three images is less code than finding one.
+        private static Slider AddSlider(Transform parent, string label, float y, float min, float max,
+                                        UnityEngine.Events.UnityAction<float> onChange)
+        {
+            var go = new GameObject(label);
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.offsetMin = new Vector2(46f, 0f);
+            rt.offsetMax = new Vector2(0f, 0f);
+            rt.sizeDelta = new Vector2(rt.sizeDelta.x, 16f);
+            rt.anchoredPosition = new Vector2(46f, y);
+
+            var caption = new GameObject("Caption");
+            caption.transform.SetParent(go.transform, false);
+            RectTransform crt = caption.AddComponent<RectTransform>();
+            crt.anchorMin = new Vector2(0f, 0f);
+            crt.anchorMax = new Vector2(0f, 1f);
+            crt.pivot = new Vector2(1f, 0.5f);
+            crt.sizeDelta = new Vector2(44f, 16f);
+            crt.anchoredPosition = new Vector2(-4f, 0f);
+
+            TextMeshProUGUI text = caption.AddComponent<TextMeshProUGUI>();
+            text.text = label;
+            text.fontSize = 11f;
+            text.color = new Color(0.95f, 0.92f, 0.82f, 0.8f);
+            text.alignment = TextAlignmentOptions.MidlineRight;
+            text.raycastTarget = false;
+
+            var track = new GameObject("Track");
+            track.transform.SetParent(go.transform, false);
+            RectTransform trt = track.AddComponent<RectTransform>();
+            trt.anchorMin = new Vector2(0f, 0.3f);
+            trt.anchorMax = new Vector2(1f, 0.7f);
+            trt.offsetMin = Vector2.zero;
+            trt.offsetMax = Vector2.zero;
+            Image trackImage = track.AddComponent<Image>();
+            trackImage.color = new Color(0.95f, 0.92f, 0.82f, 0.25f);
+
+            var handle = new GameObject("Handle");
+            handle.transform.SetParent(go.transform, false);
+            RectTransform hrt = handle.AddComponent<RectTransform>();
+            hrt.sizeDelta = new Vector2(10f, 16f);
+            Image handleImage = handle.AddComponent<Image>();
+            handleImage.color = new Color(0.95f, 0.92f, 0.82f, 0.9f);
+
+            Slider slider = go.AddComponent<Slider>();
+            slider.targetGraphic = handleImage;
+            slider.handleRect = hrt;
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = min;
+            slider.maxValue = max;
+            slider.value = Mathf.Clamp(1f, min, max);
+            slider.onValueChanged = new Slider.SliderEvent();
+            slider.onValueChanged.AddListener(onChange);
+            return slider;
+        }
+
+        private static void ChooseColour(int index)
+        {
+            _style.Colour = index;
+            RefreshStyleControls();
+        }
+
+        private static void RefreshStyleControls()
+        {
+            for (int i = 0; i < _swatches.Count; i++)
+                IconGrid.SetSelected(_swatches[i], i == _style.Colour);
+
+            // Assigned without firing the listeners: setting .value would call back into the very
+            // fields being loaded and overwrite them with the slider's old position.
+            _sizeSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Size, _sizeSlider.minValue, _sizeSlider.maxValue));
+            _alphaSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Alpha, _alphaSlider.minValue, _alphaSlider.maxValue));
         }
 
         /// One half of the footer. `from` and `to` are fractions of the panel's width, so the two
@@ -259,6 +407,15 @@ namespace CarturMapPins
             }
 
             bool changed = false;
+
+            PinStyles.Style existing = PinStyles.For(_target.m_pos);
+            if (existing.Colour != _style.Colour ||
+                !Mathf.Approximately(existing.Size, _style.Size) ||
+                !Mathf.Approximately(existing.Alpha, _style.Alpha))
+            {
+                PinStyles.Set(_target.m_pos, _style);
+                changed = true;
+            }
 
             if (_nameInput != null && _nameInput.text != _target.m_name)
             {

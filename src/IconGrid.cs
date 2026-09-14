@@ -164,6 +164,9 @@ namespace CarturMapPins
 
         private static Sprite _border;
 
+        /// The same frame the cells use, so a chosen swatch and a chosen icon say it the same way.
+        public static Sprite Border => BorderSprite();
+
         /// A one-pixel frame, built once at runtime and nine-sliced so it draws crisply at any
         /// cell size. Drawn rather than shipped: it is four lines, and a PNG for it would be one
         /// more thing to keep in step with the sheet.

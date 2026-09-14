@@ -167,6 +167,53 @@ namespace CarturMapPins
         }
     }
 
+    /// Paints the colour, opacity and size a pin has been given.
+    ///
+    /// A Postfix on UpdatePins, because that is what undoes it: vanilla rewrites every pin's icon
+    /// colour on each pass - white normally, grey when ticked - so a colour set once would last
+    /// until the next frame. It leaves scale alone, but doing both here keeps the whole appearance
+    /// in one place.
+    ///
+    /// Ticked pins are left to vanilla. The grey is how a ticked pin reads as done, and the
+    /// dungeon tick depends on it.
+    ///
+    /// Costs nothing until a style exists: with none set the whole pass is one bool.
+    [HarmonyPatch(typeof(Minimap), "UpdatePins")]
+    internal static class Patch_Minimap_UpdatePins
+    {
+        private static void Postfix(Minimap __instance)
+        {
+            if (!PinStyles.Any)
+                return;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
+            if (pins == null)
+                return;
+
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin?.m_iconElement == null)
+                    continue;
+
+                PinStyles.Style style = PinStyles.For(pin.m_pos);
+
+                // Scale is set every pass rather than only when styled, so a pin whose style was
+                // taken away goes back to its old size instead of staying big forever.
+                Vector3 scale = pin.m_iconElement.transform.localScale;
+                float wanted = style.IsDefault ? 1f : Mathf.Clamp(style.Size, 0.4f, 3f);
+                if (!Mathf.Approximately(scale.x, wanted))
+                    pin.m_iconElement.transform.localScale = new Vector3(wanted, wanted, 1f);
+
+                if (pin.m_checked)
+                    continue;
+
+                Color? colour = PinStyles.ColourFor(style);
+                if (colour.HasValue)
+                    pin.m_iconElement.color = colour.Value;
+            }
+        }
+    }
+
     /// Removes vanilla's own boss-altar marker wherever we have placed ours, so enabling the
     /// BossAltar category doesn't leave two icons stacked on the same altar.
     ///
