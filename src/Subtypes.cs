@@ -47,9 +47,19 @@ namespace CarturMapPins
             E("morgen", "Putrid Hole", 126),
             // Deep North. The icon sheet was drawn with these in mind and they had no table entry,
             // so all three pinned on the generic stairs-down glyph. The generator name is the sure
-            // signal for the first - DG_MorkHalla is what the morkhalla icon is named after.
-            E("dg_morkhalla", "Mork Halla", 122),
-            E("morkborg", "Mork Halla", 122),
+            // signal for the first - DG_MorkHalla is what the morkhalla icon is named after, and the
+            // Deep North progression is built on two dungeon types: the gates of Morkhalla and
+            // the Winding Tunnels below.
+            E("dg_morkhalla", "Gates of Morkhalla", 122),
+            E("morkborg", "Gates of Morkhalla", 122),
+            // The Deep North's other dungeon type. Both are built from HoleRock_root pieces -
+            // root-choked rock - and TheDarkestHole is the unique one, a single instance in the
+            // world against forty of the ordinary kind, so it keeps its own name.
+            //
+            // After "morgen" above, which matches the Ashlands MorgenHole prefabs: those contain
+            // "hole" too and are a different dungeon entirely.
+            E("darkesthole", "The Darkest Hole", 123),
+            E("thehole", "Winding Tunnels", 123),
             // Bear Cave has no generator and no cave in its name that the entries above would
             // catch; it is a Black Forest cave mouth, which is what icon 35 draws.
             E("bearcave", "Bear Cave", 35),
