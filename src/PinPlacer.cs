@@ -298,14 +298,6 @@ namespace CarturMapPins
                 return true;
             }
 
-            Vegvisir vegvisir = loc.GetComponentInChildren<Vegvisir>();
-            if (vegvisir != null)
-            {
-                category = PinCategory.Runestone;
-                label = VegvisirLabel(vegvisir);
-                return true;
-            }
-
             // m_hasInterior is what actually makes something a dungeon, and m_generator alone
             // (without an interior) means a surface camp - Fuling villages and Greydwarf camps
             // use the same DungeonGenerator with a CampGrid/CampRadial algorithm. Splitting on
@@ -337,14 +329,39 @@ namespace CarturMapPins
                 return true;
             }
 
+            // A vegvisir sitting inside a location, checked here rather than above the two branches
+            // it used to outrank. A vegvisir is a prop: it turns up inside Charred Ruins, stone
+            // henges, swamp ruins and Morgen Holes, and asking about it first made a Morgen Hole -
+            // a dungeon with an interior - pin as a runestone. A location's own shape is the
+            // stronger claim.
+            //
+            // It still outranks the landmark table below, deliberately: Landmark is off by
+            // default, so deferring to it would mean a stone henge with a vegvisir in it pins
+            // nothing at all on a fresh install. The stone is the part worth walking back to.
+            //
+            // Nothing reaches PinCategory.Runestone any other way. The 7 prefabs that used to fill
+            // its catalog were all guardian stones, which is why this is now the whole category
+            // rather than a second route into it.
+            //
+            // Guardian stones carry a Vegvisir of their own, so the temple at world spawn arrived
+            // here and pinned as a runestone even after they were dropped from the catalog. Same
+            // rule, applied on this path too: a stone with a BossStone beside it is a temple stone,
+            // and vanilla already marks that temple.
+            Vegvisir vegvisir = loc.GetComponentInChildren<Vegvisir>();
+            if (vegvisir != null && vegvisir.GetComponent<BossStone>() == null)
+            {
+                category = PinCategory.Runestone;
+                label = VegvisirLabel(vegvisir);
+                return true;
+            }
+
             // Lore runestones are the one location worth pinning that has neither an interior nor
             // a generator, so they fell through this method and were never pinned at all. There
             // are eleven, confirmed from the world generator's own 232 ZoneLocation definitions:
             // Runestone_Boars, _Meadows, _Draugr, _Greydwarfs, _Swamps, _Mountains, _BlackForest,
             // _Plains, _Mistlands, _Ashlands, _DeepNorth.
             //
-            // Nothing to do with PinCategory.Runestone, which is the standing runestones and
-            // vegvisirs arriving through the spawn hook. Separate category so the two toggle apart.
+            // Separate category from Runestone above so the two toggle apart.
             if (prefabName != null &&
                 prefabName.StartsWith("Runestone_", System.StringComparison.OrdinalIgnoreCase))
             {
