@@ -1,4 +1,4 @@
-# Location reference
+# Location and prefab reference
 
 `location-reference.txt` is a verbatim diagnostics dump from a live game, Valheim as of
 13 September 2026, written by the Debug build's auto-probe
@@ -27,5 +27,29 @@ Things it settled that guesswork had got wrong:
 - Nothing in the game is called a church, a maypole, a portal or a Yggdrasil root, so the icons
   drawn under those names have no location to attach to.
 
-Regenerate by running a Debug build and loading a world; the auto-probe rewrites the file on
-each load. Copy it back over `location-reference.txt` when a game update changes the answers.
+## prefab-reference.txt
+
+Every prefab `ZNetScene` registers - 5175 of them - with the components that decide whether this
+mod can pin one, and whether the catalog took it. The catalog dump only ever reported what it
+accepted; this is what exists.
+
+Questions it answers without launching anything:
+
+- **Is there a maypole?** Yes, `piece_maypole`, and it is the only pole-shaped thing in the game
+  besides `goblin_totempole`.
+- **Is there a church?** No. Zero matches in 5175 prefabs, so the `dungeon_winding_church` icon
+  has no subject.
+- **Portals** are `portal`, `portal_stone` and `portal_wood`, all player-built pieces - which
+  makes the portal icons hand-pin art, not auto-pin art.
+- **Asksvin, Moose, Seal, Deer and Neck** all exist as creatures but none of them has a spawner,
+  so nothing can auto-pin them. Their icons are hand-pick only.
+- **Resin, AncientSeed and BlackMetal** are items, not world nodes. Nothing to pin.
+- 26 spawners still resolve to no icon - bats, chickens, hens, blobs, dvergr variants, the Deep
+  North jotun line, Frysling, Elaking, Writhan, ShadowPerson, Kvastur, cave leeches and fish.
+  The sheet has no art for any of them, and most are ambient fauna.
+
+## Regenerating
+
+Run a Debug build and load a world; the auto-probe rewrites
+`BepInEx/config/carturpins_dump.txt` on each load. Split it at the `=== ZNetScene prefabs ===`
+line and copy the halves back over these two files when a game update changes the answers.
