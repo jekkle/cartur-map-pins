@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.1
+
+- **Renaming a pin now shows the new name straight away.** The map writes a label's text
+  once, when it builds the label, and never reads the name again - so a rename from the
+  pin editor left the old name on screen until the pin scrolled off and back, and a pin
+  that had no name yet never got one at all. The editor now rebuilds the label the way
+  vanilla's own naming does. `$`, `<` and `>` are stripped from names, as vanilla does.
+- **Enter in the search box or the editor's name field no longer reaches vanilla's
+  pin-naming handler.** Both boxes are clones of the map's own name field, which carried
+  its handler along; pressing Enter in one could close a pin you were naming and leave it
+  blank.
+- **Bosses revealed by a vegvisir or a guardian stone get the mod's own altar pin** -
+  Eikthyr, The Elder, Bonemass, Moder and the rest - instead of vanilla's generic boss
+  marker. Recorded like any other pin, so walking up to the altar later does not add a
+  second one. Off when the Boss Altar category or that boss's switch is off; vanilla's
+  marker is left alone then.
+
 ## 1.3.0
 
 **A new icon set, and the old one kept.** 153 icons, redrawn. Pins this mod placed
