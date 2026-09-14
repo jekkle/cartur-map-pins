@@ -181,17 +181,15 @@ namespace CarturMapPins
 
             _autoProbeDone = true;
             Plugin.Log.LogInfo("=== auto-probe (set Diagnostics/AutoProbeOnSpawn=false to disable) ===");
-            Probe.Nearby(null, 25f);
-            Probe.DumpCategory(null, "Ore");
-            Probe.DumpSpawners(null);
-            // Pickables are bucketed into six groups, so the per-plant names the icon sheet is
-            // drawn against only exist on the prefabs themselves - same problem as the spawners.
-            Probe.DumpLabels(null, "Pickable");
-            // Three prefabs, and the trader icon table is matched against their names - cheap to
-            // confirm rather than leave as the one guess nothing else would catch.
-            Probe.DumpLabels(null, "Trader");
-            Probe.DumpLocations(null);
-            Probe.DumpFonts(null);
+
+            string path = System.IO.Path.Combine(BepInEx.Paths.ConfigPath, "carturpins_dump.txt");
+            Probe.ToFile(path, () =>
+            {
+                Probe.Nearby(null, 25f);
+                Probe.DumpEverything(null);
+                Probe.DumpFonts(null);
+            });
+            Plugin.Log.LogInfo($"Diagnostics written to {path}");
         }
 #endif
 

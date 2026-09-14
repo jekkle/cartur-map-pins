@@ -332,11 +332,53 @@ namespace CarturMapPins
             Emit(args, $"--- {unmatched} of {names.Count} spawners have no subtype icon ---");
         }
 
+        /// Every dump, in one call, so the console command and the auto-probe cannot drift into
+        /// answering different questions.
+        public static void DumpEverything(Terminal.ConsoleEventArgs args)
+        {
+            DumpLocations(args);
+            DumpCategory(args, null);
+            DumpLabels(args, null);
+            DumpSpawners(args);
+        }
+
         private static void Emit(Terminal.ConsoleEventArgs args, string line)
         {
             Plugin.Log.LogInfo(line);
+            _file?.WriteLine(line);
             if (args != null)
                 args.Context?.AddString(line);
+        }
+
+        private static System.IO.StreamWriter _file;
+
+        /// Runs a set of dumps into their own file as well as the log.
+        ///
+        /// The BepInEx log is shared with every other mod, is rewritten each launch, and this mod
+        /// alone writes thousands of lines into it - so answering one question out of it means
+        /// running a command at exactly the right moment and reading fast. A file that holds only
+        /// the dump can be read whenever.
+        ///
+        /// Overwrites on each run: the interesting dump is always the current one.
+        internal static void ToFile(string path, System.Action dumps)
+        {
+            try
+            {
+                _file = new System.IO.StreamWriter(path, append: false);
+                _file.WriteLine($"Cartur's Map Pins {Plugin.PluginVersion} - {System.DateTime.Now:yyyy-MM-dd HH:mm}");
+                dumps();
+            }
+            catch (System.Exception e)
+            {
+                // Diagnostics must never be the reason a session dies. The dumps still went to the
+                // log, which is where they used to go anyway.
+                Plugin.Log.LogWarning($"Could not write the dump file: {e.Message}");
+            }
+            finally
+            {
+                _file?.Dispose();
+                _file = null;
+            }
         }
     }
 }

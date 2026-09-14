@@ -375,13 +375,7 @@ namespace CarturMapPins
             // running them one at a time means a restart per question.
             new Terminal.ConsoleCommand("carturpins_dumpall",
                 "Diagnostics: runs every dump - locations, catalog, labels, spawners - into the log in one pass.",
-                args =>
-                {
-                    Probe.DumpLocations(args);
-                    Probe.DumpCategory(args, null);
-                    Probe.DumpLabels(args, null);
-                    Probe.DumpSpawners(args);
-                });
+                args => Probe.DumpEverything(args));
 #endif
         }
     }
