@@ -73,6 +73,26 @@ namespace CarturMapPins
             E("hildir", "Hildir Camp", 61),
         };
 
+        /// Ruins worth recognising but not worth a pin of their own.
+        ///
+        /// There are four kinds of stone tower ruin at quantity 80 apiece and six Mistlands guard
+        /// tower variants at 50-80: pinning the locations themselves would put five hundred icons
+        /// of broken wall on the map and bury everything else. But each one holds a chest, and that
+        /// chest is already pinned - so the chest pin wears the ruin's face and name instead of the
+        /// generic chest glyph. One pin, on the thing worth walking to, saying what it is.
+        ///
+        /// Matched against the name of the location a chest is standing inside, so these never
+        /// touch a chest out in the open.
+        ///
+        /// Order matters: "stonetowerruins" sits before "stonetower" or every ruin would come out
+        /// as an intact tower.
+        public static readonly Entry[] ChestSites =
+        {
+            E("stonetowerruins", "Stone Tower Ruin", 40),
+            E("stonetower", "Stone Tower", 40),
+            E("mistlands_guardtower", "Dvergr Tower", 37),
+        };
+
         /// Keyed by the ore type PinCatalog.OreTokens already resolves ("Copper", "Tin"), not by
         /// a prefab name - so unlike the tables above these are never run through Match, the
         /// Fragment is just the key repeated. Sulfur has no icon of its own in the sheet and

@@ -125,6 +125,12 @@ namespace CarturMapPins
                 bool empty = inventory.NrOfItems() == 0;
                 Minimap.PinType wanted = empty ? lootedType : normalType;
 
+                // A chest wearing a ruin's icon is a place marker, not a chest tracker: flipping it
+                // to the open-chest glyph the moment you emptied it would throw away the only
+                // thing on the map saying a Dvergr tower is there.
+                if (PinRecord.SubtypeNear(PinCategory.Chest, pos, 3f) != null)
+                    continue;
+
                 // Our record is the authority on whether a pin here is ours, not the icon it
                 // currently carries. Matching on icon alone stranded any chest pin sitting on a
                 // value neither of the current two - a chest left on a previous version's looted
@@ -526,6 +532,10 @@ namespace CarturMapPins
                     break;
 
                 case PinCategory.Chest:
+                    // The ruin's name when the chest is standing in one, so the pin reads
+                    // "Dvergr Tower" rather than "chest" - see Subtypes.ChestSites.
+                    if (!string.IsNullOrEmpty(subtype))
+                        return subtype;
                     Container container = go.GetComponent<Container>();
                     if (container != null && !string.IsNullOrEmpty(container.m_name))
                         return container.m_name;
@@ -720,6 +730,13 @@ namespace CarturMapPins
                 case PinCategory.Trader:
                     return Subtypes.Match(Subtypes.Traders, Utils.GetPrefabName(go));
 
+                case PinCategory.Chest:
+                    // A chest inside a ruin we recognise takes the ruin's name and icon. The ruin
+                    // itself is never pinned - there are hundreds of them - so this is the only
+                    // marker it gets, and a marker that says "Dvergr Tower" beats one that says
+                    // "chest" on a map with forty chests on it.
+                    return Subtypes.Match(Subtypes.ChestSites, EnclosingLocationName(go));
+
                 case PinCategory.Spawner:
                     string creature = SpawnedCreaturePrefabName(go);
                     string matched = Subtypes.Match(Subtypes.Spawners, creature);
@@ -729,6 +746,32 @@ namespace CarturMapPins
                 default:
                     return null;
             }
+        }
+
+        /// The location an object is standing inside, or null when it is out in the open.
+        ///
+        /// m_exteriorRadius is the location's own footprint - the same value the game uses to keep
+        /// buildings and other locations out - so "inside" is the game's definition rather than a
+        /// radius picked here. Locations are only in this list while loaded, which is the same
+        /// moment the object itself is loaded, so a chest always gets asked next to its own ruin.
+        private static string EnclosingLocationName(GameObject go)
+        {
+            List<Location> locations = LocationAccess.GetAll();
+            if (locations == null || go == null)
+                return null;
+
+            Vector3 pos = go.transform.position;
+            foreach (Location loc in locations)
+            {
+                if (loc == null)
+                    continue;
+                float radius = loc.m_exteriorRadius;
+                if (radius <= 0f)
+                    continue;
+                if (DistanceXZ(loc.transform.position, pos) <= radius)
+                    return Utils.GetPrefabName(loc.gameObject);
+            }
+            return null;
         }
 
         /// The icon a pin of this kind should currently carry.

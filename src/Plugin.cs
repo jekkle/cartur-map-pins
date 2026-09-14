@@ -183,6 +183,9 @@ namespace CarturMapPins
                 BindSubtypeIcon("Pickable Types", e);
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Landmarks))
                 BindSubtypeIcon("Landmark Icons", e);
+            // Ruins that never get a pin of their own - their chest carries the name and icon.
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.ChestSites))
+                BindSubtypeIcon("Chest Sites", e);
 
             // One switch per landmark kind, generated from the same table that detects them, so a
             // kind can never exist in the matcher without a matching switch in the menu.

@@ -172,6 +172,24 @@ namespace CarturMapPins
             return dropped;
         }
 
+        /// The subtype recorded for a pin of this category near a position, or null when the record
+        /// there is a bare category with no subtype. Lets the looted-chest sweep tell a chest that
+        /// is standing in for a ruin from an ordinary one.
+        public static string SubtypeNear(PinCategory category, Vector3 pos, float radius)
+        {
+            string prefix = category.ToString() + ":";
+            float sqr = radius * radius;
+            foreach (Entry e in Entries)
+            {
+                if (!e.Key.StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                Vector3 d = e.Pos - pos;
+                if (d.x * d.x + d.z * d.z <= sqr)
+                    return e.Key.Substring(prefix.Length);
+            }
+            return null;
+        }
+
         /// True when we have a pin of this category within `radius` of a position. Used to decide
         /// whether vanilla's own marker at the same spot is now a duplicate of ours.
         public static bool HasCategoryNear(PinCategory category, Vector3 pos, float radius)
