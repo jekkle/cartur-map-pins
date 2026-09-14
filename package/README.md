@@ -15,7 +15,7 @@ it lands on your map with a name on it. The pins are saved to your character lik
 hand-placed ones, and they stay put after you clear the node, so you can tick
 them off yourself when you're done.
 
-![A Meadows map with pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/map-overview.jpg)
+![A Meadows map with pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-overview.jpg)
 
 ## What gets pinned
 
@@ -30,7 +30,7 @@ Every category is a switch. Turn off what you don't care about.
 Berries, mushrooms, crops and surface flint are **off by default** — they would
 carpet the map and bloat your save. Turn them on if you want them.
 
-![Ore pins coloured by what the ore is](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/map-close.jpg)
+![Ore pins coloured by what the ore is](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-close.jpg)
 
 ## Changing a pin's icon
 
@@ -42,7 +42,7 @@ yourself.
 Ore pins are already coloured by what the ore is, so copper reads as copper without
 you doing anything.
 
-![The icon picker](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icon-picker.jpg)
+![The icon picker](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icon-picker.jpg)
 
 There is also an icon grid on the large map, next to vanilla's own row of pin
 buttons, for choosing what a pin you place by hand will look like. The old icon
@@ -56,7 +56,7 @@ Type in the search box across the top of the map. Everything that does not match
 fades, so you can see where the copper is without losing the shape of the map
 around it.
 
-![Searching pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/search-bar.jpg)
+![Searching pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/search-bar.jpg)
 
 ## Notable bits
 
@@ -96,9 +96,9 @@ around it.
 - `carturpins_reicon` — resets every pin this mod placed to its category's current
   icon. Useful after changing icon settings.
 
-![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-all.png)
+![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icons-all.png)
 
-![Icons added in 1.3.0](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-new.png)
+![Icons added in 1.3.0](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icons-new.png)
 
 ## Install
 
