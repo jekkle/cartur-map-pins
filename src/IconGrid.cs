@@ -193,25 +193,29 @@ namespace CarturMapPins
             return _border;
         }
 
-        /// Vanilla's button root carries the icon Image; its child Image is the selection
-        /// highlight. Cloning one keeps borders and hover styling consistent with the map UI.
+        /// A cell: a dark slab, the icon on top of it, and a border this mod controls.
+        ///
+        /// Vanilla's pin button is cloned for its size and its Button wiring, then stripped of its
+        /// artwork - it is a gold-framed slab, and two frames on one cell means the selected one
+        /// cannot be told from the rest.
         private static Image CreateButton(Transform parent, GameObject template, int index, Action<int> onClick)
         {
             GameObject cell;
-            Image highlight = null;
 
             if (template != null)
             {
                 cell = UnityEngine.Object.Instantiate(template, parent);
                 cell.name = $"CarturIcon_{index}";
 
+                // Every decoration the template brought with it goes off. Vanilla's pin button is
+                // a gold-framed slab, so a cloned one wears that frame permanently - which left
+                // the mod's own border drawn inside somebody else's, and a gold selection sitting
+                // on a gold rest state. What the clone is kept for is its size and its Button
+                // wiring, not its artwork.
                 foreach (Image img in cell.GetComponentsInChildren<Image>(true))
                 {
                     if (img.gameObject != cell)
-                    {
-                        highlight = img;
-                        break;
-                    }
+                        img.enabled = false;
                 }
             }
             else
@@ -223,19 +227,31 @@ namespace CarturMapPins
                 cell.AddComponent<Image>();
             }
 
-            Image icon = cell.GetComponent<Image>();
-            if (icon != null)
+            // The root becomes a plain dark slab and the icon moves to a child, so the drawing
+            // order is slab, then icon, then border. Keeping the icon on the root instead would
+            // put it under anything added afterwards.
+            Image backing = cell.GetComponent<Image>();
+            if (backing != null)
             {
-                icon.sprite = CustomIcons.SpriteForPicker(index);
-                icon.color = Color.white;
-                icon.enabled = true;
+                backing.sprite = null;
+                backing.color = new Color(0.07f, 0.08f, 0.08f, 0.85f);
+                backing.enabled = true;
             }
 
-            // Vanilla's own highlight child is switched off for good: it is a filled orange plate
-            // that covers the icon rather than framing it, and the border below says the same
-            // thing more quietly.
-            if (highlight != null)
-                highlight.enabled = false;
+            var iconGo = new GameObject("Icon");
+            iconGo.transform.SetParent(cell.transform, false);
+            RectTransform irt = iconGo.AddComponent<RectTransform>();
+            irt.anchorMin = Vector2.zero;
+            irt.anchorMax = Vector2.one;
+            // Inset, so an icon does not run into the frame around it.
+            irt.offsetMin = new Vector2(5f, 5f);
+            irt.offsetMax = new Vector2(-5f, -5f);
+
+            Image icon = iconGo.AddComponent<Image>();
+            icon.sprite = CustomIcons.SpriteForPicker(index);
+            icon.color = Color.white;
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
 
             var frame = new GameObject("Border");
             frame.transform.SetParent(cell.transform, false);
