@@ -345,8 +345,11 @@ namespace CarturMapPins
             // here and pinned as a runestone even after they were dropped from the catalog. Same
             // rule, applied on this path too: a stone with a BossStone beside it is a temple stone,
             // and vanilla already marks that temple.
+            // GetComponentInParent, not GetComponent: the vegvisir sits on a child of the guardian
+            // stone rather than on the stone itself, so a same-object test found nothing and the
+            // temple still pinned - as "$enemy_eikthyr", the first of the seven stones.
             Vegvisir vegvisir = loc.GetComponentInChildren<Vegvisir>();
-            if (vegvisir != null && vegvisir.GetComponent<BossStone>() == null)
+            if (vegvisir != null && vegvisir.GetComponentInParent<BossStone>() == null)
             {
                 category = PinCategory.Runestone;
                 label = VegvisirLabel(vegvisir);

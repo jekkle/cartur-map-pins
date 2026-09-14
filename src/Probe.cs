@@ -206,7 +206,9 @@ namespace CarturMapPins
 
             string icon = subtype != null ? $"{category}:{subtype}" : $"{category}, category icon";
             string state = settings.Enabled.Value ? "on" : "OFF";
-            return $"  -> {icon} [{state}] \"{label}\"";
+            // Localized, because that is what the pin ends up carrying - a dump full of
+            // "$enemy_eikthyr" cannot be checked against what is actually on the map.
+            return $"  -> {icon} [{state}] \"{Labels.Localize(label)}\"";
         }
 
         /// Lists the game's TMP font assets by exact name.
