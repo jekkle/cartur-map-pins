@@ -183,14 +183,12 @@ namespace CarturMapPins
     {
         private static void Postfix(Minimap __instance)
         {
-            if (!PinStyles.Any)
-                return;
-
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
             if (pins == null)
                 return;
 
             Crowding.Measure(pins);
+            LabelCrowding.Apply(pins);
 
             foreach (Minimap.PinData pin in pins)
             {

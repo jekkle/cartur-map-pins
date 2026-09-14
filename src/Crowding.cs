@@ -41,8 +41,10 @@ namespace CarturMapPins
         /// crowded a spot is to move a pin to the next size down.
         private static float ScaleForCount(int count)
         {
-            if (count <= 2)
+            if (count <= 1)
                 return 1f;
+            if (count == 2)
+                return 0.9f;   // a pair is the common case: separate them without shrinking much
             if (count <= 4)
                 return 0.8f;
             if (count <= 6)

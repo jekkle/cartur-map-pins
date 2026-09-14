@@ -203,6 +203,9 @@ namespace CarturMapPins
             ShrinkCrowdedPins = Config.Bind("General", "ShrinkCrowdedPins", true,
                 "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
 
+            HideDuplicateLabels = Config.Bind("General", "HideDuplicateLabels", true,
+                "When two pins with the same name sit close enough that their labels overlap, draw the name once. Two tin deposits a few metres apart print TIN twice; the second says nothing the first did not. Labels that merely sit near each other are left alone, and different names are never hidden.");
+
             TintOreByType = Config.Bind("Ore", "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
@@ -367,6 +370,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TickLootedDungeons;
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
+        public static ConfigEntry<bool> HideDuplicateLabels;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
