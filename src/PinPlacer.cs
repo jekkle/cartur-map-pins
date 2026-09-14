@@ -275,6 +275,39 @@ namespace CarturMapPins
         }
 
         /// Classified from the location's own data, with no hardcoded prefab names.
+        /// True when the world generator itself puts a permanent marker on this location, so ours
+        /// would be a duplicate. m_iconPlaced is deliberately not included: vanilla's marker for a
+        /// trader or Hildir's camp is unnamed and unsaved, which is exactly what this mod replaces.
+        ///
+        /// ZoneSystem.GetLocation is private, so this reads the public m_locations list the dump
+        /// already uses, once - the sweep asks this of every location it classifies, and a linear
+        /// scan of 232 definitions per call is the kind of thing that shows up as a frame-rate bug.
+        /// Not cached until the list is there, so an early call can't freeze in an empty answer.
+        private static HashSet<string> _alwaysMarked;
+
+        private static bool MarkedByVanilla(string prefabName)
+        {
+            if (string.IsNullOrEmpty(prefabName))
+                return false;
+
+            if (_alwaysMarked == null)
+            {
+                List<ZoneSystem.ZoneLocation> locations = ZoneSystem.instance?.m_locations;
+                if (locations == null)
+                    return false;
+
+                _alwaysMarked = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+                foreach (ZoneSystem.ZoneLocation zl in locations)
+                {
+                    if (zl != null && zl.m_iconAlways && !string.IsNullOrEmpty(zl.m_prefabName))
+                        _alwaysMarked.Add(zl.m_prefabName);
+                }
+                Plugin.Log.LogInfo($"{_alwaysMarked.Count} location(s) already marked by vanilla - left alone.");
+            }
+
+            return _alwaysMarked.Contains(prefabName);
+        }
+
         /// internal so the location dump can ask the real classifier what it would do with each of
         /// the 232 definitions rather than reimplementing the same ladder beside it, which would
         /// drift the moment either side changed. Everything it reads - the child components,
@@ -282,6 +315,22 @@ namespace CarturMapPins
         internal static bool TryClassifyLocation(Location loc, out PinCategory category, out string label, out string subtype)
         {
             subtype = null;
+
+            // Locations the game marks on the map at world generation, visited or not. There is
+            // exactly one - StartTemple, the spawn temple - and anything of ours there is a second
+            // icon on the same spot. Asked of ZoneSystem rather than tested by name, because the
+            // flag is the reason and the name is only today's example of it.
+            //
+            // Its guardian stones carry a vegvisir that reaches the runestone branch below. Two
+            // attempts to disqualify that stone by looking for a BossStone on it and then above it
+            // both missed, and the hierarchy is not something this needs to know: the location is
+            // already marked, so nothing about what stands inside it matters.
+            if (MarkedByVanilla(Utils.GetPrefabName(loc.gameObject)))
+            {
+                category = default;
+                label = null;
+                return false;
+            }
 
             OfferingBowl bowl = loc.GetComponentInChildren<OfferingBowl>();
             if (bowl != null)
