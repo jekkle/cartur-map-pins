@@ -173,10 +173,18 @@ namespace CarturMapPins
 
         /// Matched against OfferingBowl.m_bossPrefab's name, which is the boss's own prefab
         /// ("Eikthyr", "gd_king", "GoblinKing"), falling back to the bowl's m_name.
+        ///
+        /// A vegvisir reveal has no bowl to ask, so the location's own name and the pin name the
+        /// stone carries are matched here too - "Eikthyrnir", "GDKing", "Dragonqueen". Order
+        /// matters for those: Moder's location is called Dragonqueen, so "dragon" has to be tried
+        /// before "queen" or Moder's altar would pin as the Queen's.
         public static readonly Entry[] Bosses =
         {
             E("eikthyr", "Eikthyr", 63),
             E("gd_king", "The Elder", 64),
+            // The one boss whose location name is spelled differently from its prefab: the altar
+            // says "gd_king", the ZoneLocation says "GDKing".
+            E("gdking", "The Elder", 64),
             E("elder", "The Elder", 64),
             E("bonemass", "Bonemass", 65),
             E("dragon", "Moder", 66),

@@ -989,11 +989,31 @@ namespace CarturMapPins
             TryPin(PinCategory.Home, null, pos, label);
         }
 
-        private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
+        /// Pins a boss altar that a vegvisir or a guardian stone has just revealed from far away.
+        ///
+        /// Goes through TryPin like every other pin rather than calling AddPin itself, so the
+        /// altar is recorded, deduped and iconned exactly as the one placed by walking up to it
+        /// would be. That is what stops the two from becoming two pins on the same altar when the
+        /// player finally gets there.
+        ///
+        /// Returns TryPin's answer - true when a pin of ours is on that spot afterwards - so the
+        /// caller knows whether it may drop vanilla's own marker for it.
+        internal static bool PinDiscovered(string subtype, Vector3 pos, string label)
+        {
+            if (Minimap.instance == null)
+                return false;
+            return TryPin(PinCategory.BossAltar, subtype, pos, label);
+        }
+
+        /// Returns true when a pin of ours stands at this spot afterwards, whether it was placed
+        /// now or was already there. False means the category or the kind is switched off and
+        /// nothing was placed - the discovery patch needs to tell those apart before it decides to
+        /// suppress vanilla's own pin.
+        private static bool TryPin(PinCategory category, string subtype, Vector3 pos, string label)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             if (settings == null)
-                return;
+                return false;
 
             // Dedupe on category+subtype: a category-wide radius would let a copper pin suppress
             // a tin node metres away, hiding a resource entirely.
@@ -1013,18 +1033,18 @@ namespace CarturMapPins
                 // and with Spawner off by default, gating this behind Enabled left every pin from
                 // an older version stuck on the summoning circle with no way to ever repair it.
                 PinRecord.Upgrade(category, subtype, pos, settings.DedupeRadius.Value, pinType);
-                return;
+                return true;
             }
 
             if (!settings.Enabled.Value)
-                return;
+                return false;
 
             // Every category with kinds honours its per-kind switches too: copper but not tin,
             // Fuling villages but not Greydwarf camps, a well but not the thirteen abandoned
             // houses beside it. One gate rather than one per category, so a table added later is
             // covered without anybody remembering to come back here.
             if (!Plugin.SubtypeEnabled(category, subtype))
-                return;
+                return false;
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
@@ -1033,6 +1053,7 @@ namespace CarturMapPins
 
             PinRecord.Add(key, pos);
             Plugin.Log.LogInfo($"Pinned {key} '{label}' at {pos.x:F0},{pos.z:F0}");
+            return true;
         }
 
         private static float DistanceXZ(Vector3 a, Vector3 b)

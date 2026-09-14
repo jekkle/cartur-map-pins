@@ -229,6 +229,114 @@ namespace CarturMapPins
         }
     }
 
+    /// Remembers which location a vegvisir or a guardian stone asked about, keyed by the pin name
+    /// the answer will carry back.
+    ///
+    /// A reveal is a round trip. Vegvisir.Interact and RuneStone.Interact both call
+    /// Game.DiscoverClosestLocation(locationName, ...), which routes an RPC to the server - the
+    /// only machine that holds ZoneSystem.m_locationInstances - and the server answers with a
+    /// position and the pin name it was handed. By the time Minimap.DiscoverLocation runs, the
+    /// location's name is gone, and a client cannot get it back: the altar is thousands of metres
+    /// away, so there is no Location component in the scene to ask.
+    ///
+    /// Keyed by pin name rather than paired with the reply in order, because one vegvisir can ask
+    /// about several locations in a single click (Vegvisir.m_locations is a list) and each answer
+    /// comes back as its own RPC, in whatever order the server sends them.
+    internal static class DiscoveryRequests
+    {
+        private static readonly Dictionary<string, string> ByPinName = new Dictionary<string, string>();
+
+        public static void Record(string pinName, string locationName)
+        {
+            if (!string.IsNullOrEmpty(pinName))
+                ByPinName[pinName] = locationName;
+        }
+
+        /// Which boss this reveal is for, or null when it is not one of ours - a trader, Hildir's
+        /// camps, or a discovery some other mod made without going through a runestone.
+        ///
+        /// Both names are offered to the table because neither covers every boss on its own: the
+        /// location name says "GDKing" where the boss prefab says "gd_king", and the Queen has no
+        /// altar location at all - she lives in the Infested Citadel, whose name says nothing
+        /// about her, so only the pin name identifies her.
+        public static string BossFor(string pinName)
+        {
+            if (pinName == null || !ByPinName.TryGetValue(pinName, out string locationName))
+                return null;
+
+            // The location name is the stronger claim, so it is tried first - Match takes its
+            // second name ahead of its first.
+            string boss = Subtypes.Match(Subtypes.Bosses, pinName, locationName);
+            if (boss == null)
+                Plugin.Log.LogInfo($"Revealed '{locationName}' as '{pinName}' - no boss matched, left to vanilla.");
+            return boss;
+        }
+    }
+
+    /// Records the location name on its way out. A Prefix rather than a Postfix only so the entry
+    /// is in place before any reply can arrive.
+    [HarmonyPatch(typeof(Game), nameof(Game.DiscoverClosestLocation))]
+    internal static class Patch_Game_DiscoverClosestLocation
+    {
+        private static void Prefix(string name, string pinName) => DiscoveryRequests.Record(pinName, name);
+    }
+
+    /// Puts our own altar pin on a boss revealed by a vegvisir or a guardian stone, instead of
+    /// vanilla's generic Boss marker.
+    ///
+    /// A Prefix returning false, which this mod otherwise avoids: the pin the original adds is
+    /// precisely the thing being replaced, so there is nothing for a Postfix to add to. Letting it
+    /// run and deleting its pin afterwards was the alternative, and it cannot tell vanilla's pin
+    /// from ours whenever a boss is left on the default Boss icon - same position, same name, same
+    /// type - so it would delete ours and leave the altar unmarked.
+    ///
+    /// Everything the original does apart from adding that pin is done here instead, so the toast
+    /// and the map behave as before. Only the toast's little icon is dropped: Minimap.GetSprite is
+    /// private and the message reads the same without it.
+    [HarmonyPatch(typeof(Minimap), nameof(Minimap.DiscoverLocation))]
+    internal static class Patch_Minimap_DiscoverLocation
+    {
+        /// Matches Patch_Minimap_UpdateLocationPins: the altar is large and its pin is not placed
+        /// to the metre, so "is one of ours already here" is asked generously.
+        private const float SamePlace = 12f;
+
+        private static bool Prefix(Minimap __instance, Vector3 pos, string name, bool showMap, ref bool __result)
+        {
+            if (Player.m_localPlayer == null)
+                return true;
+
+            string boss = DiscoveryRequests.BossFor(name);
+            if (boss == null)
+                return true;
+
+            // Asked before pinning, because afterwards the answer is always yes. This is vanilla's
+            // HaveSimilarPin case: the player has read the same stone twice.
+            bool already = PinRecord.HasCategoryNear(PinCategory.BossAltar, pos, SamePlace);
+
+            // Switched off, either the whole category or this one boss. Vanilla's pin is better
+            // than no pin, so the original is left to place it.
+            if (!PinPlacer.PinDiscovered(boss, pos, name))
+                return true;
+
+            if (already)
+            {
+                if (showMap)
+                {
+                    Player.m_localPlayer.Message(MessageHud.MessageType.Center, "$msg_pin_exist");
+                    __instance.ShowPointOnMap(pos);
+                }
+                __result = false;
+                return false;
+            }
+
+            Player.m_localPlayer.Message(MessageHud.MessageType.TopLeft, "$msg_pin_added: " + name);
+            if (showMap)
+                __instance.ShowPointOnMap(pos);
+            __result = true;
+            return false;
+        }
+    }
+
     /// Removes vanilla's own boss-altar marker wherever we have placed ours, so enabling the
     /// BossAltar category doesn't leave two icons stacked on the same altar.
     ///
