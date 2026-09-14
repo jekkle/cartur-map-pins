@@ -59,6 +59,8 @@ namespace CarturMapPins
                 // you need answered when checking whether an upgrade repaired someone's map.
                 int repointed = PinRecord.MigrateIcons();
                 Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
+
+                FlagUnknownPinsOnce();
             }
 
             Vector3 playerPos = player.transform.position;
@@ -75,6 +77,43 @@ namespace CarturMapPins
 #if DIAGNOSTICS
             AutoProbe();
 #endif
+        }
+
+        /// Marks the player's own custom-icon pins once per world, after the sheet change.
+        ///
+        /// The mod's own pins are repointed by MigrateIcons, but a hand-placed pin records nothing
+        /// except its icon slot - and that slot now holds different art with no way to recover what
+        /// was meant. So they get the warning glyph, keeping their names, which says "this one
+        /// needs you" instead of showing the wrong picture.
+        ///
+        /// Once per world, stamped in the pin record. "A custom icon we did not place" also
+        /// describes every pin the player places by hand from now on, so without the stamp this
+        /// would repaint their new pins on every single load. Per world rather than per install,
+        /// because one record file serves every world.
+        private static void FlagUnknownPinsOnce()
+        {
+            ZNet net = ZNet.instance;
+            if (net == null || !CustomIcons.Ready)
+                return;
+
+            long world = net.GetWorldUID();
+            if (world == 0L || PinRecord.WorldFlagged(world))
+                return;
+
+            Minimap.PinType warning = CustomIcons.Resolve((int)PinIcon.UtilWarning, Minimap.PinType.Icon3);
+            int flagged = CustomIcons.IsCustom(warning) ? PinRecord.FlagUnknownCustomPins(warning) : 0;
+
+            // Stamped even when nothing was flagged: the question is "has this world been through
+            // the sheet change", and the answer is yes either way. Without that, a world with no
+            // hand-placed pins would be re-checked forever.
+            PinRecord.MarkWorldFlagged(world);
+
+            if (flagged > 0)
+            {
+                Plugin.Log.LogInfo($"Marked {flagged} hand-placed pin(s) with the warning icon - " +
+                                   "the icon sheet changed and what they were set to cannot be recovered. " +
+                                   "Their names are untouched; shift-click one to pick its icon again.");
+            }
         }
 
         private static float _chestSweepAt = -1f;

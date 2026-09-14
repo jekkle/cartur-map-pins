@@ -47,6 +47,17 @@ namespace CarturMapPins
                 {
                     // key|x|y|z   (key is "Ore:Copper", "Dungeon", ...)
                     string[] parts = line.Split('|');
+
+                    // "flagged|<world uid>" - a world whose hand-placed pins have already been
+                    // marked after the icon sheet changed. Two parts rather than four, so every
+                    // version including 1.2.2 skips the line as malformed instead of choking.
+                    if (parts.Length == 2 && parts[0] == FlaggedMarker &&
+                        long.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out long uid))
+                    {
+                        FlaggedWorlds.Add(uid);
+                        continue;
+                    }
+
                     if (parts.Length != 4)
                         continue;
                     if (string.IsNullOrEmpty(parts[0]))
@@ -210,6 +221,22 @@ namespace CarturMapPins
             }
 
             return false;
+        }
+
+        private const string FlaggedMarker = "flagged";
+
+        private static readonly HashSet<long> FlaggedWorlds = new HashSet<long>();
+
+        /// Whether this world has already had its hand-placed pins marked.
+        ///
+        /// Per world, not per install: the record file is shared by every world, so a single
+        /// "done" flag would mark the first world you loaded and quietly skip all the others.
+        public static bool WorldFlagged(long worldUid) => FlaggedWorlds.Contains(worldUid);
+
+        public static void MarkWorldFlagged(long worldUid)
+        {
+            if (FlaggedWorlds.Add(worldUid))
+                Save();
         }
 
         /// True when a position is one this mod recorded - any category.
@@ -655,7 +682,9 @@ namespace CarturMapPins
 
             try
             {
-                var lines = new List<string>(Entries.Count);
+                var lines = new List<string>(Entries.Count + FlaggedWorlds.Count);
+                foreach (long uid in FlaggedWorlds)
+                    lines.Add(FlaggedMarker + "|" + uid.ToString(CultureInfo.InvariantCulture));
                 foreach (Entry e in Entries)
                 {
                     lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}",
