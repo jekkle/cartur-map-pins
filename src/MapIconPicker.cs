@@ -21,14 +21,15 @@ namespace CarturMapPins
     /// This only affects pins placed BY HAND. Auto-pins take their icon from the config.
     internal static class MapIconPicker
     {
-        /// Six across, four deep. Five columns made 48 rows of scrolling for 236 icons; nine
-        /// was wider than the gap between vanilla's pin column and the middle of the map.
-        private const int Columns = 6;
-        private const float CellSize = 46f;
-        private const float Spacing = 4f;
-        private const float PanelWidth = Columns * (CellSize + Spacing) + 24f;
-        private const float VisibleRows = 4f;
-        private const float PanelHeight = VisibleRows * (CellSize + Spacing) + 24f + CaptionHeight;
+        /// Sized by dragging it about in game rather than by arithmetic, which is why these are
+        /// two plain numbers: 263 x 273 is what looked right beside vanilla's pin column. The grid
+        /// fills the width it is given, so the column count follows from this rather than being a
+        /// second number that has to agree with it.
+        private const float PanelWidth = 263f;
+        private const float PanelHeight = 273f;
+
+        /// Only still here to seed the grid's default: the sections lay out flexibly.
+        private const int Columns = 4;
 
         private static GameObject _panel;
         private static RectTransform _panelRect;
@@ -93,15 +94,19 @@ namespace CarturMapPins
 
             AddCaption(_panel);
 
-            // TEMPORARY: drag the panel to move it, drag the grip in its top-left corner to
-            // resize it. Both log where they end up so the result can become the default.
-            // Remove these two lines with PickerDragger.cs and PickerResizer.cs.
-            _panel.AddComponent<PickerDragger>();
-            PickerResizer.Attach(_panel);
 
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
                                                 index => Select(map, index), top: CaptionHeight));
+
+            // Mark whatever is already selected, so the grid opens saying which icon a new pin
+            // will get rather than looking like nothing is chosen.
+            if (_selectedType.GetValue(map) is Minimap.PinType active)
+            {
+                int index = CustomIcons.PickerIndexFor(active);
+                for (int i = 0; i < _highlights.Count; i++)
+                    IconGrid.SetSelected(_highlights[i], i == index);
+            }
 
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons plus {CustomIcons.LegacyCount} from the old sheet.");
         }

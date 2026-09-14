@@ -96,6 +96,18 @@ namespace CarturMapPins
 
         public static bool IsCustom(Minimap.PinType type) => (int)type >= FirstCustomType;
 
+        /// Where a pin type sits in the picker's index space, or -1 when it is a vanilla type.
+        /// The reverse of TypeForPicker, so a grid can open with the current icon already marked.
+        public static int PickerIndexFor(Minimap.PinType type)
+        {
+            int value = (int)type;
+            if (value >= CurrentBase)
+                return value - CurrentBase < Count ? value - CurrentBase : -1;
+            if (value >= FirstCustomType)
+                return value - FirstCustomType < LegacyCount ? Count + (value - FirstCustomType) : -1;
+            return -1;
+        }
+
         /// Resolves a category's configured icon: a custom index when set, otherwise its vanilla
         /// PinType. Falls back to the vanilla type if custom icons failed to load, so a bad sheet
         /// degrades to "normal pins" rather than invisible ones.

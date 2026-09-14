@@ -150,9 +150,9 @@ namespace CarturMapPins
         }
 
         /// White for a cell at rest, gold for the chosen one.
-        public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.35f);
+        public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.7f);
         public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
-        public static readonly Color Hovered = new Color(1f, 1f, 1f, 0.85f);
+        public static readonly Color Hovered = new Color(1f, 1f, 1f, 1f);
 
         /// Marks a cell's border as chosen or not. Colour rather than visibility, because the
         /// border is there at rest too - it is what gives the grid its shape.

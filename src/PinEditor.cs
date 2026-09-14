@@ -62,6 +62,10 @@ namespace CarturMapPins
             if (_nameInput != null)
                 _nameInput.text = pin.m_name ?? string.Empty;
 
+            // Opens showing the icon this pin already has, so the gold border says "this is what
+            // it is" before it says "this is what you just picked".
+            _pending = CustomIcons.PickerIndexFor(pin.m_type);
+
             RefreshHighlights();
             _panel.SetActive(true);
             PlaceBeside(pin);
