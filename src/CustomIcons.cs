@@ -115,6 +115,16 @@ namespace CarturMapPins
         {
             if (!Plugin.CustomIconsEnabled.Value || !Ready)
                 return fallback;
+
+            // A setting carried over from 1.2.2 whose icon the new sheet never redrew. The old
+            // sheet is still shipped and still registered on types 100-182, so the pin keeps the
+            // exact artwork it had rather than being nudged onto something merely similar.
+            if (iconIndex >= LegacyIconNames.LegacyBase)
+            {
+                int legacy = iconIndex - LegacyIconNames.LegacyBase;
+                return legacy < LegacyCount ? LegacyTypeForIndex(legacy) : fallback;
+            }
+
             if (iconIndex < 0 || iconIndex >= Count)
                 return fallback;
             return TypeForIndex(iconIndex);

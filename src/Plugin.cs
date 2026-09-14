@@ -102,6 +102,11 @@ namespace CarturMapPins
         {
             Log = Logger;
 
+            // Before the first Bind of anything: Bind rewrites the file once it has bound an
+            // entry, replacing any value it could not parse with the default. This reads what the
+            // player actually had while that is still what is on disk.
+            LegacyIconNames.Capture(Config.ConfigFilePath);
+
             DiscoveryRadius = Config.Bind("General", "DiscoveryRadius", 60f,
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
@@ -207,9 +212,22 @@ namespace CarturMapPins
             // drops back to None. Anything else would claim a preset is still in force while you
             // change switches underneath it, and there is no honest way to know when it stopped
             // being true.
+            // Ordered to the top of General: ConfigurationManager sorts a section by Order
+            // descending, and the two settings that DO something belong above the ones that
+            // merely describe a preference.
             ApplyPreset = Config.Bind("General", "ApplyPreset", Preset.None,
-                "Set every switch at once. Minimal pins the few things worth walking back to; Everything turns on all of it, chickens and abandoned houses included; Defaults restores what a fresh install uses. The setting returns to None once applied - it is a button, not a state.");
+                new ConfigDescription("Set every switch at once. Minimal pins the few things worth walking back to; Everything turns on all of it, chickens and abandoned houses included; Defaults restores what a fresh install uses. Returns to None once applied - it is a button, not a state.",
+                    null, Attr(order: 100)));
             ApplyPreset.SettingChanged += (_, __) => Apply(ApplyPreset.Value);
+
+            // Written as a dropdown rather than a tick box, and with the frightening option spelled
+            // out in full, because this throws away work: a tick box sits one stray click from
+            // deleting a map somebody filled in over fifty hours. Choosing a named option is
+            // deliberate in a way that ticking a box is not.
+            ResetPins = Config.Bind("General", "ResetPins", PinReset.No,
+                new ConfigDescription("Start this world's pins over. Removes every pin this mod placed and forgets them, so each one is pinned again as you rediscover it. Pins you placed by hand are untouched, and so are any colours or sizes you set. Returns to No once it has run - it is a button, not a state.",
+                    null, Attr(order: 99)));
+            ResetPins.SettingChanged += (_, __) => Reset(ResetPins.Value);
 
             HideCollidingLabels = Config.Bind("General", "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
@@ -220,10 +238,10 @@ namespace CarturMapPins
             ForgetMinedOre = Config.Bind("Ore", "ForgetMined", true,
                 "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
 
-            LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
+            LootedChestIcon = AdoptLegacy(Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
                 new ConfigDescription(
-                    "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
-                    null, IconAttr(order: 1)));
+                    "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
+                    null, IconAttr(order: 1))));
 
             // A switch and an icon for every kind the mod can tell apart. Both are generated from
             // the tables that do the matching, so the menu and the matcher cannot drift.
@@ -250,15 +268,20 @@ namespace CarturMapPins
                 BindSubtypeIcon("Ore Icons", e);
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
-                "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
+                new ConfigDescription("Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.",
+                    null, Attr(advanced: true)));
             _pickBerries = Config.Bind("Pickables", "BerriesAndMushrooms", false,
-                "Raspberry/blueberry/cloudberry bushes and mushrooms.");
+                new ConfigDescription("Raspberry/blueberry/cloudberry bushes and mushrooms.",
+                    null, Attr(advanced: true)));
             _pickCrops = Config.Bind("Pickables", "CropsAndHerbs", false,
-                "Thistle, dandelion, seeds, barley, flax.");
+                new ConfigDescription("Thistle, dandelion, seeds, barley, flax.",
+                    null, Attr(advanced: true)));
             _pickJunk = Config.Bind("Pickables", "BranchesStonesFlint", false,
-                "Not recommended: these blanket every biome and would carpet the map and bloat your save file.");
+                new ConfigDescription("Not recommended: these blanket every biome and would carpet the map and bloat your save file.",
+                    null, Attr(advanced: true)));
             _pickOther = Config.Bind("Pickables", "Unrecognised", false,
-                "Any pickable that didn't match a known group (including modded ones). Check the log to see what these are.");
+                new ConfigDescription("Any pickable that didn't match a known group (including modded ones). Check the log to see what these are.",
+                    null, Attr(advanced: true)));
 
             // Pickable groups get their own icons - one shared icon for berries, crops and
             // surtling cores alike would lose most of the value of pinning them at all.
@@ -276,6 +299,46 @@ namespace CarturMapPins
             RegisterCommands();
 
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
+        }
+
+        public enum PinReset
+        {
+            No,
+            YesRemoveEveryPinThisModPlaced,
+        }
+
+        /// Clears this world's pins and the record of them, so everything is pinned afresh as it
+        /// is rediscovered.
+        ///
+        /// Refuses unless a map exists. PinRecord.RemoveAll drops its records whether or not it
+        /// found pins to remove, so running this from the main menu would forget everything while
+        /// leaving the pins on the map - and the next world load would then pin all of it a second
+        /// time on top of what is already there, with nothing left that knows they are duplicates.
+        ///
+        /// Styles are deliberately left alone. A colour or size is keyed by position and is set by
+        /// hand through the pin editor, which works on hand-placed pins too - so wiping them here
+        /// would throw away work this reset never touched.
+        private static void Reset(PinReset choice)
+        {
+            if (choice == PinReset.No)
+                return;
+
+            if (Minimap.instance == null)
+            {
+                Log.LogWarning("ResetPins needs a world loaded - nothing was changed. Load your save and set it again.");
+            }
+            else
+            {
+                int before = PinRecord.Count;
+                int removed = PinRecord.RemoveAll();
+                Minimap.instance.SaveMapData();
+                Log.LogInfo($"Reset pins: removed {removed} of {before} recorded pin(s). They will be pinned again as you rediscover them.");
+            }
+
+            // Cleared last and only if it is still what we were asked for: setting it fires this
+            // handler again, and No returns immediately.
+            if (ResetPins.Value == choice)
+                ResetPins.Value = PinReset.No;
         }
 
         public enum Preset
@@ -345,11 +408,19 @@ namespace CarturMapPins
         }
 
         /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
+        /// Every icon setting goes through here on its way out of Bind, so a name written by
+        /// 1.2.2 is carried over in the one moment it still can be.
+        private static ConfigEntry<PinIcon> AdoptLegacy(ConfigEntry<PinIcon> entry)
+        {
+            LegacyIconNames.Adopt(entry);
+            return entry;
+        }
+
         private static ConfigurationManagerAttributes Attr(bool? browsable = null, bool advanced = false, int order = 0) =>
             new ConfigurationManagerAttributes { Browsable = browsable, IsAdvanced = advanced, Order = order };
 
-        private static ConfigurationManagerAttributes IconAttr(int order) =>
-            new ConfigurationManagerAttributes { Order = order, CustomDrawer = IconDrawer.Draw };
+        private static ConfigurationManagerAttributes IconAttr(int order, bool advanced = false) =>
+            new ConfigurationManagerAttributes { Order = order, IsAdvanced = advanced, CustomDrawer = IconDrawer.Draw };
 
         private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex, string sectionName = null)
         {
@@ -358,9 +429,9 @@ namespace CarturMapPins
             {
                 Enabled = Config.Bind(section, "Enabled", enabled,
                     new ConfigDescription(description, null, Attr(order: 2))),
-                IconIndex = Config.Bind(section, "Icon", (PinIcon)iconIndex,
+                IconIndex = AdoptLegacy(Config.Bind(section, "Icon", (PinIcon)iconIndex,
                     new ConfigDescription("Pin icon for this category. Pick one, or use the default.",
-                        null, IconAttr(order: 1))),
+                        null, IconAttr(order: 1)))),
                 // Kept out of the settings screen. The vanilla icon is only ever a fallback for
                 // when the custom sheet fails to load, and choosing one is not a decision anybody
                 // needs to make from a menu.
@@ -412,18 +483,25 @@ namespace CarturMapPins
                 ? " Requires Dungeon/TickWhenLooted."
                 : $" Requires the {category} category to be enabled.";
 
+            // Advanced, along with every other per-kind row. There are 379 settings here and
+            // roughly 340 of them are one of these: a switch or an icon for a single kind of
+            // thing. Shown by default they bury the seventeen settings that decide what the mod
+            // does at all, so somebody who only wants to turn camps off has to find "Camp" among
+            // nine sections whose names begin with Camp. They are one tick away, under Advanced,
+            // and nothing about them has changed.
             SubtypeToggles[key] = Config.Bind(section, kind, on,
-                description + requires + (on ? "" : " OFF by default."));
+                new ConfigDescription(description + requires + (on ? "" : " OFF by default."),
+                    null, Attr(advanced: true)));
         }
 
         private void BindSubtypeIcon(string section, Subtypes.Entry entry)
         {
             if (SubtypeIcons.ContainsKey(entry.Name))
                 return;
-            SubtypeIcons[entry.Name] = Config.Bind(section, entry.Name, (PinIcon)entry.DefaultIcon,
+            SubtypeIcons[entry.Name] = AdoptLegacy(Config.Bind(section, entry.Name, (PinIcon)entry.DefaultIcon,
                 new ConfigDescription(
-                    $"Icon for {entry.Name} (see Assets/pin_icons_numbered.png). -1 falls back to the category's own icon.",
-                    null, IconAttr(order: 1)));
+                    $"Icon for {entry.Name}. Default falls back to the category's own icon.",
+                    null, IconAttr(order: 1, advanced: true))));
         }
 
         /// A dungeon/camp subtype's icon, falling back to the category's setting when the
@@ -446,13 +524,14 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<bool> HideCollidingLabels;
         public static ConfigEntry<Preset> ApplyPreset;
+        public static ConfigEntry<PinReset> ResetPins;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
-            PickableIcons[group] = Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
+            PickableIcons[group] = AdoptLegacy(Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
                 new ConfigDescription(
-                    $"Icon for {group} pickables (see Assets/pin_icons_numbered.png). -1 falls back to the Pickable category's PinType.",
-                    null, IconAttr(order: 1)));
+                    $"Icon for {group} pickables. Default falls back to the Pickable category's own icon.",
+                    null, IconAttr(order: 1, advanced: true))));
         }
 
         /// A pickable's icon comes from its group, falling back to the category's own setting.
