@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using HarmonyLib;
 using TMPro;
 
@@ -42,6 +43,28 @@ namespace CarturMapPins
                 }
                 return false;
             }
+        }
+
+        /// Cuts a cloned text box loose from vanilla's pin-naming handler.
+        ///
+        /// Minimap.m_nameInput is a GUIFramework.GuiInputField, and that class's own Start()
+        /// wires onSubmit to its OnInputSubmit event - a serialized field, so Instantiate copies
+        /// it with the prefab's listener intact, and that listener is how the map names a pin.
+        /// Giving the clone a fresh onSubmit does not help: Start runs a frame later and hooks
+        /// the fresh one just the same. So Enter in a box of ours reached Minimap.OnPinTextEntered,
+        /// which closes vanilla's own name box and leaves whatever pin it was naming unnamed.
+        ///
+        /// Only the field itself stops it. Its handler null-checks it before invoking, so null is
+        /// the whole fix - no listener to remove and no replacement event to build.
+        private static FieldInfo _vanillaSubmit;
+
+        public static void DropVanillaSubmit(TMP_InputField field)
+        {
+            if (field == null)
+                return;
+            if (_vanillaSubmit == null)
+                _vanillaSubmit = AccessTools.Field(field.GetType(), "OnInputSubmit");
+            _vanillaSubmit?.SetValue(field, null);
         }
     }
 

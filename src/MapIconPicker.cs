@@ -200,8 +200,10 @@ namespace CarturMapPins
                 PinUpdateRequired?.SetValue(map, true);
             });
 
-            // So the game knows to stop reading the keyboard while this has focus.
+            // So the game knows to stop reading the keyboard while this has focus - and so Enter
+            // here no longer reaches Minimap.OnPinTextEntered, which the clone inherited.
             TextFocus.Register(input);
+            TextFocus.DropVanillaSubmit(input);
         }
 
         /// The flag the map raises when its pins need drawing again. Searching has to raise it

@@ -201,6 +201,9 @@ namespace CarturMapPins
             // pressed.
             input.onSubmit = new TMP_InputField.SubmitEvent();
             input.onEndEdit = new TMP_InputField.SubmitEvent();
+            // Not enough on its own - see DropVanillaSubmit. Without it, Enter here still
+            // reached Minimap.OnPinTextEntered.
+            TextFocus.DropVanillaSubmit(input);
             return input;
         }
 
