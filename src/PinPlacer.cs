@@ -553,6 +553,13 @@ namespace CarturMapPins
                         return wisp.m_name;
                     break;
 
+                case PinCategory.Miniboss:
+                    // The creature's own name - "Lord Reto", not "Lord Reto Spawner". You are
+                    // walking to him, and there is only ever one of him.
+                    if (!string.IsNullOrEmpty(subtype))
+                        return subtype;
+                    goto case PinCategory.Spawner;
+
                 case PinCategory.Spawner:
                     // Ask the spawner what it spawns before falling back to reading its name.
                     string spawns = SpawnedCreatureName(go);
@@ -742,6 +749,9 @@ namespace CarturMapPins
                     // marker it gets, and a marker that says "Dvergr Tower" beats one that says
                     // "chest" on a map with forty chests on it.
                     return Subtypes.Match(Subtypes.ChestSites, EnclosingLocationName(go));
+
+                case PinCategory.Miniboss:
+                    return Subtypes.Match(Subtypes.Minibosses, SpawnedCreaturePrefabName(go));
 
                 case PinCategory.Spawner:
                     string creature = SpawnedCreaturePrefabName(go);

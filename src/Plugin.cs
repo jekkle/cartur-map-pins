@@ -159,6 +159,9 @@ namespace CarturMapPins
             Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
                 "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
                 iconIndex: 45);   // stone circle; per-kind icons override it
+            Bind(PinCategory.Miniboss, true, Minimap.PinType.Boss, 5f,
+                "Named minibosses - Lord Reto in the Ashlands, and Hildir's three. Single hand-placed creatures you fight once, so they are on even though the Spawner category they would otherwise sit in is off.",
+                iconIndex: 130);  // Lord Reto; per-miniboss icons override this
             Bind(PinCategory.Prop, true, Minimap.PinType.Icon2, 5f,
                 "One-off world objects that carry no component saying what they are, so the mod knows them by name - currently the maypole standing in an abandoned Meadows village. Anything you built yourself is never pinned.",
                 iconIndex: 149);  // maypole; per-prop icons override this
@@ -184,6 +187,7 @@ namespace CarturMapPins
             BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
             BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
             BindKinds(PinCategory.Spawner, "Spawner", Subtypes.Spawners);
+            BindKinds(PinCategory.Miniboss, "Miniboss", Subtypes.Minibosses);
             BindKinds(PinCategory.Pickable, "Pickable", Subtypes.Pickables);
             BindKinds(PinCategory.Landmark, "Landmark", Subtypes.Landmarks);
             BindKinds(PinCategory.Prop, "Prop", Subtypes.Props);
