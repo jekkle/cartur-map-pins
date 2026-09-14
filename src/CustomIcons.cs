@@ -156,7 +156,10 @@ namespace CarturMapPins
                 ReplaceBedSprite(map);
 
                 _registeredFor = map;
-                Plugin.Log.LogInfo($"Registered {added} custom pin icons as types {FirstCustomType}-{FirstCustomType + _sprites.Length - 1}.");
+                Plugin.Log.LogInfo(
+                    $"Registered {added} custom pin icons: {_sprites.Length} current on types " +
+                    $"{CurrentBase}-{CurrentBase + _sprites.Length - 1}, " +
+                    $"{LegacyCount} from 1.2.2's sheet on {FirstCustomType}-{FirstCustomType + LegacyCount - 1}.");
             }
             catch (Exception e)
             {
