@@ -187,6 +187,7 @@ namespace CarturMapPins
                 "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
                 iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
 
+            // "Ore Types" is where 1.2.2 kept these switches, so it keeps them.
             // Ore switches come from the catalog's own token table rather than from Subtypes,
             // so an ore type the detector recognises always has a switch - including one a mod
             // adds that the icon table has never heard of.
@@ -209,7 +210,8 @@ namespace CarturMapPins
 
             // A switch and an icon for every kind the mod can tell apart. Both are generated from
             // the tables that do the matching, so the menu and the matcher cannot drift.
-            BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons);
+            // "Dungeon Types" and "Camp Types" held the icons in 1.2.2 and still do.
+            BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons, iconSection: "Dungeon Types");
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
             {
                 if (TickToggles.ContainsKey(e.Name))
@@ -217,7 +219,7 @@ namespace CarturMapPins
                 TickToggles[e.Name] = Config.Bind("Dungeon Tick", e.Name, true,
                     $"Tick a {e.Name} off once everything inside it has been taken. Requires Dungeon/TickWhenLooted.");
             }
-            BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps);
+            BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps, iconSection: "Camp Types");
             BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
             BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
             BindKinds(PinCategory.Spawner, "Spawner", Subtypes.Spawners);
@@ -300,12 +302,19 @@ namespace CarturMapPins
             new Dictionary<string, ConfigEntry<PinIcon>>();
 
         /// One switch and one icon per kind in a table.
-        private void BindKinds(PinCategory category, string name, Subtypes.Entry[] table)
+        ///
+        /// Sections are "X Kinds" for the switches and "X Icons" for the icons - except where 1.2.2
+        /// already shipped a section, which keeps its name whatever it holds. A section and key
+        /// pair carries one type of value, so reusing "Dungeon Types" for switches would have read
+        /// somebody's saved icon choice as a true/false, failed, and silently reset it. Two odd
+        /// names are cheaper than every updating player losing the icons they picked.
+        private void BindKinds(PinCategory category, string name, Subtypes.Entry[] table,
+                               string switchSection = null, string iconSection = null)
         {
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(table))
             {
-                BindKindToggle(category, name + " Types", e.Name, $"Pin {e.Name}.");
-                BindSubtypeIcon(name + " Icons", e);
+                BindKindToggle(category, switchSection ?? name + " Kinds", e.Name, $"Pin {e.Name}.");
+                BindSubtypeIcon(iconSection ?? name + " Icons", e);
             }
         }
 
