@@ -53,7 +53,9 @@ namespace CarturMapPins
         private static readonly Dictionary<int, string> OreTypes = new Dictionary<int, string>();
 
         public static bool Built { get; private set; }
+#if DIAGNOSTICS
         public static int Size => ByHash.Count;
+#endif
 
         public static bool TryGet(int prefabHash, out PinCategory category) =>
             ByHash.TryGetValue(prefabHash, out category);

@@ -29,6 +29,16 @@ namespace CarturMapPins
         // Diagnostics: the spawn-hook path went completely silent while the Location sweep
         // worked, and there was no way to tell from outside whether the hook wasn't firing or
         // every object was being filtered out. Counters + a periodic summary answer that.
+        //
+        // Counted through Tally rather than written to directly. ReportIfDue is the only thing
+        // that ever reads them and it is not compiled into a release, so in a shipped build the
+        // additions were work done for nobody - in the one method that runs for every arrow,
+        // dropped item and creature in the world. [Conditional] removes the call at each site,
+        // which leaves the method reading identically in both builds; bracketing six increments
+        // in #if would not. The fields themselves stay because the calls still have to bind.
+        [System.Diagnostics.Conditional("DIAGNOSTICS")]
+        private static void Tally(ref int counter) => counter++;
+
         private static int _seen;
         private static int _matched;
         private static int _enqueued;
@@ -55,13 +65,13 @@ namespace CarturMapPins
             if (!PinCatalog.Built || zdo == null || nview == null)
                 return;
 
-            _seen++;
+            Tally(ref _seen);
 
             int hash = zdo.GetPrefab();
             if (!PinCatalog.TryGet(hash, out PinCategory category))
                 return;   // the fast path: one int lookup for the overwhelming majority of calls
 
-            _matched++;
+            Tally(ref _matched);
 
             // Boss altars sit inside location prefabs, where the Location sweep can classify and
             // label them from the location's own data. Everything else is handled here - runestones
@@ -71,7 +81,7 @@ namespace CarturMapPins
 
             if (category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(PinCatalog.GroupOf(hash)))
             {
-                _skippedGroup++;
+                Tally(ref _skippedGroup);
                 return;
             }
 
@@ -84,7 +94,7 @@ namespace CarturMapPins
             if ((category == PinCategory.Beehive || category == PinCategory.Chest ||
                  category == PinCategory.Prop) && !IsWild(zdo))
             {
-                _skippedHive++;
+                Tally(ref _skippedHive);
                 return;
             }
 
@@ -95,7 +105,7 @@ namespace CarturMapPins
                 Pickable pickable = go.GetComponent<Pickable>();
                 if (pickable != null && !pickable.CanBePicked())
                 {
-                    _skippedPicked++;
+                    Tally(ref _skippedPicked);
                     return;
                 }
             }
@@ -111,7 +121,7 @@ namespace CarturMapPins
             if (category == PinCategory.Ore)
                 OreRegistry.Add(go);
 
-            _enqueued++;
+            Tally(ref _enqueued);
             // The subtype carries through so the pin gets its own icon and dedupes only against
             // its own kind - copper against copper, a wolf den against other wolf dens.
             PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinPlacer.SubtypeFor(category, hash, go));

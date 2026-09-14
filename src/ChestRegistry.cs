@@ -14,7 +14,9 @@ namespace CarturMapPins
     {
         private static readonly List<Container> Live = new List<Container>();
 
+#if DIAGNOSTICS
         public static int Count => Live.Count;
+#endif
 
         public static void Add(Container container)
         {

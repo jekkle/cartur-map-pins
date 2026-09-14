@@ -26,7 +26,9 @@ namespace CarturMapPins
         private static float _timer;
         private static bool _relabelled;
 
+#if DIAGNOSTICS
         public static int QueueSize => PendingQueue.Count;
+#endif
 
         public static void Enqueue(PinCategory category, Vector3 pos, GameObject go, string subtype = null)
         {
@@ -835,6 +837,7 @@ namespace CarturMapPins
         internal static string SpawnedCreaturePrefabName(GameObject go) =>
             SpawnedCreaturePrefab(go)?.name;
 
+#if DIAGNOSTICS
         /// Every creature a spawner lists, for diagnostics. The matcher only uses the first, so
         /// dumping all of them is what shows whether that is the right choice.
         internal static string AllSpawnedCreatureNames(GameObject go)
@@ -858,6 +861,7 @@ namespace CarturMapPins
             }
             return sb.Length > 0 ? sb.ToString() : null;
         }
+#endif
 
         private static string SpawnedCreatureName(GameObject go)
         {

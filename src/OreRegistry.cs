@@ -24,7 +24,9 @@ namespace CarturMapPins
 
         private static readonly List<Node> Seen = new List<Node>();
 
+#if DIAGNOSTICS
         public static int Count => Seen.Count;
+#endif
 
         public static void Add(GameObject go)
         {
