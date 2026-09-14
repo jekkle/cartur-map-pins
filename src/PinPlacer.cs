@@ -292,8 +292,6 @@ namespace CarturMapPins
             }
         }
 
-        private static bool _autoProbeDone;
-        private static float _autoProbeAt = -1f;
 
         /// Runs the probe once, a few seconds after the player is in-world, straight to the log.
         /// Deliberately not dependent on the game console, which needs a `-console` launch
@@ -303,7 +301,10 @@ namespace CarturMapPins
         /// this is only called from the throttled tick (~3Hz), so accumulating per-frame deltas
         /// here counted roughly 0.05s per real second and pushed a 12s delay out to ~4 minutes.
  #if DIAGNOSTICS
-       private static void AutoProbe()
+        private static bool _autoProbeDone;
+        private static float _autoProbeAt = -1f;
+
+        private static void AutoProbe()
         {
             if (_autoProbeDone || !Plugin.AutoProbe.Value)
                 return;

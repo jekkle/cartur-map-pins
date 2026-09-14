@@ -74,20 +74,16 @@ namespace CarturMapPins
 
         private static string KindKey(PinCategory category, string kind) => category + ":" + kind;
 
-        /// One switch per dungeon kind for the looted tick, separate from the switches that decide
-        /// what gets pinned: whether a Sunken Crypt is worth marking and whether it is worth
-        /// ticking off once emptied are different questions. A crypt you strip for iron is done
-        /// with; a Frost Cave you dip into for one chest may not be.
-        private static readonly Dictionary<string, ConfigEntry<bool>> TickToggles =
-            new Dictionary<string, ConfigEntry<bool>>();
+        /// Whether a dungeon kind ticks off once emptied - a different question from whether it is
+        /// worth pinning, so a different switch. A crypt you strip for iron is done with; a Frost
+        /// Cave you dip into for one chest may not be.
+        ///
+        /// Stored in the same place as every other per-kind switch, under a key of its own rather
+        /// than in a second dictionary that would need its own lookup, its own binder and its own
+        /// "missing means yes" rule.
+        private const PinCategory TickPseudoCategory = (PinCategory)(-1);
 
-        /// A kind with no switch of its own ticks, same rule as everywhere else.
-        public static bool TickKindEnabled(string kind)
-        {
-            if (string.IsNullOrEmpty(kind))
-                return true;
-            return !TickToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
-        }
+        public static bool TickKindEnabled(string kind) => SubtypeEnabled(TickPseudoCategory, kind);
 
         /// Whether one kind is switched on.
         ///
@@ -214,10 +210,8 @@ namespace CarturMapPins
             BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons, iconSection: "Dungeon Types");
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
             {
-                if (TickToggles.ContainsKey(e.Name))
-                    continue;
-                TickToggles[e.Name] = Config.Bind("Dungeon Tick", e.Name, true,
-                    $"Tick a {e.Name} off once everything inside it has been taken. Requires Dungeon/TickWhenLooted.");
+                BindKindToggle(TickPseudoCategory, "Dungeon Tick", e.Name,
+                    $"Tick a {e.Name} off once everything inside it has been taken.");
             }
             BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps, iconSection: "Camp Types");
             BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
@@ -324,9 +318,14 @@ namespace CarturMapPins
             if (SubtypeToggles.ContainsKey(key))
                 return;
             bool on = !KindsOffByDefault.Contains(key);
+            // The tick switches hang off Dungeon/TickWhenLooted rather than a category of their
+            // own, so they say so instead of naming the pseudo-category they are keyed under.
+            string requires = category == TickPseudoCategory
+                ? " Requires Dungeon/TickWhenLooted."
+                : $" Requires the {category} category to be enabled.";
+
             SubtypeToggles[key] = Config.Bind(section, kind, on,
-                $"{description} Requires the {category} category to be enabled."
-                + (on ? "" : " OFF by default."));
+                description + requires + (on ? "" : " OFF by default."));
         }
 
         private void BindSubtypeIcon(string section, Subtypes.Entry entry)
