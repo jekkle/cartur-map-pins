@@ -26,9 +26,7 @@ namespace CarturMapPins
         /// fills the width it is given, so the column count follows from this rather than being a
         /// second number that has to agree with it.
         private const float PanelWidth = 263f;
-        private const float PanelHeight = 273f + FilterHeight;
-
-        private const float FilterHeight = 24f;
+        private const float PanelHeight = 273f;
 
         /// Only still here to seed the grid's default: the sections lay out flexibly.
         private const int Columns = 4;
@@ -95,12 +93,11 @@ namespace CarturMapPins
             _canvasCamera = IconGrid.CameraFor(_panel);
 
             AddCaption(_panel);
-            AddFilterBox(map, _panel.transform);
+            BuildSearchBar(map);
 
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
-                                                index => Select(map, index),
-                                                top: CaptionHeight + FilterHeight));
+                                                index => Select(map, index), top: CaptionHeight));
 
             // Mark whatever is already selected, so the grid opens saying which icon a new pin
             // will get rather than looking like nothing is chosen.
@@ -144,13 +141,22 @@ namespace CarturMapPins
             text.raycastTarget = false;
         }
 
-        /// A search box over the grid. Typing dims every pin that does not match.
+        private static GameObject _searchBar;
+
+        /// The search box, across the top of the map rather than inside the picker.
+        ///
+        /// It searches pins, not icons, so it does not belong to the icon grid - and the top
+        /// centre is where a search box is looked for. Sized in fractions of the map's width so it
+        /// stays centred and proportionate at any resolution.
         ///
         /// Cloned from the map's own pin-name field, the way the grid clones its buttons: it is
         /// already wired for this game's input handling, which a field built from nothing is not -
         /// and a search box that eats movement keys or swallows Escape is worse than no search.
-        private static void AddFilterBox(Minimap map, Transform parent)
+        private static void BuildSearchBar(Minimap map)
         {
+            if (_searchBar != null || map.m_largeRoot == null)
+                return;
+
             var source = NameInputField?.GetValue(map) as TMP_InputField;
             if (source == null)
             {
@@ -158,16 +164,27 @@ namespace CarturMapPins
                 return;
             }
 
-            TMP_InputField input = UnityEngine.Object.Instantiate(source, parent);
+            _searchBar = new GameObject("CarturPinSearch");
+            _searchBar.transform.SetParent(map.m_largeRoot.transform, false);
+            RectTransform bar = _searchBar.AddComponent<RectTransform>();
+            bar.anchorMin = new Vector2(0.5f, 1f);
+            bar.anchorMax = new Vector2(0.5f, 1f);
+            bar.pivot = new Vector2(0.5f, 1f);
+            bar.sizeDelta = new Vector2(340f, 30f);
+            bar.anchoredPosition = new Vector2(0f, -16f);
+
+            Image backing = _searchBar.AddComponent<Image>();
+            backing.color = new Color(0f, 0f, 0f, 0.6f);
+
+            TMP_InputField input = UnityEngine.Object.Instantiate(source, _searchBar.transform);
             input.gameObject.name = "CarturPinFilter";
             input.gameObject.SetActive(true);
 
             RectTransform rt = input.GetComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(1f, 1f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.offsetMin = new Vector2(8f, -CaptionHeight - FilterHeight + 2f);
-            rt.offsetMax = new Vector2(-8f, -CaptionHeight - 2f);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(6f, 3f);
+            rt.offsetMax = new Vector2(-6f, -3f);
 
             input.text = string.Empty;
             if (input.placeholder is TMP_Text placeholder)
