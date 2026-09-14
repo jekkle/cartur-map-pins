@@ -53,7 +53,7 @@ namespace CarturMapPins
         public static Style For(Vector3 pos) =>
             Styles.TryGetValue(KeyFor(pos), out Style style) ? style : Default;
 
-        public static bool Any => Styles.Count > 0;
+        public static bool Any => Styles.Count > 0 || OreTints.Count > 0;
 
         public static void Set(Vector3 pos, Style style)
         {
@@ -128,6 +128,46 @@ namespace CarturMapPins
                 Plugin.Log.LogWarning($"Could not write pin styles: {e.Message}");
             }
         }
+
+        /// Ore colours, keyed by the pin type that carries each ore's icon.
+        ///
+        /// By type rather than by position, which is the whole reason this is cheap: an ore type
+        /// already has an icon of its own, so it already has a pin type of its own, and painting
+        /// becomes a dictionary hit on a number the pin is already carrying. No per-pin record,
+        /// nothing to keep in step as pins come and go.
+        ///
+        /// Rebuilt whenever the map is built, so changing an ore's icon in the settings takes
+        /// effect on the next map rather than the next launch.
+        ///
+        /// The catch, stated rather than hidden: two things sharing an icon share the colour. Tar
+        /// deposits and tar blob spawners both use the tar glyph, so a tar blob spawner comes out
+        /// tar-coloured too. That reads as correct more often than not.
+        private static readonly Dictionary<Minimap.PinType, Color> OreTints =
+            new Dictionary<Minimap.PinType, Color>();
+
+        public static void RebuildOreTints()
+        {
+            OreTints.Clear();
+            if (!Plugin.TintOreByType.Value)
+                return;
+
+            Plugin.CategorySettings ore = Plugin.SettingsFor(PinCategory.Ore);
+            if (ore == null)
+                return;
+
+            foreach (KeyValuePair<string, string> entry in Subtypes.OreColours)
+            {
+                if (!ColorUtility.TryParseHtmlString("#" + entry.Value, out Color colour))
+                    continue;
+
+                Minimap.PinType type = Plugin.SubtypeIconFor(entry.Key, ore);
+                if (CustomIcons.IsCustom(type))
+                    OreTints[type] = colour;
+            }
+        }
+
+        public static bool TintFor(Minimap.PinType type, out Color colour) =>
+            OreTints.TryGetValue(type, out colour);
 
         /// The colour to draw a pin in, or null to leave vanilla's own alone.
         public static Color? ColourFor(Style style)

@@ -415,6 +415,9 @@ namespace CarturMapPins
         {
             CustomIcons.Register(__instance);
             MapIconPicker.Build(__instance);
+            // After Register, since an ore's colour is keyed by the pin type its icon resolves to
+            // and those types only exist once the sheet is registered against this map.
+            PinStyles.RebuildOreTints();
         }
     }
 }

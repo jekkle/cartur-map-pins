@@ -207,9 +207,13 @@ namespace CarturMapPins
                 if (pin.m_checked)
                     continue;
 
+                // A colour set on this pin by hand wins. Only when there is none does the ore
+                // colour apply, so tinting by type never overrides a deliberate choice.
                 Color? colour = PinStyles.ColourFor(style);
                 if (colour.HasValue)
                     pin.m_iconElement.color = colour.Value;
+                else if (PinStyles.TintFor(pin.m_type, out Color tint))
+                    pin.m_iconElement.color = tint;
             }
         }
     }

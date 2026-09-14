@@ -147,6 +147,30 @@ namespace CarturMapPins
             E("Tar", "Tar", 13),
         };
 
+        /// What each ore is, in colour.
+        ///
+        /// The map is dark, so these are the material lifted towards its lightest honest reading
+        /// rather than its true one: obsidian, tar and black marble are all but black in the game
+        /// and would be a hole in the map at pin size. Copper stays copper.
+        ///
+        /// Keyed by the same names the ore table uses, which are the names the catalog resolves
+        /// from what a deposit drops - so an ore added by a game update simply has no colour until
+        /// one is written here, rather than taking somebody else's.
+        public static readonly Dictionary<string, string> OreColours = new Dictionary<string, string>
+        {
+            { "Copper", "C87A33" },
+            { "Tin", "D6DCE4" },
+            { "Iron", "9A9A9A" },
+            { "Silver", "E4EDF5" },
+            { "Obsidian", "6E6A86" },       // lifted: obsidian is near black
+            { "Flametal", "E8562A" },
+            { "Sulfur", "E8D44D" },
+            { "Black Marble", "8A7BA8" },   // lifted
+            { "Giant Remains", "E0D2AC" },
+            { "Chitin", "CDB79A" },
+            { "Tar", "6B6459" },            // lifted
+        };
+
         /// Matched against OfferingBowl.m_bossPrefab's name, which is the boss's own prefab
         /// ("Eikthyr", "gd_king", "GoblinKing"), falling back to the bowl's m_name.
         public static readonly Entry[] Bosses =

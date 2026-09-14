@@ -200,6 +200,9 @@ namespace CarturMapPins
             ReplaceBedMarker = Config.Bind("Home", "ReplaceBedMarker", true,
                 "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
 
+            TintOreByType = Config.Bind("Ore", "TintByType", true,
+                "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
+
             ForgetMinedOre = Config.Bind("Ore", "ForgetMined", true,
                 "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
 
@@ -359,6 +362,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ForgetMinedOre;
         public static ConfigEntry<bool> ReplaceBedMarker;
         public static ConfigEntry<bool> TickLootedDungeons;
+        public static ConfigEntry<bool> TintOreByType;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
