@@ -114,11 +114,11 @@ namespace CarturMapPins
 
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
-            MapPickerX = Config.Bind("CustomIcons", "MapPickerX", 20f,
-                new ConfigDescription("Horizontal offset of the picker panel from the bottom-left of the map screen.",
+            MapPickerX = Config.Bind("CustomIcons", "MapPickerX", 110f,
+                new ConfigDescription("How far in from the RIGHT edge of the map screen the picker sits.",
                     null, Attr(advanced: true)));
-            MapPickerY = Config.Bind("CustomIcons", "MapPickerY", 20f,
-                new ConfigDescription("Vertical offset of the picker panel from the bottom-left of the map screen.",
+            MapPickerY = Config.Bind("CustomIcons", "MapPickerY", 80f,
+                new ConfigDescription("How far up from the bottom of the map screen the picker sits - enough to clear the pin controls along the bottom.",
                     null, Attr(advanced: true)));
 
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,

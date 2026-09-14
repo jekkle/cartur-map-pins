@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -61,6 +62,9 @@ namespace CarturMapPins
             viewRt.offsetMax = new Vector2(-8f, -8f - top);
             viewport.AddComponent<RectMask2D>();
 
+            // A column of sections rather than one grid, so a heading can sit between the current
+            // icons and 1.2.2's. Without it the old art simply continues after the new and reads
+            // as inconsistent drawing rather than as a second set.
             var content = new GameObject("Content");
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRt = content.AddComponent<RectTransform>();
@@ -68,11 +72,12 @@ namespace CarturMapPins
             contentRt.anchorMax = new Vector2(1f, 1f);
             contentRt.pivot = new Vector2(0f, 1f);
 
-            GridLayoutGroup grid = content.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(CellSize, CellSize);
-            grid.spacing = new Vector2(Spacing, Spacing);
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = columns;
+            VerticalLayoutGroup column = content.AddComponent<VerticalLayoutGroup>();
+            column.childForceExpandHeight = false;
+            column.childForceExpandWidth = true;
+            column.childControlHeight = true;
+            column.childControlWidth = true;
+            column.spacing = 6f;
             ContentSizeFitter fitter = content.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
@@ -88,9 +93,58 @@ namespace CarturMapPins
             scroll.scrollSensitivity = (CellSize + Spacing) * 6f;
 
             var highlights = new List<Image>(CustomIcons.PickerCount);
-            for (int i = 0; i < CustomIcons.PickerCount; i++)
-                highlights.Add(CreateButton(content.transform, template, i, onClick));
+
+            Transform current = AddSection(content.transform, columns);
+            for (int i = 0; i < CustomIcons.Count; i++)
+                highlights.Add(CreateButton(current, template, i, onClick));
+
+            if (CustomIcons.LegacyCount > 0)
+            {
+                AddHeading(content.transform, "PREVIOUS ICON SET");
+                Transform legacy = AddSection(content.transform, columns);
+                for (int i = CustomIcons.Count; i < CustomIcons.PickerCount; i++)
+                    highlights.Add(CreateButton(legacy, template, i, onClick));
+            }
+
             return highlights;
+        }
+
+        /// One grid of cells, sized by its contents so the column above can stack sections.
+        private static Transform AddSection(Transform parent, int columns)
+        {
+            var section = new GameObject("Section");
+            section.transform.SetParent(parent, false);
+            section.AddComponent<RectTransform>();
+
+            GridLayoutGroup grid = section.AddComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(CellSize, CellSize);
+            grid.spacing = new Vector2(Spacing, Spacing);
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
+
+            ContentSizeFitter fitter = section.AddComponent<ContentSizeFitter>();
+            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            return section.transform;
+        }
+
+        private static void AddHeading(Transform parent, string text)
+        {
+            var go = new GameObject("Heading");
+            go.transform.SetParent(parent, false);
+            go.AddComponent<RectTransform>();
+
+            LayoutElement layout = go.AddComponent<LayoutElement>();
+            layout.preferredHeight = 18f;
+            layout.flexibleWidth = 1f;
+
+            // No font assigned, same as every other label here: TMP falls back to its default,
+            // where naming a font asset that may not exist yields invisible text instead.
+            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            label.text = text;
+            label.fontSize = 12f;
+            label.color = new Color(0.95f, 0.92f, 0.82f, 0.6f);
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
         }
 
         /// Vanilla's button root carries the icon Image; its child Image is the selection

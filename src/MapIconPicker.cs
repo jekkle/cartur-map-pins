@@ -21,11 +21,14 @@ namespace CarturMapPins
     /// This only affects pins placed BY HAND. Auto-pins take their icon from the config.
     internal static class MapIconPicker
     {
-        private const int Columns = 5;
+        /// Wide and short rather than narrow and tall. The grid holds 236 icons; five columns
+        /// made that 48 rows of scrolling, and the space along the right edge of the map is
+        /// shaped the other way round.
+        private const int Columns = 9;
         private const float CellSize = 46f;
         private const float Spacing = 4f;
         private const float PanelWidth = Columns * (CellSize + Spacing) + 24f;
-        private const float VisibleRows = 6f;
+        private const float VisibleRows = 4f;
         private const float PanelHeight = VisibleRows * (CellSize + Spacing) + 24f + CaptionHeight;
 
         private static GameObject _panel;
@@ -71,11 +74,18 @@ namespace CarturMapPins
             _panel.transform.SetParent(map.m_largeRoot.transform, false);
             RectTransform panelRt = _panel.AddComponent<RectTransform>();
             _panelRect = panelRt;
-            panelRt.anchorMin = new Vector2(0f, 0f);
-            panelRt.anchorMax = new Vector2(0f, 0f);
-            panelRt.pivot = new Vector2(0f, 0f);
+            // Bottom right, under vanilla's own column of pin-type buttons. Everything that
+            // answers "what will this pin look like" then sits in one place instead of the eye
+            // crossing the whole map between two pickers - and it is off the Bounties and
+            // Treasure Maps corner, which the old bottom-left position overlapped.
+            //
+            // The offsets are insets from that corner, so a wider panel grows leftwards and stays
+            // clear of the edge rather than running off it.
+            panelRt.anchorMin = new Vector2(1f, 0f);
+            panelRt.anchorMax = new Vector2(1f, 0f);
+            panelRt.pivot = new Vector2(1f, 0f);
             panelRt.sizeDelta = new Vector2(PanelWidth, PanelHeight);
-            panelRt.anchoredPosition = new Vector2(Plugin.MapPickerX.Value, Plugin.MapPickerY.Value);
+            panelRt.anchoredPosition = new Vector2(-Plugin.MapPickerX.Value, Plugin.MapPickerY.Value);
 
             Image bg = _panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.55f);
