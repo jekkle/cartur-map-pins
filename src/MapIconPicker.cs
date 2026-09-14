@@ -131,9 +131,7 @@ namespace CarturMapPins
             rt.offsetMin = new Vector2(8f, -CaptionHeight);
             rt.offsetMax = new Vector2(-8f, -2f);
 
-            // No font assigned, same as the editor's own label: TMP falls back to its default,
-            // where naming a font asset that may not exist yields invisible text instead.
-            TextMeshProUGUI text = go.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI text = Fonts.AddLabel(go);
             text.text = "SHIFT CLICK ICON TO CHANGE";
             text.fontSize = 14f;
             text.color = new Color(0.95f, 0.92f, 0.82f, 0.85f);

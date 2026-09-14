@@ -300,7 +300,7 @@ namespace CarturMapPins
             crt.sizeDelta = new Vector2(44f, 16f);
             crt.anchoredPosition = new Vector2(-4f, 0f);
 
-            TextMeshProUGUI text = caption.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI text = Fonts.AddLabel(caption);
             text.text = label;
             text.fontSize = 11f;
             text.color = new Color(0.95f, 0.92f, 0.82f, 0.8f);
@@ -374,7 +374,7 @@ namespace CarturMapPins
             rrt.sizeDelta = new Vector2(32f, 16f);
             rrt.anchoredPosition = Vector2.zero;
 
-            TextMeshProUGUI readout = readoutGo.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI readout = Fonts.AddLabel(readoutGo);
             readout.fontSize = 11f;
             readout.color = new Color(0.95f, 0.92f, 0.82f, 0.9f);
             readout.alignment = TextAlignmentOptions.MidlineRight;
@@ -408,7 +408,7 @@ namespace CarturMapPins
             rt.offsetMin = new Vector2(0f, -14f + y);
             rt.offsetMax = new Vector2(0f, y);
 
-            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI label = Fonts.AddLabel(go);
             label.text = text;
             label.fontSize = 10f;
             label.characterSpacing = 5f;
@@ -466,9 +466,7 @@ namespace CarturMapPins
             lrt.offsetMin = Vector2.zero;
             lrt.offsetMax = Vector2.zero;
 
-            // No font assigned on purpose: TMP falls back to its default, whereas naming a font
-            // asset that may not exist yields invisible text rather than an obvious error.
-            TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI label = Fonts.AddLabel(labelGo);
             label.text = text;
             label.fontSize = 15f;
             label.color = new Color(0.95f, 0.92f, 0.82f);

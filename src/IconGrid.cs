@@ -139,9 +139,7 @@ namespace CarturMapPins
             layout.preferredHeight = 18f;
             layout.flexibleWidth = 1f;
 
-            // No font assigned, same as every other label here: TMP falls back to its default,
-            // where naming a font asset that may not exist yields invisible text instead.
-            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            TextMeshProUGUI label = Fonts.AddLabel(go);
             label.text = text;
             label.fontSize = 12f;
             label.color = new Color(0.95f, 0.92f, 0.82f, 0.6f);
