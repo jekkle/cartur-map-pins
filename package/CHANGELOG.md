@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.2
+
+- **Fixes a broken pin UI on some installs.** The icon picker and the pin editor build
+  their own text labels, and those labels were created without naming a font, on the
+  understanding that the game would supply a default one. On some installs it does not -
+  Valheim keeps its fonts in an asset bundle rather than where the text system looks for
+  them - and a label with no font throws every frame, which takes the rest of that panel
+  down with it. Every label this mod makes now takes its font from the map's own pin-name
+  box, which is always there. Nothing to change; if your map looked fine before, it still
+  will.
+
 ## 1.3.1
 
 - **Renaming a pin now shows the new name straight away.** The map writes a label's text
