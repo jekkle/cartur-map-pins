@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.3.3
+
+- **Your icon settings from 1.2.2 come back.** 1.3.0 replaced the icon sheet, and the
+  names in your config file - MineFace, CobwebArch, Shrine, Bee - stopped existing, so
+  the game logged a warning and quietly used the default instead. If you had picked an
+  icon by hand, that choice was lost. It is read back now: most become the same icon
+  redrawn, and the handful the new sheet has no answer for keep their original artwork,
+  which is still included. Nothing to do; it happens on the next launch.
+- **Start a world's pins over.** `General / ResetPins` removes every pin this mod placed
+  and forgets them, so each one is pinned again as you rediscover it. Pins you placed by
+  hand are untouched, and so are any colours or sizes you set.
+- **The settings screen is shorter.** It listed about 360 rows; roughly 290 of those were
+  a switch or an icon for one single kind of thing. Those now sit behind the Advanced tick
+  box, leaving the seventeen categories and their icons in view. Nothing has been removed
+  or renamed, and no setting you have changed is affected.
+
 ## 1.3.2
 
 - **Fixes a broken pin UI on some installs.** The icon picker and the pin editor build
