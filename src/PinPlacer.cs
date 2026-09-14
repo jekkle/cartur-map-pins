@@ -255,6 +255,9 @@ namespace CarturMapPins
 
         private static float _oreSweepAt = -1f;
 
+        /// How many sweeps in a row have found nothing at a recorded ore position.
+        private static readonly Dictionary<long, int> _oreMisses = new Dictionary<long, int>();
+
         /// Drops the pin on an ore deposit once the deposit is gone.
         ///
         /// Ore never respawns, so a pin on a mined-out node is worse than no pin at all: it is a
@@ -266,6 +269,12 @@ namespace CarturMapPins
         /// look identical from here, both being a null reference, and forgetting a pin because the
         /// player walked away would be unforgivable. Third, only when nothing we have seen is
         /// still standing within the dedupe radius.
+        ///
+        /// And fourth, only after three sweeps in a row say so, within 25 metres. A loaded zone
+        /// does not mean a populated one: ZNetScene creates its objects over many frames, so a
+        /// node can be missing for a second or two simply because the game has not got to it yet.
+        /// Anything within 25 metres has certainly been created after nine seconds of looking, and
+        /// a miss that comes and goes resets the count rather than deleting anything.
         private static void SweepMinedOre(Vector3 playerPos)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.Ore);
@@ -282,17 +291,31 @@ namespace CarturMapPins
             if (zones == null || Minimap.instance == null)
                 return;
 
-            float radius = Plugin.DiscoveryRadius.Value;
+            const float CloseEnough = 25f;
+            const int MissesNeeded = 3;
             float near = Mathf.Max(settings.DedupeRadius.Value, 5f);
 
             foreach (Vector3 pos in PinRecord.PositionsOf(PinCategory.Ore))
             {
-                if (DistanceXZ(pos, playerPos) > radius)
+                if (DistanceXZ(pos, playerPos) > CloseEnough)
                     continue;
                 if (!zones.IsZoneLoaded(pos))
                     continue;
+
+                long key = ((long)Mathf.RoundToInt(pos.x) << 32) ^ (uint)Mathf.RoundToInt(pos.z);
+
                 if (OreRegistry.NodeNear(pos, near))
+                {
+                    _oreMisses.Remove(key);
                     continue;
+                }
+
+                _oreMisses.TryGetValue(key, out int misses);
+                _oreMisses[key] = misses + 1;
+                if (misses + 1 < MissesNeeded)
+                    continue;
+
+                _oreMisses.Remove(key);
 
                 if (!PinRecord.Forget(PinCategory.Ore, pos, near))
                     continue;

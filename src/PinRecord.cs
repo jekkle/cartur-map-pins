@@ -379,13 +379,16 @@ namespace CarturMapPins
                 if (d.x * d.x + d.z * d.z > sqr)
                     continue;
 
+                // No pin here means this record is not this world's. One record file serves every
+                // world, so a copper deposit recorded in another save sits in the list wherever
+                // you are - and dropping it would leave that world's pin unrecorded and liable to
+                // be pinned a second time. Nothing to remove, so nothing is removed.
                 Minimap.PinData pin = FindPinAt(map, Entries[i].Pos);
-                if (pin != null)
-                {
-                    map.RemovePin(pin);
-                    map.SaveMapData();
-                }
+                if (pin == null)
+                    return false;
 
+                map.RemovePin(pin);
+                map.SaveMapData();
                 Entries.RemoveAt(i);
                 _dirty = true;
                 return true;
