@@ -175,6 +175,9 @@ namespace CarturMapPins
             foreach ((string _, string type) in PinCatalog.OreTokens)
                 BindKindToggle(PinCategory.Ore, "Ore Types", type, $"Pin {type} deposits.");
 
+            ForgetMinedOre = Config.Bind("Ore", "ForgetMined", true,
+                "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
+
             LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
@@ -309,6 +312,7 @@ namespace CarturMapPins
         }
 
         public static ConfigEntry<PinIcon> LootedChestIcon;
+        public static ConfigEntry<bool> ForgetMinedOre;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {

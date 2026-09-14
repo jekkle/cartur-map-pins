@@ -172,6 +172,58 @@ namespace CarturMapPins
             return dropped;
         }
 
+        /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
+        /// because the caller removes entries as it goes.
+        public static List<Vector3> PositionsOf(PinCategory category)
+        {
+            string bareKey = category.ToString();
+            var found = new List<Vector3>();
+            foreach (Entry e in Entries)
+            {
+                if (e.Key == bareKey || e.Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                    found.Add(e.Pos);
+            }
+            return found;
+        }
+
+        /// Removes our pin of this category near a position, and the record with it.
+        ///
+        /// Only ever called for something the world says is gone. The pin is matched the same way
+        /// the migration matches: by position, and only pins the game saved - so a hand-placed pin
+        /// sitting on top of a mined-out deposit is left alone unless it is the one we recorded.
+        public static bool Forget(PinCategory category, Vector3 pos, float radius)
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return false;
+
+            string bareKey = category.ToString();
+            float sqr = radius * radius;
+
+            for (int i = Entries.Count - 1; i >= 0; i--)
+            {
+                if (Entries[i].Key != bareKey && !Entries[i].Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                    continue;
+
+                Vector3 d = Entries[i].Pos - pos;
+                if (d.x * d.x + d.z * d.z > sqr)
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, Entries[i].Pos);
+                if (pin != null)
+                {
+                    map.RemovePin(pin);
+                    map.SaveMapData();
+                }
+
+                Entries.RemoveAt(i);
+                _dirty = true;
+                return true;
+            }
+
+            return false;
+        }
+
         /// The subtype recorded for a pin of this category near a position, or null when the record
         /// there is a bare category with no subtype. Lets the looted-chest sweep tell a chest that
         /// is standing in for a ruin from an ordinary one.

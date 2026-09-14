@@ -66,6 +66,7 @@ namespace CarturMapPins
             DrainQueue(playerPos);
             SweepLocations(playerPos);
             SweepLootedChests(playerPos);
+            SweepMinedOre(playerPos);
             PinRecord.Flush();
 #if DIAGNOSTICS
             Patch_ZNetScene_AddInstance.ReportIfDue();
@@ -161,6 +162,53 @@ namespace CarturMapPins
                 if (!PinRecord.Repoint(Minimap.instance, match, wanted))
                     continue;
                 Plugin.Log.LogInfo($"Chest pin at {pos.x:F0},{pos.z:F0} -> {(empty ? "looted" : "restocked")}");
+            }
+        }
+
+        private static float _oreSweepAt = -1f;
+
+        /// Drops the pin on an ore deposit once the deposit is gone.
+        ///
+        /// Ore never respawns, so a pin on a mined-out node is worse than no pin at all: it is a
+        /// walk across the map to an empty hole. This is the one place the mod removes a pin
+        /// without being asked, which is why it is guarded three ways.
+        ///
+        /// First, only ore pins we recorded - a pin somebody placed by hand is never ours to take.
+        /// Second, only where ZoneSystem says the zone is loaded: an unloaded node and a mined one
+        /// look identical from here, both being a null reference, and forgetting a pin because the
+        /// player walked away would be unforgivable. Third, only when nothing we have seen is
+        /// still standing within the dedupe radius.
+        private static void SweepMinedOre(Vector3 playerPos)
+        {
+            Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.Ore);
+            if (settings == null || !Plugin.ForgetMinedOre.Value)
+                return;
+
+            if (_oreSweepAt < 0f)
+                _oreSweepAt = Time.realtimeSinceStartup + 3f;
+            if (Time.realtimeSinceStartup < _oreSweepAt)
+                return;
+            _oreSweepAt = Time.realtimeSinceStartup + 3f;
+
+            ZoneSystem zones = ZoneSystem.instance;
+            if (zones == null || Minimap.instance == null)
+                return;
+
+            float radius = Plugin.DiscoveryRadius.Value;
+            float near = Mathf.Max(settings.DedupeRadius.Value, 5f);
+
+            foreach (Vector3 pos in PinRecord.PositionsOf(PinCategory.Ore))
+            {
+                if (DistanceXZ(pos, playerPos) > radius)
+                    continue;
+                if (!zones.IsZoneLoaded(pos))
+                    continue;
+                if (OreRegistry.NodeNear(pos, near))
+                    continue;
+
+                if (!PinRecord.Forget(PinCategory.Ore, pos, near))
+                    continue;
+                Plugin.Log.LogInfo($"Ore pin at {pos.x:F0},{pos.z:F0} removed - the deposit is gone.");
             }
         }
 

@@ -105,6 +105,12 @@ namespace CarturMapPins
             if (category == PinCategory.Chest)
                 ChestRegistry.Add(go.GetComponent<Container>());
 
+            // Ore nodes are registered whether or not they get pinned: the sweep that forgets a
+            // mined-out deposit needs to know a node is still standing, and a node that was pinned
+            // by an earlier session is seen again here rather than at pin time.
+            if (category == PinCategory.Ore)
+                OreRegistry.Add(go);
+
             _enqueued++;
             // The subtype carries through so the pin gets its own icon and dedupes only against
             // its own kind - copper against copper, a wolf den against other wolf dens.
