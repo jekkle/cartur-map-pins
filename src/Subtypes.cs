@@ -191,6 +191,10 @@ namespace CarturMapPins
             E("goblin", "Fuling", 3),
             E("seeker", "Seeker", 5),
             E("surtling", "Surtling", 6),
+            // Before the bare "charred", which his prefab name also contains. Lord Reto is the
+            // two-star miniboss guarding a Dyrnwyn fragment, and the mod's own label dump has been
+            // calling his spawner "Lord Reto Spawner" while pinning him as a rank-and-file Charred.
+            E("dyrnwyn", "Lord Reto", 130),
             E("charred", "Charred", 7),
             E("hatchling", "Drake", 8),
             E("abomination", "Abomination", 10),
