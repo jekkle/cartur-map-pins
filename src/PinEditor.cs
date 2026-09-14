@@ -148,6 +148,7 @@ namespace CarturMapPins
             bg.color = new Color(0f, 0f, 0f, 0.85f);
 
             _nameInput = AddNameInput(map, _panel.transform);
+            TextFocus.Register(_nameInput);
             // Confirm on the right where a dialog usually puts it, cancel on the left.
             AddFooterButton(_panel.transform, "Cancel", 0f, 0.5f, Cancel,
                             new Color(0.24f, 0.22f, 0.20f, 0.95f));

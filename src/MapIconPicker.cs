@@ -199,6 +199,9 @@ namespace CarturMapPins
                 PinFilter.Text = text;
                 PinUpdateRequired?.SetValue(map, true);
             });
+
+            // So the game knows to stop reading the keyboard while this has focus.
+            TextFocus.Register(input);
         }
 
         /// The flag the map raises when its pins need drawing again. Searching has to raise it
