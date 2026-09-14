@@ -203,6 +203,14 @@ namespace CarturMapPins
             ShrinkCrowdedPins = Config.Bind("General", "ShrinkCrowdedPins", true,
                 "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
 
+            // Written as an action rather than a state: choosing one applies it and the setting
+            // drops back to None. Anything else would claim a preset is still in force while you
+            // change switches underneath it, and there is no honest way to know when it stopped
+            // being true.
+            ApplyPreset = Config.Bind("General", "ApplyPreset", Preset.None,
+                "Set every switch at once. Minimal pins the few things worth walking back to; Everything turns on all of it, chickens and abandoned houses included; Defaults restores what a fresh install uses. The setting returns to None once applied - it is a button, not a state.");
+            ApplyPreset.SettingChanged += (_, __) => Apply(ApplyPreset.Value);
+
             HideCollidingLabels = Config.Bind("General", "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
 
@@ -268,6 +276,72 @@ namespace CarturMapPins
             RegisterCommands();
 
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
+        }
+
+        public enum Preset
+        {
+            None,
+            Minimal,
+            Defaults,
+            Everything,
+        }
+
+        /// The categories a Minimal map keeps: the things worth crossing a map for.
+        private static readonly HashSet<PinCategory> MinimalCategories = new HashSet<PinCategory>
+        {
+            PinCategory.Ore, PinCategory.Dungeon, PinCategory.Chest,
+            PinCategory.BossAltar, PinCategory.Miniboss, PinCategory.Home,
+        };
+
+        /// Applies a preset and then clears itself.
+        ///
+        /// Writes through the config entries rather than to some parallel state, so the file, the
+        /// settings screen and the mod all say the same thing afterwards and a preset can be used
+        /// as a starting point to tweak from.
+        private static void Apply(Preset preset)
+        {
+            if (preset == Preset.None)
+                return;
+
+            foreach (KeyValuePair<PinCategory, CategorySettings> kv in Settings)
+            {
+                switch (preset)
+                {
+                    case Preset.Minimal:
+                        kv.Value.Enabled.Value = MinimalCategories.Contains(kv.Key);
+                        break;
+                    case Preset.Everything:
+                        kv.Value.Enabled.Value = true;
+                        break;
+                    default:
+                        kv.Value.Enabled.Value = (bool)kv.Value.Enabled.DefaultValue;
+                        break;
+                }
+            }
+
+            foreach (KeyValuePair<string, ConfigEntry<bool>> kv in SubtypeToggles)
+            {
+                // Everything means every kind. Minimal and Defaults both want the shipped
+                // defaults underneath - Minimal narrows by switching categories off, not by
+                // second-guessing which crypt is worth pinning.
+                kv.Value.Value = preset == Preset.Everything || (bool)kv.Value.DefaultValue;
+            }
+
+            foreach (ConfigEntry<bool> group in new[] { _pickHighValue, _pickBerries, _pickCrops, _pickJunk, _pickOther })
+            {
+                if (group == null)
+                    continue;
+                group.Value = preset == Preset.Everything ? true
+                    : preset == Preset.Minimal ? false
+                    : (bool)group.DefaultValue;
+            }
+
+            Log.LogInfo($"Applied the {preset} preset.");
+
+            // Cleared last, and only if it is still what we were asked for: setting it fires this
+            // handler again, and None returns immediately.
+            if (ApplyPreset.Value == preset)
+                ApplyPreset.Value = Preset.None;
         }
 
         /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
@@ -371,6 +445,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<bool> HideCollidingLabels;
+        public static ConfigEntry<Preset> ApplyPreset;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {

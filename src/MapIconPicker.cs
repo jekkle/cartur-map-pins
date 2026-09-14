@@ -26,7 +26,9 @@ namespace CarturMapPins
         /// fills the width it is given, so the column count follows from this rather than being a
         /// second number that has to agree with it.
         private const float PanelWidth = 263f;
-        private const float PanelHeight = 273f;
+        private const float PanelHeight = 273f + FilterHeight;
+
+        private const float FilterHeight = 24f;
 
         /// Only still here to seed the grid's default: the sections lay out flexibly.
         private const int Columns = 4;
@@ -93,11 +95,12 @@ namespace CarturMapPins
             _canvasCamera = IconGrid.CameraFor(_panel);
 
             AddCaption(_panel);
-
+            AddFilterBox(map, _panel.transform);
 
             _highlights.Clear();
             _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
-                                                index => Select(map, index), top: CaptionHeight));
+                                                index => Select(map, index),
+                                                top: CaptionHeight + FilterHeight));
 
             // Mark whatever is already selected, so the grid opens saying which icon a new pin
             // will get rather than looking like nothing is chosen.
@@ -140,6 +143,54 @@ namespace CarturMapPins
             text.alignment = TextAlignmentOptions.Center;
             text.raycastTarget = false;
         }
+
+        /// A search box over the grid. Typing dims every pin that does not match.
+        ///
+        /// Cloned from the map's own pin-name field, the way the grid clones its buttons: it is
+        /// already wired for this game's input handling, which a field built from nothing is not -
+        /// and a search box that eats movement keys or swallows Escape is worse than no search.
+        private static void AddFilterBox(Minimap map, Transform parent)
+        {
+            var source = NameInputField?.GetValue(map) as TMP_InputField;
+            if (source == null)
+            {
+                Plugin.Log.LogWarning("Minimap.m_nameInput not found - the pin search box is disabled.");
+                return;
+            }
+
+            TMP_InputField input = UnityEngine.Object.Instantiate(source, parent);
+            input.gameObject.name = "CarturPinFilter";
+            input.gameObject.SetActive(true);
+
+            RectTransform rt = input.GetComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(8f, -CaptionHeight - FilterHeight + 2f);
+            rt.offsetMax = new Vector2(-8f, -CaptionHeight - 2f);
+
+            input.text = string.Empty;
+            if (input.placeholder is TMP_Text placeholder)
+                placeholder.text = "Search pins...";
+
+            // Fresh events, not RemoveAllListeners: the clone carries the map's own serialized
+            // handlers, which would rename a pin as you typed.
+            input.onValueChanged = new TMP_InputField.OnChangeEvent();
+            input.onEndEdit = new TMP_InputField.SubmitEvent();
+            input.onValueChanged.AddListener(text =>
+            {
+                PinFilter.Text = text;
+                PinUpdateRequired?.SetValue(map, true);
+            });
+        }
+
+        /// The flag the map raises when its pins need drawing again. Searching has to raise it
+        /// too, or a search reads as broken until something else happens to the map.
+        private static readonly FieldInfo PinUpdateRequired =
+            AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
+
+        private static readonly FieldInfo NameInputField =
+            AccessTools.Field(typeof(Minimap), "m_nameInput");
 
         private static void Select(Minimap map, int index)
         {

@@ -50,7 +50,7 @@ namespace CarturMapPins
             Ordered.Clear();
             NameCounts.Clear();
 
-            if (!Plugin.HideCollidingLabels.Value)
+            if (!Plugin.HideCollidingLabels.Value && !PinFilter.Active)
                 return;
 
             foreach (Minimap.PinData pin in pins)
@@ -60,6 +60,15 @@ namespace CarturMapPins
                     continue;
                 if (!name.PinNameGameObject.activeInHierarchy || string.IsNullOrEmpty(pin.m_name))
                     continue;
+
+                // A name that does not match the search is noise while searching, and the pin it
+                // belongs to is still on the map, dimmed.
+                if (!PinFilter.Matches(pin.m_name))
+                {
+                    name.PinNameGameObject.SetActive(false);
+                    Hidden.Add(name);
+                    continue;
+                }
 
                 NameCounts.TryGetValue(pin.m_name, out int count);
                 NameCounts[pin.m_name] = count + 1;

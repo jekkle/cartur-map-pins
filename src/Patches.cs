@@ -205,6 +205,16 @@ namespace CarturMapPins
                 if (!Mathf.Approximately(scale.x, wanted))
                     pin.m_iconElement.transform.localScale = new Vector3(wanted, wanted, 1f);
 
+                // Dimmed rather than hidden: a search that removes pins cannot answer "where is
+                // this in relation to everything else", which is usually why you were looking.
+                if (PinFilter.Active && !PinFilter.Matches(pin.m_name))
+                {
+                    Color faded = pin.m_iconElement.color;
+                    faded.a = 0.15f;
+                    pin.m_iconElement.color = faded;
+                    continue;
+                }
+
                 if (pin.m_checked)
                     continue;
 
