@@ -60,6 +60,10 @@ namespace CarturMapPins
                 int repointed = PinRecord.MigrateIcons();
                 Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
 
+                int named = PinRecord.LocalizeNames();
+                if (named > 0)
+                    Plugin.Log.LogInfo($"Resolved the name on {named} pin(s) that still read as a $token.");
+
                 int adopted = PinRecord.AdoptSubtypeIcons();
                 if (adopted > 0)
                     Plugin.Log.LogInfo($"Moved {adopted} pin(s) from a generic icon onto their own kind's.");

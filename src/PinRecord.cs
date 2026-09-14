@@ -213,6 +213,44 @@ namespace CarturMapPins
             return false;
         }
 
+        /// Resolves the "$token" names left on pins by versions that wrote them raw.
+        ///
+        /// The map draws a pin's name exactly as stored, so those pins have been reading
+        /// "$piece_chestwood" on the map itself, not only in the editor. Localize turns that into
+        /// "Wood chest" in whatever language the player runs.
+        ///
+        /// Safe to run unasked, and safe to run on pins the mod did not place: a name containing a
+        /// dollar sign is an unresolved token, and nobody types one. A name that Localize does not
+        /// change is left exactly as it was.
+        public static int LocalizeNames()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return 0;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return 0;
+
+            int changed = 0;
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (!pin.m_save || string.IsNullOrEmpty(pin.m_name) || pin.m_name.IndexOf('$') < 0)
+                    continue;
+
+                string resolved = Labels.Localize(pin.m_name);
+                if (string.IsNullOrEmpty(resolved) || resolved == pin.m_name)
+                    continue;
+
+                pin.m_name = resolved;
+                changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
         /// Moves a pin still wearing its category's generic icon onto its own kind's icon.
         ///
         /// Narrower than RepointAllToCurrent on purpose, and safe to run unasked at every login:
