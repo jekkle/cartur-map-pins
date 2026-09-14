@@ -45,6 +45,17 @@ namespace CarturMapPins
             E("mountaincave", "Frost Cave", 33),
             E("trollcave", "Troll Cave", 31),
             E("morgen", "Putrid Hole", 126),
+            // Deep North. The icon sheet was drawn with these in mind and they had no table entry,
+            // so all three pinned on the generic stairs-down glyph. The generator name is the sure
+            // signal for the first - DG_MorkHalla is what the morkhalla icon is named after.
+            E("dg_morkhalla", "Mork Halla", 122),
+            E("morkborg", "Mork Halla", 122),
+            // Bear Cave has no generator and no cave in its name that the entries above would
+            // catch; it is a Black Forest cave mouth, which is what icon 35 draws.
+            E("bearcave", "Bear Cave", 35),
+            // The Ashlands oddity. Its two surface siblings already pin as Place of Mystery
+            // through the landmark table on icon 127, so the one with an interior matches them.
+            E("placeofmystery", "Place of Mystery", 127),
             E("dg_forestcrypt", "Crypt", 30),
             E("crypt", "Crypt", 30),        // after sunkencrypt, so that wins
             E("dg_cave", "Frost Cave", 33), // last: bare "cave" is the vaguest signal
