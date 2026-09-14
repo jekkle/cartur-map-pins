@@ -97,8 +97,8 @@ namespace CarturMapPins
                 new ConfigDescription("How often to check pending objects and loaded locations against your position.",
                     null, Attr(advanced: true)));
 #if DIAGNOSTICS
-            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", true,
-                "Logs a one-shot report of nearby nodes and the registered ore prefabs shortly after you load in. Useful for working out why something isn't being pinned.");
+            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
+                "Writes the full diagnostics dump to BepInEx/config/carturpins_dump.txt a few seconds after you load in - every location, the catalog, map labels, spawners, every prefab. OFF by default now that the answers are in the repo: it costs a hitch on every load and rewrites a 800KB file nobody is reading. Turn it on when a game update has moved something, or run carturpins_dumpall once instead.");
 #endif
 
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
