@@ -150,6 +150,102 @@ namespace CarturMapPins
             }
         }
 
+        /// Every field of every location definition, written out once.
+        ///
+        /// The summary line above is chosen - biome, quantity, the two flags the classifier reads -
+        /// and every time a question came up that it didn't answer, adding the missing field cost a
+        /// relaunch. Nothing about these 232 definitions changes between sessions, so this writes
+        /// all of it down instead: the ZoneLocation's own fields and the Location component's,
+        /// read by reflection so a field added by a game update appears without being asked for.
+        ///
+        /// Once in the repo this is answerable offline forever, which is the whole point.
+        public static void DumpLocationsFull(Terminal.ConsoleEventArgs args)
+        {
+            ZoneSystem zs = ZoneSystem.instance;
+            if (zs == null || zs.m_locations == null)
+            {
+                Emit(args, "ZoneSystem not ready.");
+                return;
+            }
+
+            Emit(args, $"=== every field of {zs.m_locations.Count} ZoneLocation definitions ===");
+            foreach (ZoneSystem.ZoneLocation zl in zs.m_locations)
+            {
+                if (zl == null)
+                    continue;
+
+                Emit(args, $"[{(!string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)")}]");
+                foreach (System.Reflection.FieldInfo f in typeof(ZoneSystem.ZoneLocation).GetFields())
+                    Emit(args, $"    zl.{f.Name} = {Describe(f.GetValue(zl))}");
+
+                Location loc = LoadedLocation(zl, out bool release);
+                if (loc == null)
+                {
+                    Emit(args, "    (location prefab unavailable)");
+                    continue;
+                }
+
+                try
+                {
+                    foreach (System.Reflection.FieldInfo f in typeof(Location).GetFields())
+                        Emit(args, $"    loc.{f.Name} = {Describe(f.GetValue(loc))}");
+                    Emit(args, $"    loc.contents ={Contents(loc)}");
+                }
+                finally
+                {
+                    if (release)
+                        zl.m_prefab.Release();
+                }
+            }
+        }
+
+        /// A value as one readable line. Unity objects print their name rather than their
+        /// ToString, which is "name (Type)" and repeats the type on every field; lists print
+        /// their length and members, since a list of spawn groups says more than "List`1".
+        private static string Describe(object value)
+        {
+            if (value == null)
+                return "null";
+            if (value is string s)
+                return s.Length == 0 ? "\"\"" : $"\"{Labels.Localize(s)}\"";
+            if (value is Object unityObject)
+                return unityObject == null ? "null" : unityObject.name;
+            if (value is System.Collections.IEnumerable list && !(value is string))
+            {
+                var sb = new StringBuilder();
+                int n = 0;
+                foreach (object item in list)
+                {
+                    if (sb.Length > 0)
+                        sb.Append(", ");
+                    sb.Append(item is Object o ? o.name : item?.ToString() ?? "null");
+                    n++;
+                }
+                return n == 0 ? "[]" : $"[{n}: {sb}]";
+            }
+            return value.ToString();
+        }
+
+        /// The Location component off a definition's prefab, loading it if the world hasn't.
+        /// `release` says whether the caller owes a Release - the same Load/read/Release sequence
+        /// ZoneSystem.SpawnLocation uses.
+        private static Location LoadedLocation(ZoneSystem.ZoneLocation zl, out bool release)
+        {
+            release = false;
+            if (!zl.m_prefab.IsValid)
+                return null;
+
+            if (!zl.m_prefab.IsLoaded)
+            {
+                if (zl.m_prefab.Load() != SoftReferenceableAssets.LoadResult.Succeeded)
+                    return null;
+                release = true;
+            }
+
+            GameObject asset = zl.m_prefab.Asset;
+            return asset != null ? asset.GetComponent<Location>() : null;
+        }
+
         /// The two fields TryClassifyLocation branches on, read off the location prefab itself.
         /// Without them the dump cannot tell a location nobody pins from one pinned on the generic
         /// category icon, which is the whole question when deciding what deserves a subtype.
@@ -383,6 +479,7 @@ namespace CarturMapPins
         public static void DumpEverything(Terminal.ConsoleEventArgs args)
         {
             DumpLocations(args);
+            DumpLocationsFull(args);
             DumpCategory(args, null);
             DumpLabels(args, null);
             DumpSpawners(args);
