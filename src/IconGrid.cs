@@ -149,6 +149,50 @@ namespace CarturMapPins
             label.raycastTarget = false;
         }
 
+        /// White for a cell at rest, gold for the chosen one.
+        public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.35f);
+        public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
+        public static readonly Color Hovered = new Color(1f, 1f, 1f, 0.85f);
+
+        /// Marks a cell's border as chosen or not. Colour rather than visibility, because the
+        /// border is there at rest too - it is what gives the grid its shape.
+        public static void SetSelected(Image border, bool selected)
+        {
+            if (border != null)
+                border.color = selected ? Selected : Resting;
+        }
+
+        private static Sprite _border;
+
+        /// A one-pixel frame, built once at runtime and nine-sliced so it draws crisply at any
+        /// cell size. Drawn rather than shipped: it is four lines, and a PNG for it would be one
+        /// more thing to keep in step with the sheet.
+        private static Sprite BorderSprite()
+        {
+            if (_border != null)
+                return _border;
+
+            const int size = 8;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var clear = new Color(1f, 1f, 1f, 0f);
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool edge = x == 0 || y == 0 || x == size - 1 || y == size - 1;
+                    tex.SetPixel(x, y, edge ? Color.white : clear);
+                }
+            }
+            tex.filterMode = FilterMode.Point;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+
+            // A two-pixel border on every side keeps the corners square when the middle stretches.
+            _border = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
+                                    100f, 0u, SpriteMeshType.FullRect, new Vector4(2f, 2f, 2f, 2f));
+            return _border;
+        }
+
         /// Vanilla's button root carries the icon Image; its child Image is the selection
         /// highlight. Cloning one keeps borders and hover styling consistent with the map UI.
         private static Image CreateButton(Transform parent, GameObject template, int index, Action<int> onClick)
@@ -187,8 +231,27 @@ namespace CarturMapPins
                 icon.enabled = true;
             }
 
+            // Vanilla's own highlight child is switched off for good: it is a filled orange plate
+            // that covers the icon rather than framing it, and the border below says the same
+            // thing more quietly.
             if (highlight != null)
                 highlight.enabled = false;
+
+            var frame = new GameObject("Border");
+            frame.transform.SetParent(cell.transform, false);
+            RectTransform frt = frame.AddComponent<RectTransform>();
+            frt.anchorMin = Vector2.zero;
+            frt.anchorMax = Vector2.one;
+            frt.offsetMin = Vector2.zero;
+            frt.offsetMax = Vector2.zero;
+
+            Image border = frame.AddComponent<Image>();
+            border.sprite = BorderSprite();
+            border.type = Image.Type.Sliced;
+            border.color = Resting;
+            border.raycastTarget = false;
+
+            cell.AddComponent<CellHover>().Bind(border);
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
 
@@ -200,7 +263,8 @@ namespace CarturMapPins
             int captured = index;
             button.onClick.AddListener(() => onClick(captured));
 
-            return highlight;
+            // The border is what the caller drives now, not vanilla's highlight.
+            return border;
         }
 
         /// Vanilla's own pin-type buttons, used as the styling template. Null is tolerated.

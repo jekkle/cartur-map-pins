@@ -145,10 +145,7 @@ namespace CarturMapPins
             _selectIcon.Invoke(map, new object[] { type });
 
             for (int i = 0; i < _highlights.Count; i++)
-            {
-                if (_highlights[i] != null)
-                    _highlights[i].enabled = i == index;
-            }
+                IconGrid.SetSelected(_highlights[i], i == index);
         }
 
         private static MethodInfo _closestPinToCursor;
