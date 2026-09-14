@@ -142,7 +142,11 @@ namespace CarturMapPins
                     continue;
                 string name = !string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)";
                 string flags = zl.m_iconAlways ? " iconAlways" : (zl.m_iconPlaced ? " iconPlaced" : "");
-                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{Shape(zl)}");
+                // The game's own name for the place, which a prefab name only hints at: a location
+                // called MorkBorg or FimbulLocation01 says nothing about what a player would call
+                // it, and matching artwork to places needs the player's name for them.
+                string named = !string.IsNullOrEmpty(zl.m_name) ? $" name=\"{Labels.Localize(zl.m_name)}\"" : "";
+                Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{named}{Shape(zl)}");
             }
         }
 
@@ -178,10 +182,15 @@ namespace CarturMapPins
                 if (loc == null)
                     return " kind=? (no Location component)";
 
+                // What the game prints when you walk into the place - "Winding Church" rather
+                // than "MorkBorg". The one field that can match the icon sheet's names to
+                // locations, and nothing has been reading it.
+                string discover = !string.IsNullOrEmpty(loc.m_discoverLabel)
+                    ? $" discover=\"{Labels.Localize(loc.m_discoverLabel)}\"" : "";
                 string gen = loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
                 string kind = (loc.m_hasInterior ? " kind=dungeon"
                                : loc.m_generator != null ? " kind=camp"
-                               : " kind=surface") + gen;
+                               : " kind=surface") + gen + discover;
                 return kind + Verdict(loc) + Contents(loc);
             }
             finally

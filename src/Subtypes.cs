@@ -138,6 +138,15 @@ namespace CarturMapPins
             E("seekerqueen", "The Queen", 68),
             E("queen", "The Queen", 68),
             E("fader", "Fader", 69),
+            // Deep North. The altar names its boss "FrozenKing"; the sheet calls the icon
+            // boss_kall, and Kall Fimbulbringer is who that is - confirmed by the label the altar
+            // itself hands us, "Kall Fimbulbringer".
+            E("frozenking", "Kall Fimbulbringer", 120),
+            // Not a boss at all, but it arrives here because NorthMemorialPlace holds an offering
+            // bowl and an offering bowl is what identifies a boss altar. Named and iconned rather
+            // than left on the generic altar glyph; icon 59 is three standing stones, which is
+            // what the place is.
+            E("memorialsite", "Memorial Site", 59),
         };
 
         /// Matched against the trader's prefab name. Confirmed: Trader.m_name is empty on the
