@@ -140,7 +140,11 @@ namespace CarturMapPins
             bg.color = new Color(0f, 0f, 0f, 0.85f);
 
             _nameInput = AddNameInput(map, _panel.transform);
-            AddConfirmButton(_panel.transform);
+            // Confirm on the right where a dialog usually puts it, cancel on the left.
+            AddFooterButton(_panel.transform, "Cancel", 0f, 0.5f, Cancel,
+                            new Color(0.24f, 0.22f, 0.20f, 0.95f));
+            AddFooterButton(_panel.transform, "Confirm", 0.5f, 1f, Confirm,
+                            new Color(0.35f, 0.30f, 0.20f, 0.95f));
 
             _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
                                          Choose, HeaderHeight, FooterHeight);
@@ -190,25 +194,28 @@ namespace CarturMapPins
             return input;
         }
 
-        private static void AddConfirmButton(Transform parent)
+        /// One half of the footer. `from` and `to` are fractions of the panel's width, so the two
+        /// buttons split it without either needing to know the panel's size.
+        private static void AddFooterButton(Transform parent, string text, float from, float to,
+                                            UnityEngine.Events.UnityAction onClick, Color colour)
         {
-            var go = new GameObject("Confirm");
+            var go = new GameObject(text);
             go.transform.SetParent(parent, false);
             RectTransform rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 0f);
-            rt.anchorMax = new Vector2(1f, 0f);
+            rt.anchorMin = new Vector2(from, 0f);
+            rt.anchorMax = new Vector2(to, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
-            rt.offsetMin = new Vector2(8f, 6f);
-            rt.offsetMax = new Vector2(-8f, 0f);
+            rt.offsetMin = new Vector2(from == 0f ? 8f : 3f, 6f);
+            rt.offsetMax = new Vector2(to == 1f ? -8f : -3f, 0f);
             rt.sizeDelta = new Vector2(rt.sizeDelta.x, FooterHeight - 10f);
 
             Image bg = go.AddComponent<Image>();
-            bg.color = new Color(0.35f, 0.30f, 0.20f, 0.95f);
+            bg.color = colour;
 
             Button button = go.AddComponent<Button>();
             button.targetGraphic = bg;
             button.onClick = new Button.ButtonClickedEvent();
-            button.onClick.AddListener(Confirm);
+            button.onClick.AddListener(onClick);
 
             var labelGo = new GameObject("Label");
             labelGo.transform.SetParent(go.transform, false);
@@ -221,7 +228,7 @@ namespace CarturMapPins
             // No font assigned on purpose: TMP falls back to its default, whereas naming a font
             // asset that may not exist yields invisible text rather than an obvious error.
             TextMeshProUGUI label = labelGo.AddComponent<TextMeshProUGUI>();
-            label.text = "Confirm";
+            label.text = text;
             label.fontSize = 15f;
             label.color = new Color(0.95f, 0.92f, 0.82f);
             label.alignment = TextAlignmentOptions.Center;
@@ -234,6 +241,14 @@ namespace CarturMapPins
             _pending = index;
             RefreshHighlights();
         }
+
+        /// Throws away whatever was typed or clicked and shuts the panel.
+        ///
+        /// Nothing has to be undone: choosing an icon only marks it, and the name lives in the
+        /// input box until Confirm copies it across - so closing is the undo. Worth a button of
+        /// its own all the same, because "click away and hope" is not an obvious way to back out
+        /// of a dialog with a Confirm on it.
+        private static void Cancel() => Close();
 
         private static void Confirm()
         {
