@@ -197,9 +197,8 @@ namespace CarturMapPins
                 return null;
 
             // Fresh event objects rather than RemoveAllListeners, which leaves the prefab's
-            // serialized calls intact - vanilla's handler would otherwise also fire and try to
-            // name a pin that isn't the one being edited. Nothing is applied here: the name is
-            // read when Confirm is pressed.
+            // serialized calls intact. Nothing is applied here: the name is read when Confirm is
+            // pressed.
             input.onSubmit = new TMP_InputField.SubmitEvent();
             input.onEndEdit = new TMP_InputField.SubmitEvent();
             return input;
@@ -521,10 +520,19 @@ namespace CarturMapPins
                 changed = true;
             }
 
-            if (_nameInput != null && _nameInput.text != _target.m_name)
+            if (_nameInput != null)
             {
-                _target.m_name = _nameInput.text ?? string.Empty;
-                changed = true;
+                // The three characters vanilla's OnPinTextEntered strips: $ opens a localisation
+                // token and < > open rich text, and the label would render either.
+                string name = (_nameInput.text ?? string.Empty)
+                    .Replace('$', ' ').Replace('<', ' ').Replace('>', ' ');
+                if (name != _target.m_name)
+                {
+                    _target.m_name = name;
+                    RefreshLabel(_target);
+                    RepaintPins();
+                    changed = true;
+                }
             }
 
             if (_pending >= 0)
@@ -538,6 +546,29 @@ namespace CarturMapPins
                 _map.SaveMapData();
 
             Close();
+        }
+
+        /// Makes a renamed pin show its new name.
+        ///
+        /// A label's text is written exactly once, in PinNameData.SetTextAndGameObject when its
+        /// marker is built; UpdatePins only shows and hides it afterwards and never reads m_name
+        /// again. So writing m_name alone left the old name on the map until the pin scrolled
+        /// off-screen or the world reloaded - and a pin that had no name yet has no PinNameData
+        /// at all, so no label was ever built for it.
+        ///
+        /// Vanilla's own rename path creates the PinNameData when it is missing. When it exists,
+        /// dropping its marker is enough: UpdatePins rebuilds any name whose GameObject is null,
+        /// and the rebuild reads the new name. DestroyMapMarker is private; it is Destroy plus a
+        /// null, and vanilla calls it every pass for off-screen pins, so it is safe to repeat.
+        private static readonly MethodInfo DestroyMapMarker =
+            AccessTools.Method(typeof(Minimap.PinNameData), "DestroyMapMarker");
+
+        private static void RefreshLabel(Minimap.PinData pin)
+        {
+            if (pin.m_NamePinData == null)
+                pin.m_NamePinData = new Minimap.PinNameData(pin);
+            else
+                DestroyMapMarker?.Invoke(pin.m_NamePinData, null);
         }
 
         private static void RefreshHighlights()
