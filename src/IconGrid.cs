@@ -82,9 +82,10 @@ namespace CarturMapPins
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            // Two and a half rows per wheel tick. Half a row was fine for 83 icons and painful
-            // for 153 in five columns.
-            scroll.scrollSensitivity = (CellSize + Spacing) * 2.5f;
+            // Just under four rows per wheel tick. Half a row was fine for 83 icons, painful for
+            // 153 in five columns, and 2.5 still read as slow when you are hunting for one glyph
+            // near the bottom of the sheet.
+            scroll.scrollSensitivity = (CellSize + Spacing) * 3.75f;
 
             var highlights = new List<Image>(CustomIcons.Count);
             for (int i = 0; i < CustomIcons.Count; i++)
