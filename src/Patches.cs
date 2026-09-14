@@ -120,30 +120,50 @@ namespace CarturMapPins
         private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
     }
 
-    /// Marks a bed as home when you claim it.
+    /// Marks a bed as home when it becomes your spawn point.
     ///
-    /// Bed.SetOwner is the moment a bed becomes yours - it is what the game calls when you sleep
-    /// in one that isn't already yours, and it carries the player id, so somebody else claiming a
-    /// bed on a shared server never puts a pin on your map.
+    /// Bed.Interact, not Bed.SetOwner. SetOwner only fires on the branch where the bed has no
+    /// owner at all - claiming a fresh one. Walking back to a house you already own and choosing
+    /// "set spawn point" takes the other branch:
     ///
-    /// A Postfix: the pin should follow the claim succeeding, and nothing here should be able to
-    /// stop you setting a spawn point.
-    // By name, not nameof: SetOwner is private, which is also why the parameter is matched by
-    // its real name "uid" - Harmony binds a Postfix argument to the original's parameter of the
-    // same name.
-    [HarmonyPatch(typeof(Bed), "SetOwner")]
-    internal static class Patch_Bed_SetOwner
+    ///     if (owner == 0L)        { SetOwner(...); SetCustomSpawnPoint(GetSpawnPoint()); }
+    ///     else if (IsMine())      { ... SetCustomSpawnPoint(GetSpawnPoint()); }   // no SetOwner
+    ///
+    /// so a SetOwner hook silently placed nothing for every bed claimed before the mod was
+    /// installed, or claimed and then re-selected later. What the player was left looking at was
+    /// vanilla's own m_spawnPointPin - which Minimap.UpdateProfilePins re-derives from the profile
+    /// with name "" and save: false, so it carries no label and cannot be renamed or edited. With
+    /// ReplaceBedMarker on it even wears our house icon, so it reads as a Home pin that has gone
+    /// wrong rather than as a different pin entirely.
+    ///
+    /// A Postfix on Interact covers both branches with one patch, and asks the profile rather than
+    /// the bed which branch ran: after the call, this bed is home exactly when the profile's custom
+    /// spawn point is this bed's spawn point. Bed.IsMine and IsCurrent say the same thing but are
+    /// private; GetCustomSpawnPoint and GetSpawnPoint are public and mean it directly. Somebody
+    /// else's bed never matches, so a shared server puts nothing on your map.
+    ///
+    /// Sleeping in the bed that is already your spawn also matches. That is correct - it is your
+    /// home - and dedupe makes the repeat a no-op.
+    [HarmonyPatch(typeof(Bed), "Interact")]
+    internal static class Patch_Bed_Interact
     {
-        private static void Postfix(Bed __instance, long uid)
+        private static void Postfix(Bed __instance)
         {
-            Player player = Player.m_localPlayer;
-            if (player == null || __instance == null || uid != player.GetPlayerID())
+            if (__instance == null || Player.m_localPlayer == null || Game.instance == null)
+                return;
+
+            PlayerProfile profile = Game.instance.GetPlayerProfile();
+            if (profile == null || !profile.HaveCustomSpawnPoint())
                 return;
 
             // The spawn point rather than the bed's own transform: it is where the game will put
             // you, which is the thing worth walking back to, and it is the position vanilla's own
             // marker uses - so the two land on the same spot and read as one house.
-            PinPlacer.PinHome(__instance.GetSpawnPoint(), "Home");
+            Vector3 spawn = __instance.GetSpawnPoint();
+            if ((profile.GetCustomSpawnPoint() - spawn).sqrMagnitude > 0.01f)
+                return;
+
+            PinPlacer.PinHome(spawn, "Home");
         }
     }
 

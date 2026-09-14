@@ -116,7 +116,7 @@ namespace CarturMapPins
             if (!ZInput.GetKey(KeyCode.LeftShift, false) && !ZInput.GetKey(KeyCode.RightShift, false))
                 return false;
 
-            var pin = _closestPinToCursor.Invoke(map, null) as Minimap.PinData;
+            var pin = Editable(map, _closestPinToCursor.Invoke(map, null) as Minimap.PinData);
             if (pin == null)
             {
                 PinEditor.Close();
@@ -125,6 +125,46 @@ namespace CarturMapPins
 
             PinEditor.Open(map, pin);
             return true;
+        }
+
+        /// The pin worth editing at this spot.
+        ///
+        /// Vanilla's own markers - your spawn point, your last death - are not saved pins: the map
+        /// rebuilds them from your profile on a timer, so a name or an icon set on one is gone by
+        /// the next refresh. The cursor lands on the spawn marker rather than on the Home pin
+        /// underneath it, which is why a house you had just marked looked nameless and refused to
+        /// be edited.
+        ///
+        /// So an unsaved pin hands over to a saved one on the same spot, and where there is none,
+        /// nothing opens at all - better than an editor whose changes evaporate.
+        private static Minimap.PinData Editable(Minimap map, Minimap.PinData pin)
+        {
+            if (pin == null || pin.m_save)
+                return pin;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return null;
+
+            // Generous, because the two are not placed by the same code: ours goes on the bed's
+            // spawn point and vanilla's on the profile's copy of it.
+            const float SameSpot = 8f;
+            Minimap.PinData best = null;
+            float bestSqr = SameSpot * SameSpot;
+
+            foreach (Minimap.PinData other in pins)
+            {
+                if (other == null || !other.m_save)
+                    continue;
+                Vector3 d = other.m_pos - pin.m_pos;
+                float sqr = d.x * d.x + d.z * d.z;
+                if (sqr > bestSqr)
+                    continue;
+                bestSqr = sqr;
+                best = other;
+            }
+
+            return best;
         }
 
         /// Vanilla selecting one of its own icons must clear our highlights, otherwise two
