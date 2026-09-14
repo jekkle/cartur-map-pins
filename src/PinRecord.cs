@@ -213,6 +213,49 @@ namespace CarturMapPins
             return false;
         }
 
+        /// Sets every pin we placed to the icon its category and kind say today.
+        ///
+        /// Unlike MigrateIcons this asks no questions: it does not care what a pin is currently
+        /// wearing, so it also repairs pins left on a number whose meaning moved - which is what
+        /// happens to anyone who ran a build from between two icon sheets. It is also the honest
+        /// answer to "I changed the icon settings and want my existing pins to match".
+        ///
+        /// Only pins in the record, so hand-placed ones keep whatever they were given.
+        public static int RepointAllToCurrent()
+        {
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            int changed = 0;
+            foreach (Entry e in Entries)
+            {
+                int colon = e.Key.IndexOf(':');
+                string categoryName = colon > 0 ? e.Key.Substring(0, colon) : e.Key;
+                string subtype = colon > 0 ? e.Key.Substring(colon + 1) : null;
+
+                if (!Enum.TryParse(categoryName, out PinCategory category))
+                    continue;
+
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                if (settings == null)
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null)
+                    continue;
+
+                Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
+                if (pin.m_type == wanted || !Repoint(map, pin, wanted))
+                    continue;
+                changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
         /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
         /// because the caller removes entries as it goes.
         public static List<Vector3> PositionsOf(PinCategory category)

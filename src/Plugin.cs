@@ -410,6 +410,16 @@ namespace CarturMapPins
                         : "Every record still has a pin - nothing to forget.");
                 });
 
+            new Terminal.ConsoleCommand("carturpins_reicon",
+                "Sets every pin this mod placed to the icon its category currently uses. Run it after changing icon settings, or if pins are showing artwork from an older icon sheet. Pins you placed by hand are left alone.",
+                args =>
+                {
+                    int changed = PinRecord.RepointAllToCurrent();
+                    args.Context?.AddString(changed > 0
+                        ? $"Repointed {changed} pin(s) to their current icons."
+                        : "Every recorded pin already carries its current icon.");
+                });
+
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
                 args => args.Context?.AddString($"{PinRecord.Count} pins on record."));
