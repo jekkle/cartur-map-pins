@@ -1,26 +1,45 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
 {
-    /// Hides a pin's name when an identical name is already drawn on top of it.
+    /// Keeps the map readable where labels pile up, and gives every hidden one back under the
+    /// cursor.
     ///
-    /// Two tin deposits a few metres apart print "TIN TIN", and a crypt beside a copper deposit
-    /// prints one word over the other. The second "TIN" says nothing the first did not, so it goes;
-    /// the crypt and the copper both say something, so both stay even though they collide.
+    /// At the zoom you get from pressing M, a well-explored map is a wall of overlapping words -
+    /// COPPER over CRYPT, TROLL CAVE over CHEST. Two names on top of each other carry less than
+    /// either one alone, so the collision is resolved rather than drawn.
     ///
-    /// Only when the labels actually overlap. Two pins in the same neighbourhood whose names sit
-    /// clear of each other are not a problem, and hiding one of those would lose information for
-    /// nothing.
+    /// Which one survives is decided by how common the name is on your map. CHEST appears forty
+    /// times and says little; CRYPT appears twice and says a lot. The rare name claims the space
+    /// and the common one steps aside - and since the icons are untouched, the chest is still
+    /// there to see.
+    ///
+    /// Nothing is ever permanently unreadable: a pin under the cursor always shows its name, so
+    /// sweeping the mouse across a cluster reads it out.
     internal static class LabelCrowding
     {
-        /// Kept between passes so a label hidden here can be shown again when the map moves.
-        private static readonly List<Minimap.PinNameData> Hidden = new List<Minimap.PinNameData>();
+        /// How close the cursor has to be to a pin before its name is forced back on.
+        private const float RevealRadius = 60f;
 
+        private static readonly List<Minimap.PinNameData> Hidden = new List<Minimap.PinNameData>();
         private static readonly List<Minimap.PinNameData> Shown = new List<Minimap.PinNameData>();
+        private static readonly List<Minimap.PinData> Ordered = new List<Minimap.PinData>();
+        private static readonly Dictionary<string, int> NameCounts = new Dictionary<string, int>();
+
+        /// Cached, because sorting with a lambda allocates a comparer every pass otherwise.
+        private static readonly Comparison<Minimap.PinData> ByRarity = (a, b) =>
+        {
+            NameCounts.TryGetValue(a.m_name ?? string.Empty, out int countA);
+            NameCounts.TryGetValue(b.m_name ?? string.Empty, out int countB);
+            return countA.CompareTo(countB);
+        };
 
         public static void Apply(List<Minimap.PinData> pins)
         {
+            // Everything hidden last pass comes back first, so a label hidden at one zoom or
+            // cursor position is not stuck hidden at the next.
             foreach (Minimap.PinNameData name in Hidden)
             {
                 if (name?.PinNameGameObject != null)
@@ -28,8 +47,10 @@ namespace CarturMapPins
             }
             Hidden.Clear();
             Shown.Clear();
+            Ordered.Clear();
+            NameCounts.Clear();
 
-            if (!Plugin.HideDuplicateLabels.Value)
+            if (!Plugin.HideCollidingLabels.Value)
                 return;
 
             foreach (Minimap.PinData pin in pins)
@@ -40,7 +61,31 @@ namespace CarturMapPins
                 if (!name.PinNameGameObject.activeInHierarchy || string.IsNullOrEmpty(pin.m_name))
                     continue;
 
-                if (!Overlaps(pin, name))
+                NameCounts.TryGetValue(pin.m_name, out int count);
+                NameCounts[pin.m_name] = count + 1;
+                Ordered.Add(pin);
+            }
+
+            if (Ordered.Count == 0)
+                return;
+
+            // Rarest first, so the name that says the most claims its space before the ones that
+            // repeat all over the map get a chance to sit on it.
+            Ordered.Sort(ByRarity);
+
+            Vector2 cursor = CursorIn(Ordered[0].m_iconElement);
+
+            foreach (Minimap.PinData pin in Ordered)
+            {
+                Minimap.PinNameData name = pin.m_NamePinData;
+                Rect mine = RectOf(name.PinNameRectTransform);
+
+                // Under the cursor wins outright, including over an earlier label: pointing at a
+                // pin is asking what it is.
+                bool revealed = pin.m_iconElement != null &&
+                                Vector2.Distance(pin.m_iconElement.rectTransform.anchoredPosition, cursor) < RevealRadius;
+
+                if (revealed || !Collides(mine))
                 {
                     Shown.Add(name);
                     continue;
@@ -51,24 +96,33 @@ namespace CarturMapPins
             }
         }
 
-        /// True when an already-drawn label says the same thing and sits on top of this one.
-        ///
-        /// Rectangle against rectangle, both read off the labels themselves, so it answers the
-        /// question the eye is asking - do these two collide right now, at this zoom - rather than
-        /// guessing from how far apart the pins are in the world.
-        private static bool Overlaps(Minimap.PinData pin, Minimap.PinNameData name)
+        private static bool Collides(Rect mine)
         {
-            Rect mine = RectOf(name.PinNameRectTransform);
-
             foreach (Minimap.PinNameData other in Shown)
             {
-                if (other.ParentPin == null || other.ParentPin.m_name != pin.m_name)
-                    continue;
-                if (RectOf(other.PinNameRectTransform).Overlaps(mine))
+                if (other.PinNameRectTransform != null && RectOf(other.PinNameRectTransform).Overlaps(mine))
                     return true;
             }
-
             return false;
+        }
+
+        /// The pointer, in the same space the labels are positioned in. Off-screen when there is
+        /// no canvas to convert against, which simply means nothing is revealed.
+        private static Vector2 CursorIn(UnityEngine.UI.Image icon)
+        {
+            var parent = icon != null ? icon.rectTransform.parent as RectTransform : null;
+            if (parent == null)
+                return new Vector2(float.MaxValue, float.MaxValue);
+
+            Canvas canvas = parent.GetComponentInParent<Canvas>();
+            Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? canvas.worldCamera
+                : null;
+
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                       parent, ZInput.pointerPosition, camera, out Vector2 local)
+                ? local
+                : new Vector2(float.MaxValue, float.MaxValue);
         }
 
         private static Rect RectOf(RectTransform rt)
