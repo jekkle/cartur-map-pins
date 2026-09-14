@@ -118,11 +118,11 @@ namespace CarturMapPins
             // moved to the right, so an old config's 20 would now mean 20 pixels from the right
             // edge and bury the picker under vanilla's pin buttons. New names, so every existing
             // config takes the new defaults and the stale lines sit there harmlessly.
-            MapPickerRight = Config.Bind("CustomIcons", "MapPickerRight", 170f,
-                new ConfigDescription("How far in from the right edge of the map screen the picker sits. Enough to clear vanilla's column of pin buttons.",
+            MapPickerRight = Config.Bind("CustomIcons", "MapPickerRight", 90f,
+                new ConfigDescription("How far in from the right edge of the map screen the picker sits. The default puts it against vanilla's column of pin buttons without overlapping them.",
                     null, Attr(advanced: true)));
-            MapPickerBottom = Config.Bind("CustomIcons", "MapPickerBottom", 150f,
-                new ConfigDescription("How far up from the bottom of the map screen the picker sits. Enough to clear the pin controls along the bottom.",
+            MapPickerBottom = Config.Bind("CustomIcons", "MapPickerBottom", 80f,
+                new ConfigDescription("How far up from the bottom of the map screen the picker sits. The default clears the Visible to other players box below it.",
                     null, Attr(advanced: true)));
 
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
