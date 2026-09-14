@@ -182,13 +182,48 @@ namespace CarturMapPins
                 string kind = (loc.m_hasInterior ? " kind=dungeon"
                                : loc.m_generator != null ? " kind=camp"
                                : " kind=surface") + gen;
-                return kind + Verdict(loc);
+                return kind + Verdict(loc) + Contents(loc);
             }
             finally
             {
                 if (!alreadyLoaded)
                     zl.m_prefab.Release();
             }
+        }
+
+        /// What a location is built out of: the components the mod pins things by, counted on the
+        /// prefab itself.
+        ///
+        /// "Greydwarf_camp1 is surface, with no generator, and pins nothing" leaves the real
+        /// question open - whether anything inside it is pinned instead, or whether a Greydwarf
+        /// camp is invisible on the map entirely. That cannot be answered from the outside of the
+        /// prefab, and every unanswered question about a location costs a relaunch to ask.
+        ///
+        /// Inactive children are included: a location's spawners are frequently disabled until the
+        /// location is placed.
+        private static string Contents(Location loc)
+        {
+            var sb = new StringBuilder();
+            Count<CreatureSpawner>(loc, "spawner", sb);
+            Count<SpawnArea>(loc, "spawnarea", sb);
+            Count<Container>(loc, "container", sb);
+            Count<Pickable>(loc, "pickable", sb);
+            Count<Vegvisir>(loc, "vegvisir", sb);
+            Count<RuneStone>(loc, "runestone", sb);
+            Count<BossStone>(loc, "bossstone", sb);
+            Count<OfferingBowl>(loc, "altar", sb);
+            Count<Beehive>(loc, "beehive", sb);
+            return sb.Length > 0 ? "  {" + sb + "}" : "";
+        }
+
+        private static void Count<T>(Location loc, string label, StringBuilder sb) where T : Component
+        {
+            int n = loc.GetComponentsInChildren<T>(includeInactive: true).Length;
+            if (n == 0)
+                return;
+            if (sb.Length > 0)
+                sb.Append(' ');
+            sb.Append(label).Append('=').Append(n);
         }
 
         /// What the mod would actually do with this location, asked of the real classifier rather
