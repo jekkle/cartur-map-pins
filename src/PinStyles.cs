@@ -21,13 +21,17 @@ namespace CarturMapPins
         public static readonly Color[] Palette =
         {
             Color.white,
-            new Color(0.85f, 0.20f, 0.18f),
-            new Color(0.10f, 0.10f, 0.11f),
-            new Color(0.26f, 0.48f, 0.92f),
-            new Color(0.62f, 0.31f, 0.85f),
+            new Color(0.85f, 0.20f, 0.18f),   // red
+            new Color(0.94f, 0.55f, 0.16f),   // orange
+            new Color(0.94f, 0.84f, 0.28f),   // yellow
+            new Color(0.36f, 0.74f, 0.36f),   // green
+            new Color(0.26f, 0.48f, 0.92f),   // blue
+            new Color(0.62f, 0.31f, 0.85f),   // purple
+            new Color(0.18f, 0.18f, 0.20f),   // black, lifted enough to read on a dark map
         };
 
-        public static readonly string[] PaletteNames = { "Original", "Red", "Black", "Blue", "Purple" };
+        public static readonly string[] PaletteNames =
+            { "Original", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Black" };
 
         public struct Style
         {

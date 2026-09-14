@@ -24,7 +24,7 @@ namespace CarturMapPins
         private const float VisibleRows = 5f;
         private const float HeaderHeight = 30f;   // name field
         private const float FooterHeight = 30f;   // cancel and confirm
-        private const float StyleHeight = 72f;    // colour swatches and the two sliders
+        private const float StyleHeight = 96f;    // colour swatches and the two sliders
         private const float GapFromPin = 26f;     // keeps the pin itself uncovered
 
         private static GameObject _panel;
@@ -219,19 +219,25 @@ namespace CarturMapPins
             rt.offsetMin = new Vector2(8f, FooterHeight);
             rt.offsetMax = new Vector2(-8f, FooterHeight + StyleHeight);
 
+            AddSectionLabel(strip.transform, "COLOUR", 0f);
+
             _swatches.Clear();
-            for (int i = 0; i < PinStyles.Palette.Length; i++)
+            int count = PinStyles.Palette.Length;
+            for (int i = 0; i < count; i++)
             {
                 int index = i;
                 var go = new GameObject(PinStyles.PaletteNames[i]);
                 go.transform.SetParent(strip.transform, false);
 
+                // Spread across the full width rather than bunched at the left: a row of swatches
+                // reads as a palette, a huddle of them in a corner reads as leftovers.
+                float span = 1f / count;
                 RectTransform srt = go.AddComponent<RectTransform>();
-                srt.anchorMin = new Vector2(0f, 1f);
-                srt.anchorMax = new Vector2(0f, 1f);
-                srt.pivot = new Vector2(0f, 1f);
-                srt.sizeDelta = new Vector2(22f, 22f);
-                srt.anchoredPosition = new Vector2(i * 26f, 0f);
+                srt.anchorMin = new Vector2(i * span, 1f);
+                srt.anchorMax = new Vector2((i + 1) * span, 1f);
+                srt.pivot = new Vector2(0.5f, 1f);
+                srt.offsetMin = new Vector2(2f, -40f);
+                srt.offsetMax = new Vector2(-2f, -16f);
 
                 Image swatch = go.AddComponent<Image>();
                 swatch.color = PinStyles.Palette[i];
@@ -259,8 +265,10 @@ namespace CarturMapPins
                 _swatches.Add(frame);
             }
 
-            _sizeSlider = AddSlider(strip.transform, "Size", -26f, 0.5f, 2f, v => _style.Size = v);
-            _alphaSlider = AddSlider(strip.transform, "Opacity", -50f, 0.2f, 1f, v => _style.Alpha = v);
+            _sizeSlider = AddSlider(strip.transform, "SIZE", -46f, 0.5f, 2f,
+                                    v => { _style.Size = v; RefreshReadouts(); });
+            _alphaSlider = AddSlider(strip.transform, "OPACITY", -68f, 0.2f, 1f,
+                                     v => { _style.Alpha = v; RefreshReadouts(); });
         }
 
         /// A slider built from three plain images: a track, a fill and a handle. Vanilla has
@@ -299,22 +307,53 @@ namespace CarturMapPins
             var track = new GameObject("Track");
             track.transform.SetParent(go.transform, false);
             RectTransform trt = track.AddComponent<RectTransform>();
-            trt.anchorMin = new Vector2(0f, 0.3f);
-            trt.anchorMax = new Vector2(1f, 0.7f);
+            trt.anchorMin = new Vector2(0f, 0.38f);
+            trt.anchorMax = new Vector2(1f, 0.62f);
             trt.offsetMin = Vector2.zero;
-            trt.offsetMax = Vector2.zero;
+            trt.offsetMax = new Vector2(-34f, 0f);   // leaves room for the readout
             Image trackImage = track.AddComponent<Image>();
-            trackImage.color = new Color(0.95f, 0.92f, 0.82f, 0.25f);
+            trackImage.color = new Color(0.95f, 0.92f, 0.82f, 0.18f);
+
+            // The filled part, so a value can be read at a glance instead of judged from where
+            // the handle sits.
+            var fillArea = new GameObject("FillArea");
+            fillArea.transform.SetParent(go.transform, false);
+            RectTransform fart = fillArea.AddComponent<RectTransform>();
+            fart.anchorMin = new Vector2(0f, 0.38f);
+            fart.anchorMax = new Vector2(1f, 0.62f);
+            fart.offsetMin = Vector2.zero;
+            fart.offsetMax = new Vector2(-34f, 0f);
+
+            var fill = new GameObject("Fill");
+            fill.transform.SetParent(fillArea.transform, false);
+            RectTransform filr = fill.AddComponent<RectTransform>();
+            filr.anchorMin = Vector2.zero;
+            filr.anchorMax = new Vector2(1f, 1f);
+            filr.offsetMin = Vector2.zero;
+            filr.offsetMax = Vector2.zero;
+            Image fillImage = fill.AddComponent<Image>();
+            fillImage.color = new Color(0.95f, 0.85f, 0.55f, 0.5f);
+
+            var handleArea = new GameObject("HandleArea");
+            handleArea.transform.SetParent(go.transform, false);
+            RectTransform hart = handleArea.AddComponent<RectTransform>();
+            hart.anchorMin = Vector2.zero;
+            hart.anchorMax = Vector2.one;
+            hart.offsetMin = Vector2.zero;
+            hart.offsetMax = new Vector2(-34f, 0f);
 
             var handle = new GameObject("Handle");
-            handle.transform.SetParent(go.transform, false);
+            handle.transform.SetParent(handleArea.transform, false);
             RectTransform hrt = handle.AddComponent<RectTransform>();
-            hrt.sizeDelta = new Vector2(10f, 16f);
+            hrt.sizeDelta = new Vector2(16f, 16f);
             Image handleImage = handle.AddComponent<Image>();
-            handleImage.color = new Color(0.95f, 0.92f, 0.82f, 0.9f);
+            handleImage.sprite = IconGrid.Disc();
+            handleImage.color = Color.white;
+            handle.AddComponent<SliderHandle>();
 
             Slider slider = go.AddComponent<Slider>();
             slider.targetGraphic = handleImage;
+            slider.fillRect = filr;
             slider.handleRect = hrt;
             slider.direction = Slider.Direction.LeftToRight;
             slider.minValue = min;
@@ -322,7 +361,57 @@ namespace CarturMapPins
             slider.value = Mathf.Clamp(1f, min, max);
             slider.onValueChanged = new Slider.SliderEvent();
             slider.onValueChanged.AddListener(onChange);
+
+            var readoutGo = new GameObject("Readout");
+            readoutGo.transform.SetParent(go.transform, false);
+            RectTransform rrt = readoutGo.AddComponent<RectTransform>();
+            rrt.anchorMin = new Vector2(1f, 0f);
+            rrt.anchorMax = new Vector2(1f, 1f);
+            rrt.pivot = new Vector2(1f, 0.5f);
+            rrt.sizeDelta = new Vector2(32f, 16f);
+            rrt.anchoredPosition = Vector2.zero;
+
+            TextMeshProUGUI readout = readoutGo.AddComponent<TextMeshProUGUI>();
+            readout.fontSize = 11f;
+            readout.color = new Color(0.95f, 0.92f, 0.82f, 0.9f);
+            readout.alignment = TextAlignmentOptions.MidlineRight;
+            readout.raycastTarget = false;
+            Readouts[slider] = readout;
+
             return slider;
+        }
+
+        private static readonly Dictionary<Slider, TextMeshProUGUI> Readouts =
+            new Dictionary<Slider, TextMeshProUGUI>();
+
+        /// Size as a multiplier and opacity as a percentage - each in the unit the thing is
+        /// actually thought about in, rather than both as a number between nought and one.
+        private static void RefreshReadouts()
+        {
+            if (_sizeSlider != null && Readouts.TryGetValue(_sizeSlider, out TextMeshProUGUI size))
+                size.text = $"{_style.Size:0.0}x";
+            if (_alphaSlider != null && Readouts.TryGetValue(_alphaSlider, out TextMeshProUGUI alpha))
+                alpha.text = $"{Mathf.RoundToInt(_style.Alpha * 100f)}%";
+        }
+
+        private static void AddSectionLabel(Transform parent, string text, float y)
+        {
+            var go = new GameObject(text);
+            go.transform.SetParent(parent, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.offsetMin = new Vector2(0f, -14f + y);
+            rt.offsetMax = new Vector2(0f, y);
+
+            TextMeshProUGUI label = go.AddComponent<TextMeshProUGUI>();
+            label.text = text;
+            label.fontSize = 10f;
+            label.characterSpacing = 5f;
+            label.color = new Color(0.95f, 0.92f, 0.82f, 0.55f);
+            label.alignment = TextAlignmentOptions.MidlineLeft;
+            label.raycastTarget = false;
         }
 
         private static void ChooseColour(int index)
@@ -340,6 +429,7 @@ namespace CarturMapPins
             // fields being loaded and overwrite them with the slider's old position.
             _sizeSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Size, _sizeSlider.minValue, _sizeSlider.maxValue));
             _alphaSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Alpha, _alphaSlider.minValue, _alphaSlider.maxValue));
+            RefreshReadouts();
         }
 
         /// One half of the footer. `from` and `to` are fractions of the panel's width, so the two

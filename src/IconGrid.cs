@@ -196,6 +196,39 @@ namespace CarturMapPins
             return _border;
         }
 
+        private static Sprite _disc;
+
+        /// A filled circle, drawn once, for slider handles. Its edge is softened by alpha rather
+        /// than by a texture filter, so it stays round at any size instead of turning into a
+        /// blurred square.
+        public static Sprite Disc()
+        {
+            if (_disc != null)
+                return _disc;
+
+            const int size = 32;
+            const float radius = size / 2f - 1f;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+            var centre = new Vector2(size / 2f - 0.5f, size / 2f - 0.5f);
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Vector2.Distance(new Vector2(x, y), centre);
+                    float alpha = Mathf.Clamp01(radius - d);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+
+            tex.filterMode = FilterMode.Bilinear;
+            tex.wrapMode = TextureWrapMode.Clamp;
+            tex.Apply();
+
+            _disc = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
+            return _disc;
+        }
+
         /// A cell: a dark slab, the icon on top of it, and a border this mod controls.
         ///
         /// Vanilla's pin button is cloned for its size and its Button wiring, then stripped of its
