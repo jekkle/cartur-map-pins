@@ -61,7 +61,15 @@ namespace CarturMapPins
             E("fortress", "Charred Fortress", 36),
             E("dg_meadowsvillage", "Abandoned Village", 42),
             E("dg_meadowsfarm", "Abandoned Farm", 77),
-            E("greydwarf", "Greydwarf Camp", 0),
+            // The Meadows villages and farm are WoodVillage1/2 and WoodFarm1 in the location list;
+            // the DG_ names above them are generators nothing in this build uses.
+            E("woodvillage", "Abandoned Village", 42),
+            E("woodfarm", "Abandoned Farm", 77),
+            E("northvillage", "Deep North Village", 124),
+            // "greydwarf_camp", not "greydwarf": the camp table is now matched by name before the
+            // lore stones are, and a bare fragment would have turned Runestone_Greydwarfs into a
+            // Greydwarf Camp.
+            E("greydwarf_camp", "Greydwarf Camp", 0),
             E("hildir", "Hildir Camp", 61),
         };
 

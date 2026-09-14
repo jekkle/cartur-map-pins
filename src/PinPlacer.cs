@@ -367,10 +367,19 @@ namespace CarturMapPins
                 return true;
             }
 
-            if (loc.m_generator != null)
+            // A camp used to mean "has a generator, has no interior", and in this build exactly one
+            // location in 232 fits that: Hildir's fortress. A Fuling village (GoblinCamp2, quantity
+            // 200) and a Greydwarf camp (Greydwarf_camp1, 300) are plain surface locations with no
+            // generator at all, so the test that named the category never matched the things the
+            // category was written for. A Fuling village carries nothing else the mod pins either -
+            // no spawner, no container - so it was invisible on the map.
+            //
+            // The name table answers first now. The generator stays as the fallback for the ones
+            // that do still have one, and for camps added by other mods.
+            subtype = Subtypes.Match(Subtypes.Camps, prefabName, generatorName);
+            if (subtype != null || loc.m_generator != null)
             {
                 category = PinCategory.Camp;
-                subtype = Subtypes.Match(Subtypes.Camps, prefabName, generatorName);
                 label = subtype ?? Labels.ForLocation(prefabName);
                 WarnUnmatched("camp", $"{prefabName} (generator {generatorName ?? "none"})", subtype);
                 return true;
