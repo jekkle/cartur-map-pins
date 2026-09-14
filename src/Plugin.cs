@@ -22,8 +22,8 @@ namespace CarturMapPins
 #endif
         public static ConfigEntry<bool> CustomIconsEnabled;
         public static ConfigEntry<bool> MapPickerEnabled;
-        public static ConfigEntry<float> MapPickerX;
-        public static ConfigEntry<float> MapPickerY;
+        public static ConfigEntry<float> MapPickerRight;
+        public static ConfigEntry<float> MapPickerBottom;
 
         private static ConfigEntry<bool> _pickHighValue;
         private static ConfigEntry<bool> _pickBerries;
@@ -114,11 +114,15 @@ namespace CarturMapPins
 
             MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
-            MapPickerX = Config.Bind("CustomIcons", "MapPickerX", 110f,
-                new ConfigDescription("How far in from the RIGHT edge of the map screen the picker sits.",
+            // Renamed from MapPickerX/Y, which measured from the bottom LEFT corner. The panel
+            // moved to the right, so an old config's 20 would now mean 20 pixels from the right
+            // edge and bury the picker under vanilla's pin buttons. New names, so every existing
+            // config takes the new defaults and the stale lines sit there harmlessly.
+            MapPickerRight = Config.Bind("CustomIcons", "MapPickerRight", 170f,
+                new ConfigDescription("How far in from the right edge of the map screen the picker sits. Enough to clear vanilla's column of pin buttons.",
                     null, Attr(advanced: true)));
-            MapPickerY = Config.Bind("CustomIcons", "MapPickerY", 80f,
-                new ConfigDescription("How far up from the bottom of the map screen the picker sits - enough to clear the pin controls along the bottom.",
+            MapPickerBottom = Config.Bind("CustomIcons", "MapPickerBottom", 150f,
+                new ConfigDescription("How far up from the bottom of the map screen the picker sits. Enough to clear the pin controls along the bottom.",
                     null, Attr(advanced: true)));
 
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,

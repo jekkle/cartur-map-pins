@@ -21,10 +21,9 @@ namespace CarturMapPins
     /// This only affects pins placed BY HAND. Auto-pins take their icon from the config.
     internal static class MapIconPicker
     {
-        /// Wide and short rather than narrow and tall. The grid holds 236 icons; five columns
-        /// made that 48 rows of scrolling, and the space along the right edge of the map is
-        /// shaped the other way round.
-        private const int Columns = 9;
+        /// Six across, four deep. Five columns made 48 rows of scrolling for 236 icons; nine
+        /// was wider than the gap between vanilla's pin column and the middle of the map.
+        private const int Columns = 6;
         private const float CellSize = 46f;
         private const float Spacing = 4f;
         private const float PanelWidth = Columns * (CellSize + Spacing) + 24f;
@@ -85,7 +84,7 @@ namespace CarturMapPins
             panelRt.anchorMax = new Vector2(1f, 0f);
             panelRt.pivot = new Vector2(1f, 0f);
             panelRt.sizeDelta = new Vector2(PanelWidth, PanelHeight);
-            panelRt.anchoredPosition = new Vector2(-Plugin.MapPickerX.Value, Plugin.MapPickerY.Value);
+            panelRt.anchoredPosition = new Vector2(-Plugin.MapPickerRight.Value, Plugin.MapPickerBottom.Value);
 
             Image bg = _panel.AddComponent<Image>();
             bg.color = new Color(0f, 0f, 0f, 0.55f);
