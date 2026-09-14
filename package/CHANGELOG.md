@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.3.0
+
+**A new icon set, and the old one kept.** 153 icons, redrawn. Pins this mod placed
+move onto the new art by themselves the first time you load. Pins you placed by hand
+keep the exact picture you gave them — 1.2.2's sheet is still loaded underneath, and
+its icons are still in the picker, listed after the new ones. Nothing picks them for
+you.
+
+**Camps pin properly.** A Fuling village used to be invisible: the mod looked for a
+dungeon generator, and villages stopped having one. Now Fuling villages, abandoned
+villages and farms, Charred fortresses and the Deep North village are all pinned by
+name. Greydwarf camps are off by default — they are the most common location in the
+Black Forest, 450 attempts a world against 405 for Fuling villages.
+
+**Named minibosses get their own pins.** Lord Reto, Brenna, Geirrhafa, Zil & Thungr
+and the Fallen Valkyrie. They used to pin as generic Charred, Skeleton and Fuling
+spawners, if at all. On by default, and they do not need the Spawner category on —
+one you fight once is not the same as a greydwarf nest.
+
+**Your bed is marked as home.** Set your spawn and the bed gets a house pin that
+stays there. Vanilla moves a single marker to whichever bed you slept in last, so
+the outpost you used a week ago left nothing behind. Vanilla's marker gets the same
+house icon so there is one house, not two markers stacked.
+
+**Mined-out deposits stop lying to you.** Ore never respawns, so a pin on a worked-out
+node is a walk across the map to an empty hole. Those pins are removed once the
+deposit is gone — only pins this mod placed, and only while the game has that area
+loaded, so a node you simply walked away from is never mistaken for a mined one.
+
+**Dungeons tick off when you have emptied them.** Every chest inside empty and every
+mud pile mined, and the pin greys out the way one you ticked by hand does. The game
+tracks nothing of the sort itself: dungeon spawners respawn on a timer, so what you
+took is the only lasting record of having been through. Unticks if a chest refills.
+Per kind, so Sunken Crypts can tick and Frost Caves need not.
+
+**The Deep North reads properly.** Winding Tunnels, Gates of Morkhalla, the Aesir
+Passage and Kall Fimbulbringer's altar, the Deep North village, the Ancient Altar.
+Mork Halla and Bear Cave were pinning as a generic staircase.
+
+**A switch for every kind.** Not just per category: every dungeon, camp, boss,
+trader, spawner, miniboss, landmark, plant and ore type has its own on/off switch,
+generated from the same tables that do the matching — so the menu can never fall
+behind what the mod recognises.
+
+**Maypoles are pinned**, and nothing you built ever is.
+
+**Shift-click a pin to rename it or change its icon.** It always worked; nothing said
+so. The map now says so, above the icon grid.
+
+Fixes: the seven guardian stones at the spawn temple put seven pins on top of each
+other and are now left to vanilla's own marker · a vegvisir standing inside a
+location no longer outranks the location, so a Morgen Hole is a dungeon rather than a
+runestone · pin labels are translated instead of reading "$enemy_eikthyr" ·
+spawner pins from older versions repair their own icons when you walk past · the
+icon grid scrolls half again as fast.
+
 ## 1.2.2
 
 - Moved the links to my other mods to the top of the page.

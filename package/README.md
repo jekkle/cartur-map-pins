@@ -14,12 +14,15 @@ it lands on your map with a name on it. The pins are saved to your character lik
 hand-placed ones, and they stay put after you clear the node, so you can tick
 them off yourself when you're done.
 
+![The icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-all.png)
+
 ## What gets pinned
 
-Ore deposits · dungeon and cave entrances · goblin and draugr camps · wild
-beehives · runestones · abandoned chests · spawners · leviathans · traders ·
+Ore deposits · dungeon and cave entrances · Fuling villages, Greydwarf camps and
+Charred fortresses · wild beehives · runestones · abandoned chests · named
+minibosses · leviathans · traders · maypoles · your bed, as home · spawners ·
 wisp fountains · high-value pickables (surtling cores, Yggdrasil shoots, eggs) ·
-boss altars.
+boss altars · Deep North dungeons by name.
 
 Every category is a switch. Turn off what you don't care about.
 
@@ -43,9 +46,14 @@ icons if you prefer them. Nothing chooses them for you.
 - **Emptied chests change icon.** Loot a chest and its pin switches to a looted
   marker, so cleared ones are obvious at a glance. Refill it and it switches
   back.
-- **83 icons to pick from.** Each category takes an icon index, so you can set
-  ore, dungeons, chests and the rest to whatever reads best for you. Vanilla pin
-  types still work if you'd rather stay with them.
+- **153 icons to pick from.** Every category and every kind under it takes its own
+  icon, so you can set ore, dungeons, chests and the rest to whatever reads best
+  for you. Vanilla pin types still work if you'd rather stay with them.
+- **Mined-out ore pins remove themselves.** Deposits never respawn, so a pin on a
+  worked-out node is a walk to an empty hole. Only pins this mod placed, and only
+  while the game has that area loaded.
+- **Dungeons tick off once you have emptied them** — every chest empty and every
+  mud pile mined, shown with the same tick you would use by hand.
 - **Dungeon interiors don't leak.** Valheim builds crypt interiors 5000m
   straight up, sharing their surface zone's coordinates. Without a height gate a
   crypt full of ore would dump a cluster of pins on the zone centre. This checks.
@@ -63,6 +71,8 @@ icons if you prefer them. Nothing chooses them for you.
 - `carturpins_forget_missing` — forgets records whose pin is gone, so those
   places can be pinned again.
 - `carturpins_clear` — removes every pin this mod placed.
+
+![Icons added in 1.3.0](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-new.png)
 
 ## Install
 
