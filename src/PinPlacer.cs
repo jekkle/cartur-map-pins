@@ -204,6 +204,12 @@ namespace CarturMapPins
             {
                 if (ZoneSystem.GetZone(pos) != zone)
                     continue;
+
+                // The kind comes off the record rather than from the pin: the record is what knows
+                // a Sunken Crypt from a Frost Cave, and it is what the rest of the mod trusts.
+                if (!Plugin.TickKindEnabled(PinRecord.SubtypeNear(PinCategory.Dungeon, pos, settings.DedupeRadius.Value)))
+                    continue;
+
                 if (!PinRecord.SetChecked(PinCategory.Dungeon, pos, settings.DedupeRadius.Value, looted))
                     continue;
                 Plugin.Log.LogInfo(looted

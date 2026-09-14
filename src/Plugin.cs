@@ -74,6 +74,21 @@ namespace CarturMapPins
 
         private static string KindKey(PinCategory category, string kind) => category + ":" + kind;
 
+        /// One switch per dungeon kind for the looted tick, separate from the switches that decide
+        /// what gets pinned: whether a Sunken Crypt is worth marking and whether it is worth
+        /// ticking off once emptied are different questions. A crypt you strip for iron is done
+        /// with; a Frost Cave you dip into for one chest may not be.
+        private static readonly Dictionary<string, ConfigEntry<bool>> TickToggles =
+            new Dictionary<string, ConfigEntry<bool>>();
+
+        /// A kind with no switch of its own ticks, same rule as everywhere else.
+        public static bool TickKindEnabled(string kind)
+        {
+            if (string.IsNullOrEmpty(kind))
+                return true;
+            return !TickToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
+        }
+
         /// Whether one kind is switched on.
         ///
         /// A kind with no switch of its own is allowed through, which does two jobs: a name added
@@ -195,6 +210,13 @@ namespace CarturMapPins
             // A switch and an icon for every kind the mod can tell apart. Both are generated from
             // the tables that do the matching, so the menu and the matcher cannot drift.
             BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons);
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
+            {
+                if (TickToggles.ContainsKey(e.Name))
+                    continue;
+                TickToggles[e.Name] = Config.Bind("Dungeon Tick", e.Name, true,
+                    $"Tick a {e.Name} off once everything inside it has been taken. Requires Dungeon/TickWhenLooted.");
+            }
             BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps);
             BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
             BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
