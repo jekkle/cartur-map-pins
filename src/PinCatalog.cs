@@ -19,7 +19,8 @@ namespace CarturMapPins
         Trader,
         Wisp,
         Landmark,
-        Prop
+        Prop,
+        Miniboss
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the
@@ -187,7 +188,12 @@ namespace CarturMapPins
             }
             if (prefab.GetComponent<SpawnArea>() != null || prefab.GetComponent<CreatureSpawner>() != null)
             {
-                category = PinCategory.Spawner;
+                // A spawner that spawns one of the named minibosses is its own category, so those
+                // five can be on by default without the 103-prefab Spawner category coming with
+                // them. Asked of the spawner's own creature reference, same as the icon table.
+                category = Subtypes.Match(Subtypes.Minibosses, PinPlacer.SpawnedCreaturePrefabName(prefab)) != null
+                    ? PinCategory.Miniboss
+                    : PinCategory.Spawner;
                 return true;
             }
 

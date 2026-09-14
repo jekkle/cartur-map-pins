@@ -800,15 +800,11 @@ namespace CarturMapPins
                     : Plugin.SubtypeIconFor(subtype, settings);
             }
 
-            if (category == PinCategory.Dungeon || category == PinCategory.Camp ||
-                category == PinCategory.Ore || category == PinCategory.BossAltar ||
-                category == PinCategory.Trader || category == PinCategory.Spawner ||
-                category == PinCategory.Landmark)
-            {
-                return Plugin.SubtypeIconFor(subtype, settings);
-            }
-
-            return settings.ResolvedPinType;
+            // Everything else asks for the kind's icon and gets the category's when the kind has
+            // none - SubtypeIconFor already falls back, so naming categories here bought nothing
+            // and cost the ones left out: chest sites and props were bound icons that could never
+            // be reached, because Chest and Prop were not on the list.
+            return Plugin.SubtypeIconFor(subtype, settings);
         }
 
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
@@ -841,18 +837,11 @@ namespace CarturMapPins
             if (!settings.Enabled.Value)
                 return;
 
-            // Ore additionally honours its per-type switch, so you can pin copper but ignore tin.
-            if (category == PinCategory.Ore && !Plugin.OreTypeEnabled(subtype))
-                return;
-
-            // Landmarks likewise: there are thirteen abandoned houses to every well, and wanting
-            // one kind is not wanting all of them.
-            if (category == PinCategory.Landmark && !Plugin.LandmarkEnabled(subtype))
-                return;
-
-            // And camps, where a Greydwarf camp and a Fuling village are not the same decision:
-            // one is scenery you clear on the way past, the other is a trip you plan.
-            if (category == PinCategory.Camp && !Plugin.CampEnabled(subtype))
+            // Every category with kinds honours its per-kind switches too: copper but not tin,
+            // Fuling villages but not Greydwarf camps, a well but not the thirteen abandoned
+            // houses beside it. One gate rather than one per category, so a table added later is
+            // covered without anybody remembering to come back here.
+            if (!Plugin.SubtypeEnabled(category, subtype))
                 return;
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,

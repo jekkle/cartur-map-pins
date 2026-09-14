@@ -48,50 +48,43 @@ namespace CarturMapPins
         private static readonly Dictionary<PinCategory, CategorySettings> Settings =
             new Dictionary<PinCategory, CategorySettings>();
 
-        /// One toggle per ore type, generated from the same token table that detects them, so a
-        /// type can never exist in the detector without a matching switch in the menu.
-        private static readonly Dictionary<string, ConfigEntry<bool>> OreTypeToggles =
-            new Dictionary<string, ConfigEntry<bool>>();
-
         public static CategorySettings SettingsFor(PinCategory category) =>
             Settings.TryGetValue(category, out CategorySettings s) ? s : null;
 
-        private static readonly Dictionary<string, ConfigEntry<bool>> LandmarkToggles =
+        /// One switch per kind, for every category that has kinds - Camp Types, Dungeon Types,
+        /// Ore Types and the rest, each generated from the same table that detects them, so a kind
+        /// can never exist in the matcher without a switch in the menu.
+        ///
+        /// Keyed by category and name together: two tables can hold the same name, and a Hildir
+        /// Cave is both a dungeon kind and a camp kind.
+        ///
+        /// Switches live in "X Types" and icons in "X Icons" - a section and key pair carries only
+        /// one type of value, so a bool and a PinIcon under one name collide.
+        private static readonly Dictionary<string, ConfigEntry<bool>> SubtypeToggles =
             new Dictionary<string, ConfigEntry<bool>>();
 
-        private static readonly Dictionary<string, ConfigEntry<bool>> CampToggles =
-            new Dictionary<string, ConfigEntry<bool>>();
+        /// The kinds that start off, which is the whole of the mod's opinion about what a fresh
+        /// map should not carry. Everything else in every table starts on.
+        ///
+        /// Greydwarf camps are the most common location in the Black Forest - 450 world-generation
+        /// attempts against 405 for Fuling villages - and a camp you clear in twenty seconds is
+        /// not a trip you plan.
+        private static readonly HashSet<string> KindsOffByDefault =
+            new HashSet<string> { "Camp:Greydwarf Camp" };
 
-        /// Camp kinds that start off. Greydwarf camps are the most common location in the Black
-        /// Forest - 450 world-generation attempts against 405 for Fuling villages and 40 for the
-        /// Meadows ones - and a camp you clear in twenty seconds is not a trip you plan. The rest
-        /// of the kinds are places you set out for, so they stay on.
-        private static readonly HashSet<string> CampsOffByDefault =
-            new HashSet<string> { "Greydwarf Camp" };
+        private static string KindKey(PinCategory category, string kind) => category + ":" + kind;
 
-        /// Same rule as the landmarks: a kind with no switch of its own is allowed through, so a
-        /// name added to the table but not yet to the menu still pins rather than vanishing.
-        public static bool CampEnabled(string kind)
+        /// Whether one kind is switched on.
+        ///
+        /// A kind with no switch of its own is allowed through, which does two jobs: a name added
+        /// to a table but not yet to the menu still pins rather than silently vanishing, and the
+        /// pickable groups - which carry their own switches elsewhere - are not gated twice.
+        public static bool SubtypeEnabled(PinCategory category, string kind)
         {
             if (string.IsNullOrEmpty(kind))
                 return true;
-            return !CampToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
-        }
-
-        /// A landmark kind with no switch of its own is allowed through, so a name added to the
-        /// table but not yet to the menu still pins rather than silently vanishing.
-        public static bool LandmarkEnabled(string kind)
-        {
-            if (string.IsNullOrEmpty(kind))
-                return true;
-            return !LandmarkToggles.TryGetValue(kind, out ConfigEntry<bool> entry) || entry.Value;
-        }
-
-        public static bool OreTypeEnabled(string oreType)
-        {
-            if (string.IsNullOrEmpty(oreType))
-                return true;
-            return !OreTypeToggles.TryGetValue(oreType, out ConfigEntry<bool> entry) || entry.Value;
+            return !SubtypeToggles.TryGetValue(KindKey(category, kind), out ConfigEntry<bool> entry)
+                   || entry.Value;
         }
 
         private void Awake()
@@ -173,67 +166,33 @@ namespace CarturMapPins
                 "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
                 iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
 
+            // Ore switches come from the catalog's own token table rather than from Subtypes,
+            // so an ore type the detector recognises always has a switch - including one a mod
+            // adds that the icon table has never heard of.
             foreach ((string _, string type) in PinCatalog.OreTokens)
-            {
-                if (OreTypeToggles.ContainsKey(type))
-                    continue;   // Iron appears twice (ore + scrap) and needs only one switch
-                OreTypeToggles[type] = Config.Bind("Ore Types", type, true,
-                    $"Pin {type} deposits. Requires the Ore category to be enabled.");
-            }
+                BindKindToggle(PinCategory.Ore, "Ore Types", type, $"Pin {type} deposits.");
 
             LootedChestIcon = Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. -1 leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1)));
 
-            // These categories get an icon per kind, not one for the whole category.
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
-                BindSubtypeIcon("Dungeon Types", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Camps))
-                BindSubtypeIcon("Camp Types", e);
-            // "Ore Icons" rather than "Ore Types": that section already holds one bool per ore
-            // type, and a section+key pair can only carry one type of value.
+            // A switch and an icon for every kind the mod can tell apart. Both are generated from
+            // the tables that do the matching, so the menu and the matcher cannot drift.
+            BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons);
+            BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps);
+            BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
+            BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
+            BindKinds(PinCategory.Spawner, "Spawner", Subtypes.Spawners);
+            BindKinds(PinCategory.Pickable, "Pickable", Subtypes.Pickables);
+            BindKinds(PinCategory.Landmark, "Landmark", Subtypes.Landmarks);
+            BindKinds(PinCategory.Prop, "Prop", Subtypes.Props);
+            // Ruins that never get a pin of their own - their chest carries the name and icon, so
+            // switching one off means those ruins stop being pinned at all.
+            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
+            // Ore icons only: the switches above came from the catalog.
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Ores))
                 BindSubtypeIcon("Ore Icons", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Bosses))
-                BindSubtypeIcon("Boss Types", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Traders))
-                BindSubtypeIcon("Trader Types", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Spawners))
-                BindSubtypeIcon("Spawner Types", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Pickables))
-                BindSubtypeIcon("Pickable Types", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Landmarks))
-                BindSubtypeIcon("Landmark Icons", e);
-            // Ruins that never get a pin of their own - their chest carries the name and icon.
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.ChestSites))
-                BindSubtypeIcon("Chest Sites", e);
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Props))
-                BindSubtypeIcon("Prop Types", e);
-
-            // One switch per camp kind, generated from the same table that detects them. Camps
-            // pin by name now, which turned the category from one that matched a single location
-            // into the densest one in the mod - so it gets the same per-kind control Landmarks
-            // has rather than being all or nothing.
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Camps))
-            {
-                if (CampToggles.ContainsKey(e.Name))
-                    continue;
-                bool on = !CampsOffByDefault.Contains(e.Name);
-                CampToggles[e.Name] = Config.Bind("Camp Types", e.Name, on,
-                    $"Pin {e.Name}s. Requires the Camp category to be enabled."
-                    + (on ? "" : " OFF by default - they are the most common location in the Black Forest."));
-            }
-
-            // One switch per landmark kind, generated from the same table that detects them, so a
-            // kind can never exist in the matcher without a matching switch in the menu.
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Landmarks))
-            {
-                if (LandmarkToggles.ContainsKey(e.Name))
-                    continue;
-                LandmarkToggles[e.Name] = Config.Bind("Landmark Types", e.Name, true,
-                    $"Pin {e.Name} landmarks. Requires the Landmark category to be enabled.");
-            }
 
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 "Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.");
@@ -301,6 +260,27 @@ namespace CarturMapPins
         /// Icon per dungeon/camp kind, keyed by subtype name.
         private static readonly Dictionary<string, ConfigEntry<PinIcon>> SubtypeIcons =
             new Dictionary<string, ConfigEntry<PinIcon>>();
+
+        /// One switch and one icon per kind in a table.
+        private void BindKinds(PinCategory category, string name, Subtypes.Entry[] table)
+        {
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(table))
+            {
+                BindKindToggle(category, name + " Types", e.Name, $"Pin {e.Name}.");
+                BindSubtypeIcon(name + " Icons", e);
+            }
+        }
+
+        private void BindKindToggle(PinCategory category, string section, string kind, string description)
+        {
+            string key = KindKey(category, kind);
+            if (SubtypeToggles.ContainsKey(key))
+                return;
+            bool on = !KindsOffByDefault.Contains(key);
+            SubtypeToggles[key] = Config.Bind(section, kind, on,
+                $"{description} Requires the {category} category to be enabled."
+                + (on ? "" : " OFF by default."));
+        }
 
         private void BindSubtypeIcon(string section, Subtypes.Entry entry)
         {

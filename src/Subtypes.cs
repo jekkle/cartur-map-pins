@@ -228,6 +228,24 @@ namespace CarturMapPins
             E("serpent", "Serpent", 29),
         };
 
+        /// The named, hand-placed minibosses, matched on the creature their spawner spawns.
+        ///
+        /// These are not the Spawner category. A greydwarf nest is scenery you clear on the way
+        /// past and there are 103 spawner prefabs, which is why that category is off by default -
+        /// but Lord Reto and Hildir's three are single, named, fought-once creatures, and a
+        /// category being too noisy to enable is a poor reason for them never to appear.
+        ///
+        /// Matched before Subtypes.Spawners, which would otherwise take them: Lord Reto's prefab
+        /// contains "charred", Brenna's "skeleton", and Zil and Thungr's "goblin".
+        public static readonly Entry[] Minibosses =
+        {
+            E("charred_melee_dyrnwyn", "Lord Reto", 130),
+            E("skeleton_hildir", "Brenna", 18),          // bone pile with a sword
+            E("goblinbrute_hildir", "Zil & Thungr", 4),  // fuling banner, for the pair
+            E("cultist_hildir", "Geirrhafa", 17),        // she is a fenring cultist
+            E("fallenvalkyrie", "Fallen Valkyrie", 132),
+        };
+
         /// Matched against the pickable's prefab name, so a bush gets its own berry rather than
         /// every berry sharing one glyph. Names confirmed from `carturpins_labels Pickable`.
         ///
