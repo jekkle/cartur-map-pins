@@ -39,6 +39,22 @@ Per kind, so Sunken Crypts can tick and Frost Caves need not.
 Passage and Kall Fimbulbringer's altar, the Deep North village, the Ancient Altar.
 Mork Halla and Bear Cave were pinning as a generic staircase.
 
+**Every pin can be coloured, resized and faded.** Shift-click a pin: eight colours,
+a size slider and an opacity slider, alongside the icon grid and the name. Nothing
+applies until you confirm, and Cancel throws it away. Works on pins you placed by
+hand as well as ones the mod placed.
+
+**Ore pins are coloured by what the ore is.** Copper warm brown, tin pale, iron dull
+grey, flametal orange, sulphur yellow. Obsidian, tar and black marble are lifted
+towards grey rather than drawn true - the map is dark, and a black pin on it is a
+hole rather than a marker. A colour you set yourself always wins.
+
+**Crowded pins shrink, and piled-up names get out of each other's way.** Pins sitting
+on top of each other scale down, never below half. Where two labels overlap the rarer
+name is kept, because CHEST appears forty times and says less than CRYPT - and a pin
+under your cursor always shows its name, so nothing is unreadable for long. Icons are
+never moved: a pin stays where the thing is.
+
 **A switch for every kind.** Not just per category: every dungeon, camp, boss,
 trader, spawner, miniboss, landmark, plant and ore type has its own on/off switch,
 generated from the same tables that do the matching — so the menu can never fall
@@ -49,12 +65,18 @@ behind what the mod recognises.
 **Shift-click a pin to rename it or change its icon.** It always worked; nothing said
 so. The map now says so, above the icon grid.
 
+**The icon picker is rebuilt.** It sits beside vanilla's own pin buttons instead of
+across the map from them, every cell has a border that turns gold when selected and
+lifts under the cursor, and the grid scrolls more than twice as fast. Old pin names
+that still read as "$piece_chestwood" are resolved on load.
+
 Fixes: the seven guardian stones at the spawn temple put seven pins on top of each
 other and are now left to vanilla's own marker · a vegvisir standing inside a
 location no longer outranks the location, so a Morgen Hole is a dungeon rather than a
 runestone · pin labels are translated instead of reading "$enemy_eikthyr" ·
 spawner pins from older versions repair their own icons when you walk past · the
-icon grid scrolls half again as fast.
+icon grid scrolls half again as fast · carturpins_reicon resets every pin the mod
+placed to its category's current icon, for anyone who changes their icon settings.
 
 ## 1.2.2
 

@@ -33,8 +33,12 @@ carpet the map and bloat your save. Turn them on if you want them.
 ## Changing a pin's icon
 
 **Shift-click any pin on the map** to open an editor beside it: rename it, pick a
-different icon from the grid, confirm. It works on pins this mod placed and on
-pins you placed yourself.
+different icon, choose a colour, set its size and opacity, then confirm - or cancel
+and nothing changes. It works on pins this mod placed and on pins you placed
+yourself.
+
+Ore pins are already coloured by what the ore is, so copper reads as copper without
+you doing anything.
 
 There is also an icon grid on the large map, next to vanilla's own row of pin
 buttons, for choosing what a pin you place by hand will look like. The old icon
@@ -53,6 +57,9 @@ icons if you prefer them. Nothing chooses them for you.
 - **Mined-out ore pins remove themselves.** Deposits never respawn, so a pin on a
   worked-out node is a walk to an empty hole. Only pins this mod placed, and only
   while the game has that area loaded.
+- **Crowded pins get out of each other's way.** Pins stacked on one spot shrink, never
+  below half, and where two names overlap the rarer one is kept - CHEST appears forty
+  times and says less than CRYPT. Point at a pin and its name always shows.
 - **Dungeons tick off once you have emptied them** — every chest empty and every
   mud pile mined, shown with the same tick you would use by hand.
 - **Dungeon interiors don't leak.** Valheim builds crypt interiors 5000m
@@ -66,12 +73,16 @@ icons if you prefer them. Nothing chooses them for you.
 
 ## Commands
 
-- `carturpins_clear` — removes every pin this mod placed. Hand-placed pins are
+- `carturpins_clear` — removes every pin this mod placed.
+- `carturpins_reicon` — resets every pin this mod placed to its category's current
+  icon. Useful after changing icon settings. Hand-placed pins are
   left alone.
 - `carturpins_count` — how many are on record.
 - `carturpins_forget_missing` — forgets records whose pin is gone, so those
   places can be pinned again.
 - `carturpins_clear` — removes every pin this mod placed.
+- `carturpins_reicon` — resets every pin this mod placed to its category's current
+  icon. Useful after changing icon settings.
 
 ![Icons added in 1.3.0](https://raw.githubusercontent.com/jekkle/cartur-map-pins/main/docs/images/icons-new.png)
 

@@ -57,8 +57,6 @@ namespace CarturMapPins
         public static Style For(Vector3 pos) =>
             Styles.TryGetValue(KeyFor(pos), out Style style) ? style : Default;
 
-        public static bool Any => Styles.Count > 0 || OreTints.Count > 0;
-
         public static void Set(Vector3 pos, Style style)
         {
             long key = KeyFor(pos);
