@@ -228,13 +228,40 @@ namespace CarturMapPins
         /// Only the current sheet honours the override file: swapping the art for the sheet the
         /// mod draws from is a supported thing to do, but 1.2.2's sheet exists to keep old pins
         /// looking the way they always did, and an override there would defeat the point.
+        /// The bundled sheet, ignoring any override. Used when an override turns out to be
+        /// unusable, so a bad file degrades to the shipped art instead of to nothing.
+        private static Texture2D LoadSheetFromResource(string resource)
+        {
+            using (Stream stream = Assembly.GetExecutingAssembly()
+                       .GetManifestResourceStream("CarturMapPins." + resource))
+            {
+                if (stream == null)
+                {
+                    Plugin.Log.LogError($"Embedded icon sheet {resource} not found.");
+                    return null;
+                }
+
+                var png = new byte[stream.Length];
+                stream.Read(png, 0, png.Length);
+
+                var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (!LoadImageViaReflection(tex, png))
+                    return null;
+
+                tex.wrapMode = TextureWrapMode.Clamp;
+                tex.filterMode = FilterMode.Bilinear;
+                return tex;
+            }
+        }
+
         private static Texture2D LoadSheet(string resource = "pin_icons.png")
         {
             bool current = resource == "pin_icons.png";
             string overridePath = Path.Combine(BepInEx.Paths.ConfigPath, "carturmappins_icons.png");
             byte[] png;
 
-            if (current && File.Exists(overridePath))
+            bool overriding = current && File.Exists(overridePath);
+            if (overriding)
             {
                 png = File.ReadAllBytes(overridePath);
                 Plugin.Log.LogInfo($"Loading icon sheet override from {overridePath}");
@@ -257,6 +284,26 @@ namespace CarturMapPins
             var tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             if (!LoadImageViaReflection(tex, png))
                 return null;
+
+            // An override drawn for an older sheet cannot cover this one, and slicing it anyway
+            // returns null sprites for every index past the end - so the map silently loses those
+            // icons. 1.2.2's sheet was 83 icons on a 2048x2048 grid, which yields ten rows of
+            // 204.8px cells: a hundred cells against the 153 this version needs. Say so and use
+            // the bundled sheet, rather than half-applying somebody's artwork.
+            if (overriding)
+            {
+                int columns = SheetColumns;
+                float pitch = tex.width / (float)columns;
+                int capacity = pitch > 0f ? columns * Mathf.FloorToInt(tex.height / pitch) : 0;
+                if (capacity < IconCount)
+                {
+                    Plugin.Log.LogWarning(
+                        $"The icon sheet override at {overridePath} holds {capacity} icons and this version needs {IconCount} " +
+                        $"- it was drawn for an older sheet. Using the bundled one instead; redraw it at {SheetColumns} columns " +
+                        "with enough rows, or remove the file.");
+                    return LoadSheetFromResource(resource);
+                }
+            }
 
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.filterMode = FilterMode.Bilinear;
