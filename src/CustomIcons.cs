@@ -110,6 +110,8 @@ namespace CarturMapPins
                     added++;
                 }
 
+                ReplaceBedSprite(map);
+
                 _registeredFor = map;
                 Plugin.Log.LogInfo($"Registered {added} custom pin icons as types {FirstCustomType}-{FirstCustomType + _sprites.Length - 1}.");
             }
@@ -119,6 +121,49 @@ namespace CarturMapPins
                 _sprites = null;
                 _registeredFor = null;
             }
+        }
+
+        /// Repoints vanilla's own spawn-point marker at the house icon.
+        ///
+        /// Minimap keeps one m_spawnPointPin and moves it when you claim a different bed, so it
+        /// marks where you respawn rather than where you have lived. The mod's own Home pins mark
+        /// the beds and stay put - and since the two sit on the same spot for the bed you are
+        /// currently using, vanilla's bed glyph on top of our house would just be a double.
+        ///
+        /// Swapping the sprite in m_icons rather than touching the pin: the pin is re-created and
+        /// re-positioned by UpdateProfilePins on its own schedule, and anything done to the pin
+        /// itself would have to be redone every time it does that.
+        private static void ReplaceBedSprite(Minimap map)
+        {
+            if (!Plugin.ReplaceBedMarker.Value)
+                return;
+
+            Plugin.CategorySettings home = Plugin.SettingsFor(PinCategory.Home);
+            if (home == null)
+                return;
+
+            Sprite sprite = SpriteFor((int)home.IconIndex.Value);
+            if (sprite == null)
+                return;
+
+            // By index and written back: SpriteData is a struct, so the loop variable is a copy
+            // and assigning to it changes nothing that survives the iteration.
+            for (int i = 0; i < map.m_icons.Count; i++)
+            {
+                if (map.m_icons[i].m_name != Minimap.PinType.Bed)
+                    continue;
+                Minimap.SpriteData data = map.m_icons[i];
+                data.m_icon = sprite;
+                map.m_icons[i] = data;
+                return;
+            }
+        }
+
+        private static Sprite SpriteFor(int iconIndex)
+        {
+            if (_sprites == null || iconIndex < 0 || iconIndex >= _sprites.Length)
+                return null;
+            return _sprites[iconIndex];
         }
 
         private static bool AlreadyRegistered(Minimap map, Minimap.PinType type)

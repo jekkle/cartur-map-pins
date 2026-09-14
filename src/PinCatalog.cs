@@ -20,7 +20,8 @@ namespace CarturMapPins
         Wisp,
         Landmark,
         Prop,
-        Miniboss
+        Miniboss,
+        Home
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the

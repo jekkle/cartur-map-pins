@@ -865,6 +865,18 @@ namespace CarturMapPins
             return Plugin.SubtypeIconFor(subtype, settings);
         }
 
+        /// Marks a bed as home. Called when the local player claims one as their spawn.
+        ///
+        /// Goes straight to TryPin rather than through the queue: the queue exists to hold objects
+        /// until the player is close enough to have discovered them, and you are standing on this
+        /// one. Dedupe handles sleeping in the same bed twice.
+        internal static void PinHome(Vector3 pos, string label)
+        {
+            if (Minimap.instance == null)
+                return;
+            TryPin(PinCategory.Home, null, pos, label);
+        }
+
         private static void TryPin(PinCategory category, string subtype, Vector3 pos, string label)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);

@@ -159,6 +159,9 @@ namespace CarturMapPins
             Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
                 "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
                 iconIndex: 45);   // stone circle; per-kind icons override it
+            Bind(PinCategory.Home, true, Minimap.PinType.Bed, 5f,
+                "Marks a bed as home when you claim it as your spawn. Vanilla marks only your current spawn and moves that one marker when you sleep somewhere else, so an outpost you slept in last week leaves nothing behind - these pins stay.",
+                iconIndex: 70);   // house with a bed in it
             Bind(PinCategory.Miniboss, true, Minimap.PinType.Boss, 5f,
                 "Named minibosses - Lord Reto in the Ashlands, and Hildir's three. Single hand-placed creatures you fight once, so they are on even though the Spawner category they would otherwise sit in is off.",
                 iconIndex: 130);  // Lord Reto; per-miniboss icons override this
@@ -174,6 +177,9 @@ namespace CarturMapPins
             // adds that the icon table has never heard of.
             foreach ((string _, string type) in PinCatalog.OreTokens)
                 BindKindToggle(PinCategory.Ore, "Ore Types", type, $"Pin {type} deposits.");
+
+            ReplaceBedMarker = Config.Bind("Home", "ReplaceBedMarker", true,
+                "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
 
             ForgetMinedOre = Config.Bind("Ore", "ForgetMined", true,
                 "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
@@ -313,6 +319,7 @@ namespace CarturMapPins
 
         public static ConfigEntry<PinIcon> LootedChestIcon;
         public static ConfigEntry<bool> ForgetMinedOre;
+        public static ConfigEntry<bool> ReplaceBedMarker;
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {

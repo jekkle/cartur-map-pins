@@ -120,6 +120,33 @@ namespace CarturMapPins
         private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
     }
 
+    /// Marks a bed as home when you claim it.
+    ///
+    /// Bed.SetOwner is the moment a bed becomes yours - it is what the game calls when you sleep
+    /// in one that isn't already yours, and it carries the player id, so somebody else claiming a
+    /// bed on a shared server never puts a pin on your map.
+    ///
+    /// A Postfix: the pin should follow the claim succeeding, and nothing here should be able to
+    /// stop you setting a spawn point.
+    // By name, not nameof: SetOwner is private, which is also why the parameter is matched by
+    // its real name "uid" - Harmony binds a Postfix argument to the original's parameter of the
+    // same name.
+    [HarmonyPatch(typeof(Bed), "SetOwner")]
+    internal static class Patch_Bed_SetOwner
+    {
+        private static void Postfix(Bed __instance, long uid)
+        {
+            Player player = Player.m_localPlayer;
+            if (player == null || __instance == null || uid != player.GetPlayerID())
+                return;
+
+            // The spawn point rather than the bed's own transform: it is where the game will put
+            // you, which is the thing worth walking back to, and it is the position vanilla's own
+            // marker uses - so the two land on the same spot and read as one house.
+            PinPlacer.PinHome(__instance.GetSpawnPoint(), "Home");
+        }
+    }
+
     /// Removes vanilla's own boss-altar marker wherever we have placed ours, so enabling the
     /// BossAltar category doesn't leave two icons stacked on the same altar.
     ///
