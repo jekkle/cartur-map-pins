@@ -167,4 +167,6 @@ if ($changelog) {
     Write-Host "changelog: added"
 }
 
-Write-Host "https://www.nexusmods.com/$Game/mods/$ModId?tab=files"
+# Braces around ModId: PowerShell reads ? as part of a variable name, so "$ModId?tab"
+# resolves to an empty variable rather than the id followed by a query string.
+Write-Host "https://www.nexusmods.com/$Game/mods/${ModId}?tab=files"
