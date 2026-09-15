@@ -51,6 +51,12 @@ set is still in that grid, below the current one — pins you placed before the
 art changed keep exactly the picture you gave them, and you can still pick those
 icons if you prefer them. Nothing chooses them for you.
 
+**Move it wherever you like.** There is a small gold square in the grid's top left
+corner, beside the "shift click icon to change" line. Drag that and the whole panel
+follows, and it stays where you put it next time you play. Only the square drags,
+so clicking an icon still picks the icon — and it cannot be lost off the edge of the
+screen, so drag it as far as you like.
+
 ## Finding a pin
 
 Type in the search box across the top of the map. Everything that does not match

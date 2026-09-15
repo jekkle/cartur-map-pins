@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.5
+
+- **The icon picker can be moved.** There is a small gold square in its top left corner,
+  next to the "shift click icon to change" line. Drag it and the panel goes wherever you
+  put it, and stays there next time you play. Only that square drags, so clicking an icon
+  still picks the icon. It cannot be lost off the edge of the screen: let go past an edge
+  and it comes back far enough to grab again, and the same happens if you later play at a
+  smaller resolution than the one you positioned it at.
+
 ## 1.3.4
 
 - Page only - the plugin is unchanged from 1.3.3, so there is nothing new to see in
