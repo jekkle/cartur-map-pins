@@ -93,6 +93,7 @@ namespace CarturMapPins
             _canvasCamera = IconGrid.CameraFor(_panel);
 
             AddCaption(_panel);
+            AddDragHandle(_panel);
             BuildSearchBar(map);
 
             _highlights.Clear();
@@ -107,6 +108,12 @@ namespace CarturMapPins
                 for (int i = 0; i < _highlights.Count; i++)
                     IconGrid.SetSelected(_highlights[i], i == index);
             }
+
+            // Also clamped here, not only on release: the position comes out of the config, and
+            // a config written at one resolution can be off screen at another. Without this a
+            // panel dragged into the corner of a big monitor would be stranded and unreachable
+            // the next time the game ran in a smaller window.
+            ClampToScreen();
 
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons plus {CustomIcons.LegacyCount} from the old sheet.");
         }
@@ -128,8 +135,10 @@ namespace CarturMapPins
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            rt.offsetMin = new Vector2(8f, -CaptionHeight);
-            rt.offsetMax = new Vector2(-8f, -2f);
+            // Left inset clears the grab handle, right inset matches it so the sentence stays
+            // centred in what is left rather than drifting off-centre under the handle.
+            rt.offsetMin = new Vector2(HandleSize + 10f, -CaptionHeight);
+            rt.offsetMax = new Vector2(-(HandleSize + 10f), -2f);
 
             TextMeshProUGUI text = Fonts.AddLabel(go);
             text.text = "SHIFT CLICK ICON TO CHANGE";
@@ -137,6 +146,77 @@ namespace CarturMapPins
             text.color = new Color(0.95f, 0.92f, 0.82f, 0.85f);
             text.alignment = TextAlignmentOptions.Center;
             text.raycastTarget = false;
+        }
+
+        private const float HandleSize = 12f;
+
+        /// A grab handle in the caption row, top left.
+        ///
+        /// Small and in the corner because the panel is mostly a grid of things you click, and a
+        /// drag surface over any of that would mean every misjudged click on an icon nudged the
+        /// panel instead of choosing the icon. Gold, matching the selected-icon border, so it
+        /// reads as part of this mod's furniture rather than as a stray square.
+        ///
+        /// Where it ends up is written to MapPickerRight / MapPickerBottom, the same two settings
+        /// that have always positioned this panel - so the position survives a restart and can
+        /// still be typed in by hand if somebody drags it somewhere daft.
+        private static void AddDragHandle(GameObject panel)
+        {
+            var go = new GameObject("DragHandle");
+            go.transform.SetParent(panel.transform, false);
+
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(0f, 1f);
+            rt.pivot = new Vector2(0f, 1f);
+            rt.sizeDelta = new Vector2(HandleSize, HandleSize);
+            rt.anchoredPosition = new Vector2(5f, -4f);
+
+            Image box = go.AddComponent<Image>();
+            box.color = IconGrid.Selected;
+            box.raycastTarget = true;
+
+            go.AddComponent<PanelDrag>().Init(_panelRect, CommitPosition);
+            go.AddComponent<CellHover>();
+        }
+
+        /// Turns where the panel now sits back into the two insets the config stores.
+        ///
+        /// The panel is anchored to the bottom-right corner with a top-right pivot, so its
+        /// anchoredPosition is already "how far in from that corner" - negative going left, and
+        /// positive going up. The settings are written as plain distances, which is why one is
+        /// negated and the other is not.
+        private static void CommitPosition()
+        {
+            if (_panelRect == null)
+                return;
+
+            ClampToScreen();
+
+            Vector2 pos = _panelRect.anchoredPosition;
+            Plugin.MapPickerRight.Value = -pos.x;
+            Plugin.MapPickerBottom.Value = pos.y;
+        }
+
+        /// Pulls the panel back until the caption row is on screen again.
+        ///
+        /// Dragged fully past an edge it would be unreachable, and the handle is the only way to
+        /// move it - so the one thing that must never leave the screen is the strip the handle
+        /// sits in. Everything below it may hang off the bottom if somebody wants it there.
+        private static void ClampToScreen()
+        {
+            var corners = new Vector3[4];
+            _panelRect.GetWorldCorners(corners);
+            float minX = corners[0].x, maxX = corners[2].x, maxY = corners[2].y;
+
+            float dx = 0f, dy = 0f;
+            if (maxX > Screen.width) dx -= maxX - Screen.width;
+            if (minX + dx < 0f) dx += -(minX + dx);
+            if (maxY > Screen.height) dy -= maxY - Screen.height;
+            if (maxY + dy < CaptionHeight) dy += CaptionHeight - (maxY + dy);
+
+            if (dx != 0f || dy != 0f)
+                _panelRect.position += new Vector3(dx, dy, 0f);
         }
 
         private static GameObject _searchBar;
