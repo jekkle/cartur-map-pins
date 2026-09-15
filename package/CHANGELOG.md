@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.4
+
+- Page only - the plugin is unchanged from 1.3.3, so there is nothing new to see in
+  game. The description now covers the things 1.3.3 added but never wrote down:
+  resetting a world's pins, why the settings list got shorter, and that icon choices
+  from 1.2.2 come back by themselves. Also adds a link to Cartur's Flooring.
+
 ## 1.3.3
 
 - **Your icon settings from 1.2.2 come back.** 1.3.0 replaced the icon sheet, and the

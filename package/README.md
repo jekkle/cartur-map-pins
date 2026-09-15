@@ -5,7 +5,8 @@
 **More from Cartur:** [HD Blood](https://thunderstore.io/c/valheim/p/Cartur/Carturs_HD_Blood/) ·
 [Follow Command](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Follow_Command/) ·
 [Compass and Clock](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Compass_and_Clock/) ·
-[Safe Stamina](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Safe_Stamina/)
+[Safe Stamina](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Safe_Stamina/) ·
+[Flooring](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Flooring/)
 
 Pins the world onto your map as you explore it, labelled, so you can find your
 way back to things without writing them down.
@@ -115,12 +116,43 @@ Manually: drop `CarturMapPins.dll` into `BepInEx/plugins`.
   in behind you.
 - Per category: `Enabled`, its icon, and a `DedupeRadius` — how far apart two of
   the same thing have to be to earn separate pins.
-- `Chest / LootedIconIndex` — the icon an emptied chest switches to. Set it to
-  -1 to leave looted chests alone.
+- `Chest / LootedIcon` — the icon an emptied chest switches to. Leave it on
+  Default to keep looted chests on the normal chest icon.
+- `General / ApplyPreset` — sets every switch at once. Minimal pins the few things
+  worth walking back to, Everything turns on all of it, Defaults restores a fresh
+  install. It is a button, not a state: it goes back to None once applied.
+- `General / ResetPins` — see below.
+
+**Most of the list is hidden until you ask for it.** There is a switch and an icon
+for every single kind of thing this mod knows about, which is about 290 settings on
+their own. They sit behind the **Advanced** tick box at the top of the settings
+window, leaving the seventeen categories and their icons in view. Nothing is missing
+— tick Advanced and it is all there, under the same names.
+
+**Coming from 1.2.2?** Your icon choices come back on the next launch. 1.3.0
+replaced the icon sheet and the names in your config stopped existing, so anything
+you had picked quietly fell back to the default. Those names are read again now:
+most become the same icon redrawn, and the handful the new sheet has no answer for
+keep their original artwork, which is still included. Nothing to do.
 
 **Boss altars are off by default.** Vanilla already pins them. Its version is
 weaker — unsaved, unnamed, no hover label — so turn this on if you want a proper
 named pin, and leave it off if you'd rather not have two markers stacked.
+
+## Starting a world's pins over
+
+`General / ResetPins`, in the settings window. It removes every pin this mod placed
+and forgets them, so each one is pinned again as you rediscover it — useful after
+changing which categories you want, or if a world's pins have drifted out of step
+with what you actually care about.
+
+Pins you placed by hand are untouched, and so is any colour or size you set through
+the pin editor. Locations come back within seconds; ore, chests and beehives
+reappear when their part of the world next loads, so walk away and back, or reload.
+
+It is a dropdown rather than a tick box on purpose, and the option is spelled out in
+full, because a stray click here would throw away a map somebody spent a long time
+filling in.
 
 ## If you use badgers Valheim Skies
 
