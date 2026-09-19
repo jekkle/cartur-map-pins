@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.6
+
+- **No more duplicate pins.** The mod kept its "already pinned here" list in a file beside
+  the config, while the pins themselves live in your character save. Reinstalling the mod,
+  or anything else that clears the config folder, emptied that list while every pin it
+  described was still on your map - so the next time you walked past a deposit it pinned it
+  a second time. It now asks the map itself before placing, and takes any pin it finds back
+  into the list, so a lost list repairs itself instead of doubling everything up.
+
 ## 1.3.5
 
 - **The icon picker can be moved.** There is a small gold square in its top left corner,

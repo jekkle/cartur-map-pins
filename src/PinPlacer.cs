@@ -1050,6 +1050,19 @@ namespace CarturMapPins
             if (!Plugin.SubtypeEnabled(category, subtype))
                 return false;
 
+            // Second dedupe, against the map itself. The record above is a side-car file and the
+            // pins are in the character save, so the two can come apart: delete or reset the
+            // config folder - which is what reinstalling or toggling the mod in a mod manager
+            // does - and the record is empty while every pin it describes is still on the map.
+            // Placing then stacks a second pin on every deposit the player already has. The map
+            // is the authority on what is already pinned, so ask it before adding, and take the
+            // existing pin into the record so the answer is cheap from here on.
+            if (ExistsOnMap(pos, pinType, settings.DedupeRadius.Value))
+            {
+                PinRecord.Add(key, pos);
+                return true;
+            }
+
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
             Minimap.instance.AddPin(pos, pinType, Labels.Localize(label) ?? string.Empty,
@@ -1058,6 +1071,29 @@ namespace CarturMapPins
             PinRecord.Add(key, pos);
             Plugin.Log.LogInfo($"Pinned {key} '{label}' at {pos.x:F0},{pos.z:F0}");
             return true;
+        }
+
+        /// True when the map already carries a pin of this icon within `radius`. Matched on icon
+        /// and position rather than on name, because a name can be edited by hand and the icon
+        /// cannot - and because that is the same question vanilla's own private HaveSimilarPin
+        /// asks, just at a radius that suits an ore field rather than its hardcoded 1m.
+        private static bool ExistsOnMap(Vector3 pos, Minimap.PinType pinType, float radius)
+        {
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(Minimap.instance);
+            if (pins == null)
+                return false;
+
+            float sqr = radius * radius;
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || pin.m_type != pinType)
+                    continue;
+                float dx = pin.m_pos.x - pos.x;
+                float dz = pin.m_pos.z - pos.z;
+                if (dx * dx + dz * dz <= sqr)
+                    return true;
+            }
+            return false;
         }
 
         private static float DistanceXZ(Vector3 a, Vector3 b)
