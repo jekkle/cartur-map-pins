@@ -1,5 +1,66 @@
 # Changelog
 
+## 1.4.0
+
+- **The map stays readable when it fills up.** An ore field is a dozen separate deposits
+  and so was a dozen identical pins, which at map scale is one white blob you can neither
+  count nor click. Pins with the same name standing on the same patch of ground now draw
+  as one. Zoom in and they separate again - nothing is deleted, and every pin is still
+  saved and still searchable.
+
+- **Pins shrink as you zoom out, and names step aside.** Full size until the map is 15%
+  zoomed out, then down to 60% at the whole-world view; names stop being drawn past 20%.
+  Both are settings. The game has a setting of its own for hiding names and it has never
+  worked - it is set to a zoom further out than the map can reach - so this is the first
+  time they go away at all.
+
+- **No more flickering when you drag the map.** Crowding used to be measured between icons
+  where they landed on screen, so panning a single pixel slid every pin towards a different
+  cell and the whole map re-decided what to draw. It is measured in world metres now. Drag
+  as much as you like: the only thing that changes what you see is the zoom.
+
+- **Pins fade instead of popping.** Sizes glide and pins fade in and out rather than
+  appearing and vanishing between frames.
+
+- **Icons without names.** A switch to draw pins with no label under them, for people who
+  want the map to read as icons. The names are still there and still searchable - they are
+  simply not drawn, so turning it back on brings all of them back.
+
+- **Hide pins beyond a distance.** Off by default. Set it to a few thousand metres to keep
+  the map to the part of the world you are actually in.
+
+- **Emptied chests fade.** A looted chest pin now draws at half opacity, so a chest you
+  have been through reads as dealt with without losing its place on the map.
+
+- **Death pins clear themselves.** The game drops a marker where you died and never removes
+  it, so a long save collects markers for graves that are long gone. Loot the grave and its
+  marker goes with it.
+
+- **Pin names follow the language you play in.** They always came out in your language when
+  they were placed, but the text was then written into the save, so switching language left
+  every existing pin in the old one. They are re-worded when you change it. A pin you have
+  renamed yourself is never touched.
+
+- **Fixed: a second character saw an empty map and nothing was ever pinned again.** The
+  record of "we already pinned this" was one file for every world and every character. A
+  second character walking into a world the first had explored was told everything in it
+  was already pinned, on a map that was empty. Records are kept per world per character
+  now, and the old shared file is handed to the first character that loads rather than
+  being thrown away.
+
+- **Fixed: turning custom icons off could destroy which icon a pin had.** With them off, or
+  if the icon sheet failed to load, the game rewrote every custom-icon pin to a plain
+  marker - and then saved it that way, so turning them back on could not recover it. Off
+  now means "do not draw them", never "destroy them".
+
+- **Fixed: two icons on your bed, and on traders.** The game draws its own unnamed marker
+  on both, underneath ours. It is removed where ours stands, so one place reads as one pin
+  instead of two overlapping ones that both shrank for being crowded.
+
+- **A failed patch no longer takes the rest of your mods down.** If a game update moves
+  something this mod hooks, it now says so in the log and steps aside instead of stopping
+  the whole mod loader.
+
 ## 1.3.6
 
 - **No more duplicate pins.** The mod kept its "already pinned here" list in a file beside
