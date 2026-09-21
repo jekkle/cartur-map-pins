@@ -1,0 +1,107 @@
+[size=4][b]Pins the world onto your map as you explore it, labelled, so you can find your way back to things without writing them down.[/b][/size]
+
+Walk near an ore deposit, a crypt entrance, a wild beehive, an abandoned chest - it lands on your map with a name on it. The pins are saved to your character like hand-placed ones, and they stay put after you clear the node, so you can tick them off yourself when you are done.
+
+[size=4][b]What gets pinned[/b][/size]
+
+Ore deposits, dungeon and cave entrances, Fuling villages, Greydwarf camps and Charred fortresses, wild beehives, runestones, abandoned chests, named minibosses, leviathans, traders, maypoles, your bed as home, spawners, wisp fountains, high-value pickables, boss altars, and Deep North dungeons by name.
+
+Every category is a switch. Berries, mushrooms, crops and surface flint are [b]off by default[/b] - they would carpet the map and bloat your save. Turn them on if you want them.
+
+[size=4][b]Changing a pin's icon[/b][/size]
+
+[b]Shift-click any pin on the map[/b] to open an editor beside it: rename it, pick a different icon, choose a colour, set its size and opacity, then confirm - or cancel and nothing changes. It works on pins this mod placed and on pins you placed yourself.
+
+Ore pins are already coloured by what the ore is, so copper reads as copper without you doing anything.
+
+There is also an icon grid on the large map, next to vanilla's own row of pin buttons, for choosing what a pin you place by hand will look like. Drag the small gold square in its top left corner and the whole panel follows, and it stays where you put it next time you play. Only the square drags, so clicking an icon still picks the icon.
+
+[size=4][b]Finding a pin[/b][/size]
+
+Type in the search box across the top of the map. Everything that does not match fades, so you can see where the copper is without losing the shape of the map around it.
+
+[size=4][b]Notable bits[/b][/size]
+
+[list]
+[*][b]153 icons to pick from.[/b] Every category and every kind under it takes its own icon. Vanilla pin types still work if you would rather stay with them.[/*]
+[*][b]Emptied chests change icon.[/b] Loot a chest and its pin switches to a looted marker. Refill it and it switches back.[/*]
+[*][b]Mined-out ore pins remove themselves.[/b] Deposits never respawn, so a pin on a worked-out node is a walk to an empty hole.[/*]
+[*][b]Dungeons tick off[/b] once every chest is empty and every mud pile mined, with the same tick you would use by hand.[/*]
+[*][b]Crowded pins get out of each other's way.[/b] Pins stacked on one spot shrink, never below half, and where two names overlap the rarer one is kept - CHEST appears forty times and says less than CRYPT. Point at a pin and its name always shows.[/*]
+[*][b]Named labels, properly translated.[/b] Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language.[/*]
+[*][b]Nothing is hardcoded to a prefab name.[/b] What counts as ore, a beehive or a pickable is built at runtime from what components an object has, so it survives game updates and picks up modded content for free.[/*]
+[/list]
+
+[size=4][b]Config[/b][/size]
+
+BepInEx/config/com.jekkle.valheim.carturmappins.cfg, written on first run.
+
+[list]
+[*][b]DiscoveryRadius[/b] (60) - metres. How close you must get before something pins.[/*]
+[*][b]ShowPinLabels[/b] (true) - draw the name under each pin.[/*]
+[*][b]HideCollidingLabels[/b] (true) - stop names being drawn on top of each other.[/*]
+[*][b]HideLabelsBeyondZoom[/b] (0.5) - hide names once zoomed out past this. 1 never hides.[/*]
+[*][b]MergeRepeatedPins[/b] (true) - draw one icon where several same-named pins sit together.[/*]
+[*][b]ShrinkCrowdedPins[/b] (true) - shrink pins stacked on one spot.[/*]
+[*][b]ZoomedOutPinScale[/b] (0.6) - how small pins get at full zoom-out. 1 turns it off.[/*]
+[*][b]HidePinsBeyond[/b] (0) - metres. Hide pins further than this from you. 0 draws all of them.[/*]
+[*][b]Ore / TintByType[/b] (true) - colour ore pins by what the ore is.[/*]
+[*][b]Ore / ForgetMined[/b] (true) - remove an ore pin once its deposit is mined out.[/*]
+[*][b]Chest / LootedIcon[/b] - the icon an emptied chest switches to.[/*]
+[*][b]Dungeon / TickWhenLooted[/b] (true) - tick a dungeon off once it is cleared.[/*]
+[*][b]Home / ReplaceBedMarker[/b] (true) - mark your bed as home.[/*]
+[*][b]CustomIcons / MapPicker[/b] (true) - show the icon grid on the large map.[/*]
+[*][b]General / ApplyPreset[/b] - sets every switch at once. See below.[/*]
+[*][b]General / ResetPins[/b] - starts a world's pins over. See below.[/*]
+[/list]
+
+Per category there is also Enabled, an icon, and a MinimumSpacing - how far apart two of the same thing have to be to earn separate pins.
+
+[b]Most of the list is hidden until you ask for it.[/b] There is a switch and an icon for every single kind of thing this mod knows about, which is about 290 settings on their own. They sit behind the [b]Advanced[/b] tick box at the top of the settings window, leaving the seventeen categories and their icons in view.
+
+[b]ApplyPreset[/b] sets every switch at once. Minimal pins the few things worth walking back to, Everything turns on all of it, Defaults restores a fresh install. It is a button, not a state: it goes back to None once applied.
+
+[b]Boss altars are off by default.[/b] Vanilla already pins them. Its version is weaker - unsaved, unnamed, no hover label - so turn this on if you want a proper named pin, and leave it off if you would rather not have two markers stacked.
+
+[size=4][b]Starting a world's pins over[/b][/size]
+
+General / ResetPins removes every pin this mod placed and forgets them, so each one is pinned again as you rediscover it - useful after changing which categories you want.
+
+Pins you placed by hand are untouched, and so is any colour or size you set through the pin editor. Locations come back within seconds; ore, chests and beehives reappear when their part of the world next loads, so walk away and back, or reload.
+
+It is a dropdown rather than a tick box on purpose, and the option is spelled out in full, because a stray click here would throw away a map somebody spent a long time filling in.
+
+[size=4][b]Commands[/b][/size]
+
+[list]
+[*][b]carturpins_clear[/b] - removes every pin this mod placed.[/*]
+[*][b]carturpins_reicon[/b] - resets every pin this mod placed to its category's current icon. Hand-placed pins are left alone.[/*]
+[*][b]carturpins_count[/b] - how many are on record.[/*]
+[*][b]carturpins_forget_missing[/b] - forgets records whose pin is gone, so those places can be pinned again.[/*]
+[/list]
+
+[size=4][b]If you use badgers Valheim Skies[/b][/size]
+
+That mod opens its menu on a hotkey and does not check whether you are typing, so a letter typed into the search box - or into vanilla's own pin-name field - fires it. There is an optional download on this page that fixes it; install it only if you use that mod.
+
+[size=4][b]Compatibility[/b][/size]
+
+Client-side only. The server does not need it and neither do the people you play with. Pins go into your own map data.
+
+Pairs with [b]Cartur's Compass and Clock[/b], which puts these same pins on a compass bar and drops the ones you have ticked off or emptied.
+
+[size=4][b]Installation[/b][/size]
+
+Requires BepInEx. Unpack into your Valheim folder so the DLL lands in BepInEx/plugins.
+
+[size=4][b]More from Cartur[/b][/size]
+
+[url=https://www.nexusmods.com/valheim/mods/3679]HD Blood[/url] - higher resolution ground blood and a real burst on every hit.
+[url=https://www.nexusmods.com/valheim/mods/3684]Compass and Clock[/url] - a compass bar across the top of the screen.
+[url=https://www.nexusmods.com/valheim/mods/3685]Safe Stamina[/url] - stamina costs nothing while no enemy is near.
+[url=https://www.nexusmods.com/valheim/mods/3728]Follow Command[/url] - every tamed animal takes the follow command.
+[url=https://www.nexusmods.com/valheim/mods/3760]Flooring[/url] - floors keep the rain off, and fires sit on them.
+[url=https://www.nexusmods.com/valheim/mods/3779]UI - HUD[/url] - a hand-drawn bronze HUD you can arrange in game.
+[url=https://www.nexusmods.com/valheim/mods/3888]Waste Management[/url] - a trash can and a sort button in the inventory.
+
+Free, and always will be - if it improved your game you can [url=https://www.patreon.com/c/cartur]tip me on Patreon[/url].
