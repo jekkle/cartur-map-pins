@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -32,12 +32,15 @@ namespace CarturMapPins
 
         /// Resolves the "$token" strings that component m_name fields hold.
         ///
-        /// The map draws a pin name exactly as it is stored. Minimap's only three Localize calls
-        /// are in OnLanguageChange, UpdateEventPin and UpdatePersistentEventPins - all of them on
-        /// event pins, none on ordinary ones (read off the installed assembly_valheim, not
-        /// assumed). So a label taken from RuneStone.m_name reaches the map as the literal text
-        /// "$guardianstone_name", which is what put "Eikthyr $guardianstone_name" on the seven
-        /// stones at the spawn temple.
+        /// Correction to what this comment said before: the current assembly_valheim DOES resolve
+        /// a pin name on its way to the map - PinNameData.SetTextAndGameObject writes
+        /// "PinNameText.text = Localization.instance.Localize(ParentPin.m_name)" (verified against
+        /// the installed DLL, not assumed). The old claim that only event pins were localized is
+        /// no longer true, whether the game changed or the earlier read missed that call.
+        ///
+        /// It is still resolved here rather than left as a token, because m_name is what the
+        /// rename box, the search bar and the pin list all show, and "$guardianstone_name" is not
+        /// a name to any of them. The map is only one of its readers.
         ///
         /// Localize substitutes tokens anywhere in a string, so a label that mixes a prefab-derived
         /// word with a token - "Eikthyr $guardianstone_name" - comes out right in every language.
@@ -52,6 +55,13 @@ namespace CarturMapPins
         ///
         /// Affects the four minibosses - Brenna, Geirrhafa, Zil & Thungr, Lord Reto - and nothing
         /// else, but stripping is cheap and any future named creature gets it for free.
+        /// The one place a source label becomes the text on a pin: resolve its tokens, then take
+        /// the colour markup off. Everything that writes a pin name goes through here, and so does
+        /// PinRecord.Relabel, so the text a language change produces is the same text the pin
+        /// would have been given had it been placed in that language. Two paths that agree by
+        /// coincidence would leave Relabel unable to recognise its own handiwork.
+        public static string ForPin(string label) => StripRichText(Localize(label)) ?? string.Empty;
+
         public static string StripRichText(string text)
         {
             if (string.IsNullOrEmpty(text) || text.IndexOf('<') < 0)

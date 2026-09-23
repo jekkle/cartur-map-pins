@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -14,6 +14,9 @@ namespace CarturMapPins
             PinPlacer.Clear();
             // Containers from the previous world would otherwise linger as stale references.
             ChestRegistry.Clear();
+            // Records are per world per character now, so the previous world's must be dropped
+            // before anything asks this world whether a thing is already pinned.
+            PinRecord.Unload();
         }
     }
 
@@ -91,8 +94,10 @@ namespace CarturMapPins
             // base would be useless noise. Read the creator straight off the ZDO rather than via
             // Piece.IsPlacedByPlayer(): Piece.m_creator is populated in Piece.Awake, Unity
             // doesn't guarantee component Awake order, and a built one read too early looks wild.
-            if ((category == PinCategory.Beehive || category == PinCategory.Chest ||
-                 category == PinCategory.Prop) && !IsWild(zdo))
+            // This catches a built piece arriving over the network, where the creator is already
+            // on the ZDO. It does NOT catch one the local player just placed - see the second
+            // check in PinPlacer.DrainQueue for why.
+            if (PinCatalog.PlayerBuildable(category) && !IsWild(zdo))
             {
                 Tally(ref _skippedHive);
                 return;
@@ -205,15 +210,14 @@ namespace CarturMapPins
                 if (pin?.m_iconElement == null)
                     continue;
 
+                // Size and whether it is drawn at all are PinFade's, which eases both from the
+                // frame hook rather than setting them here. Doing it in this pass too would fight
+                // it: UpdatePins runs only when the map moves, so a pin would jump on the frame
+                // the map moved and glide the rest of the time.
+                //
+                // Colour stays here, and has to: vanilla rewrites every pin's colour on each pass
+                // of this method, so anything set outside it lasts until the next one.
                 PinStyles.Style style = PinStyles.For(pin.m_pos);
-
-                // Scale is set every pass rather than only when styled, so a pin whose style was
-                // taken away goes back to its old size instead of staying big forever.
-                Vector3 scale = pin.m_iconElement.transform.localScale;
-                float wanted = (style.IsDefault ? 1f : Mathf.Clamp(style.Size, 0.4f, 3f))
-                               * Crowding.ScaleFor(pin);
-                if (!Mathf.Approximately(scale.x, wanted))
-                    pin.m_iconElement.transform.localScale = new Vector3(wanted, wanted, 1f);
 
                 // Dimmed rather than hidden: a search that removes pins cannot answer "where is
                 // this in relation to everything else", which is usually why you were looking.
@@ -225,16 +229,31 @@ namespace CarturMapPins
                     continue;
                 }
 
-                if (pin.m_checked)
-                    continue;
+                if (!pin.m_checked)
+                {
+                    // A colour set on this pin by hand wins. Only when there is none does the ore
+                    // colour apply, so tinting by type never overrides a deliberate choice.
+                    Color? colour = PinStyles.ColourFor(style);
+                    if (colour.HasValue)
+                        pin.m_iconElement.color = colour.Value;
+                    else if (PinStyles.TintFor(pin.m_type, out Color tint))
+                        pin.m_iconElement.color = tint;
+                }
 
-                // A colour set on this pin by hand wins. Only when there is none does the ore
-                // colour apply, so tinting by type never overrides a deliberate choice.
-                Color? colour = PinStyles.ColourFor(style);
-                if (colour.HasValue)
-                    pin.m_iconElement.color = colour.Value;
-                else if (PinStyles.TintFor(pin.m_type, out Color tint))
-                    pin.m_iconElement.color = tint;
+                // An emptied chest is still worth marking - it says the spot has been dealt with -
+                // but it is not worth the same weight as one you have not opened. Half opacity
+                // rather than a tick: ticking is vanilla's own "done" state and the dungeon sweep
+                // already uses it, so a chest reading as ticked would mean two things at once.
+                //
+                // Applied last, and multiplied into whatever alpha the colour above left, so a pin
+                // you have faded by hand stays faded rather than being reset to half.
+                Minimap.PinType looted = PinPlacer.LootedChestType();
+                if (looted != Minimap.PinType.None && pin.m_type == looted)
+                {
+                    Color faded = pin.m_iconElement.color;
+                    faded.a *= 0.5f;
+                    pin.m_iconElement.color = faded;
+                }
             }
         }
     }
@@ -369,12 +388,53 @@ namespace CarturMapPins
         /// offering bowl, so this is generous rather than exact.
         private const float SamePlace = 12f;
 
+        /// Clears a death pin once its grave has been emptied.
+    ///
+    /// GiveBoost is the exact moment: TombStone.UpdateDespawn calls it inside
+    /// "if (!m_container.IsInUse() && m_container.GetInventory().NrOfItems() <= 0)", immediately
+    /// before m_nview.Destroy(), and it has no other call site. Patching UpdateDespawn instead
+    /// would mean restating that condition here, which is the kind of copy that goes quietly wrong
+    /// when the game changes one half of it.
+    ///
+    /// Only fires on the client that owns the grave, because the branch it sits in is already
+    /// inside "if (m_nview.IsOwner())". That is the same client whose map holds the pin in all but
+    /// an odd multiplayer case, since the pin is saved locally and the grave is yours.
+    [HarmonyPatch(typeof(TombStone), "GiveBoost")]
+    internal static class Patch_TombStone_GiveBoost
+    {
+        /// Harmony throws on a target it cannot find, and CreateAndPatchAll is wrapped now - so a
+        /// private method renamed by a game update would take every other patch down with it.
+        /// Prepare is how a patch declines instead.
+        private static bool Prepare()
+        {
+            if (AccessTools.Method(typeof(TombStone), "GiveBoost") != null)
+                return true;
+
+            Plugin.Log.LogWarning("TombStone.GiveBoost not found - death pins will not clear themselves. Everything else still works.");
+            return false;
+        }
+
+        /// A Prefix, because the grave is destroyed moments later and its position is wanted now.
+        private static void Prefix(TombStone __instance)
+        {
+            if (__instance != null)
+                PinPlacer.ClearDeathPin(__instance.transform.position);
+        }
+    }
+
+    /// Categories where vanilla marks the same place we do. Traders are the second:
+        /// ZoneSystem.GetLocationIcons hands back every placed location flagged m_iconPlaced, so
+        /// Haldor, Hildir and the Bog Witch each get an unnamed vanilla marker under our named,
+        /// saved one - two icons on one spot, and the crowding pass counts them as two things and
+        /// shrinks both.
+        private static readonly PinCategory[] Replaced =
+        {
+            PinCategory.BossAltar,
+            PinCategory.Trader,
+        };
+
         private static void Postfix(Minimap __instance)
         {
-            Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.BossAltar);
-            if (settings == null || !settings.Enabled.Value)
-                return;
-
             var pins = LocationPins?.GetValue(__instance) as Dictionary<Vector3, Minimap.PinData>;
             if (pins == null || pins.Count == 0)
                 return;
@@ -382,9 +442,17 @@ namespace CarturMapPins
             List<Vector3> drop = null;
             foreach (KeyValuePair<Vector3, Minimap.PinData> kv in pins)
             {
-                if (!PinRecord.HasCategoryNear(PinCategory.BossAltar, kv.Key, SamePlace))
-                    continue;
-                (drop ?? (drop = new List<Vector3>())).Add(kv.Key);
+                foreach (PinCategory category in Replaced)
+                {
+                    Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                    if (settings == null || !settings.Enabled.Value)
+                        continue;
+                    if (!PinRecord.HasCategoryNear(category, kv.Key, SamePlace))
+                        continue;
+
+                    (drop ?? (drop = new List<Vector3>())).Add(kv.Key);
+                    break;
+                }
             }
 
             if (drop == null)

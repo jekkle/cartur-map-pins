@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.3.6";
+        public const string PluginVersion = "1.5.0";
 
         internal static ManualLogSource Log;
 
@@ -229,6 +229,24 @@ namespace CarturMapPins
                     null, Attr(order: 99)));
             ResetPins.SettingChanged += (_, __) => Reset(ResetPins.Value);
 
+            ZoomedOutPinScale = Config.Bind("General", "ZoomedOutPinScale", 0.6f,
+                "How big a pin is drawn when the map is zoomed all the way out, as a fraction of its normal size. Pins are full size zoomed in and shrink steadily towards this as you zoom out, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.");
+
+            HidePinsBeyond = Config.Bind("General", "HidePinsBeyond", 0f,
+                "Stop drawing pins further than this many metres from your character. 0 draws all of them, which is the default - the large map is usually wanted whole. Set it to a few thousand to keep the map to the part of the world you are actually in. Nothing is deleted: the pins come straight back when you raise it or walk towards them.");
+
+            MergeRepeatedPins = Config.Bind("General", "MergeRepeatedPins", true,
+                "Where several pins with the same name sit on the same patch of screen, draw one of them. A tin field is a dozen separate deposits and so a dozen identical pins, which at map scale is one white blob you can neither count nor click - one icon says as much and leaves the map readable. Pins of different kinds sitting together are all still drawn, and zooming in separates the rest as it always did. Nothing is deleted: every pin is still on the map, still saved, still searchable.");
+
+            HideLabelsFromZoom = Config.Bind("General", "HideLabelsFromZoom", 20f,
+                "Stop drawing pin names once the map is zoomed out past this percentage. 0 is fully zoomed in, 100 is the whole world; 100 never hides a name. The game has a setting of its own for this and it does nothing - m_showNamesZoom is 2 where the furthest the map zooms is 1, so its test is true at every zoom and no name is ever hidden by it.");
+
+            ShrinkPinsFromZoom = Config.Bind("General", "ShrinkPinsFromZoom", 15f,
+                "How far out the map has to be zoomed before pins start shrinking, as a percentage. 0 is fully zoomed in and 100 is the whole world. Below this pins are full size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.");
+
+            ShowPinLabels = Config.Bind("General", "ShowPinLabels", true,
+                "Draw the name under each pin. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. The pin under your cursor always shows its name, so nothing becomes unidentifiable.");
+
             HideCollidingLabels = Config.Bind("General", "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
 
@@ -292,13 +310,50 @@ namespace CarturMapPins
             BindGroupIcon(PickableGroup.Junk, 107);       // branch
             BindGroupIcon(PickableGroup.Other, 84);       // question mark
 
+            // Only notes where records live. Which file is this one depends on the world and the
+            // character, and at plugin load there is neither - it resolves on first use.
             PinRecord.Load(Paths.ConfigPath);
             PinStyles.Load(Paths.ConfigPath);
 
-            Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, PluginGuid);
+            // Valheim raises this when the language is changed in the settings, and Minimap
+            // subscribes to it for its own event pins (read off the installed assembly_valheim,
+            // Minimap.Awake). Ordinary pin names are plain saved text and are not re-read, so
+            // ours are the only ones anybody can put back into the new language.
+            Localization.OnLanguageChange += OnLanguageChanged;
+
+            // A mod that throws on load takes every plugin after it down with it. Every target
+            // resolves against the game installed today, so this catches nothing now - it is here
+            // for the update that renames one of them, where the honest outcome is this mod not
+            // working and the rest of the game starting.
+            try
+            {
+                Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, PluginGuid);
+            }
+            catch (System.Exception e)
+            {
+                Log.LogWarning($"Patching failed - the mod will do nothing this session: {e}");
+                return;
+            }
             RegisterCommands();
 
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
+        }
+
+        /// Wrapped, because this runs on the game's own event: an exception escaping here would
+        /// land inside Valheim's language-change notification with every later subscriber
+        /// unnotified, which is a settings menu that half-applies.
+        private static void OnLanguageChanged()
+        {
+            try
+            {
+                int reworded = PinRecord.Relabel();
+                if (reworded > 0)
+                    Log.LogInfo($"Language changed: re-worded {reworded} pin(s).");
+            }
+            catch (System.Exception e)
+            {
+                Log.LogWarning($"Could not re-word pins for the new language: {e.Message}");
+            }
         }
 
         public enum PinReset
@@ -523,6 +578,12 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<bool> HideCollidingLabels;
+        public static ConfigEntry<bool> ShowPinLabels;
+        public static ConfigEntry<float> HideLabelsFromZoom;
+        public static ConfigEntry<float> ShrinkPinsFromZoom;
+        public static ConfigEntry<bool> MergeRepeatedPins;
+        public static ConfigEntry<float> ZoomedOutPinScale;
+        public static ConfigEntry<float> HidePinsBeyond;
         public static ConfigEntry<Preset> ApplyPreset;
         public static ConfigEntry<PinReset> ResetPins;
 
@@ -561,6 +622,71 @@ namespace CarturMapPins
 
         private static void RegisterCommands()
         {
+            new Terminal.ConsoleCommand("carturpins_dedupe",
+                "Removes leftover duplicate pins - a second copy of one of this mod's pins that no record points at, which nothing else can ever clean up. Run it with the word yes to actually remove them; without it, it only counts.",
+                args =>
+                {
+                    // Counts unless told otherwise. This deletes pins the mod has no record of,
+                    // and the whole reason they are being removed is that nothing is tracking
+                    // them - so there is no undo and no way to put one back.
+                    bool confirmed = args.Args != null && args.Args.Length > 1 &&
+                                     string.Equals(args.Args[1], "yes", System.StringComparison.OrdinalIgnoreCase);
+
+                    if (!confirmed)
+                    {
+                        args.Context?.AddString(PinRecord.Audit());
+                        args.Context?.AddString("Nothing removed. Run 'carturpins_dedupe yes' to remove the twinned ones.");
+                        return;
+                    }
+
+                    int removed = PinRecord.RemoveOrphanTwins();
+                    args.Context?.AddString($"Removed {removed} duplicate pin(s).");
+                    Log.LogInfo($"dedupe: removed {removed} duplicate pin(s).");
+                });
+
+            new Terminal.ConsoleCommand("carturpins_audit",
+                "Reports how many records point at a pin, how many had to be moved onto one, and how many describe nothing.",
+                args =>
+                {
+                    string report = PinRecord.Audit();
+                    args.Context?.AddString(report);
+                    Log.LogInfo($"audit: {report}");
+                });
+
+            new Terminal.ConsoleCommand("carturpins_zoom",
+                "Dumps the zoom and size numbers behind pin scaling, plus a sample of pins as they are actually drawn. Run it once zoomed in and once zoomed out.",
+                args =>
+                {
+                    string summary = Crowding.Describe();
+                    args.Context?.AddString(summary);
+                    Log.LogInfo($"zoom dump: {summary}");
+
+                    List<Minimap.PinData> pins = MinimapAccess.GetPins(Minimap.instance);
+                    int sampled = 0;
+                    if (pins != null)
+                    {
+                        foreach (Minimap.PinData pin in pins)
+                        {
+                            if (pin?.m_iconElement == null || !pin.m_iconElement.gameObject.activeInHierarchy)
+                                continue;
+
+                            bool labelOn = pin.m_NamePinData?.PinNameGameObject != null
+                                           && pin.m_NamePinData.PinNameGameObject.activeInHierarchy;
+                            string line = $"  \"{pin.m_name}\" scale={pin.m_iconElement.transform.localScale.x:F3}"
+                                        + $" size={pin.m_iconElement.rectTransform.rect.width:F1}px"
+                                        + $" icon={(pin.m_iconElement.enabled ? "on" : "off")}"
+                                        + $" label={(labelOn ? "on" : "off")}";
+                            args.Context?.AddString(line);
+                            Log.LogInfo(line);
+
+                            if (++sampled >= 8)
+                                break;
+                        }
+                    }
+
+                    args.Context?.AddString($"sampled {sampled} of {pins?.Count ?? 0} pin(s).");
+                });
+
             new Terminal.ConsoleCommand("carturpins_clear",
                 "Removes every map pin Cartur's Map Pins created. Hand-placed pins are left alone.",
                 args =>

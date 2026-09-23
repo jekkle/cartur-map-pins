@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -66,6 +66,19 @@ namespace CarturMapPins
                 if (named > 0)
                     Plugin.Log.LogInfo($"Resolved the name on {named} pin(s) that still read as a $token.");
 
+                // After LocalizeNames, which is the one-off repair of pins left holding a raw
+                // "$token"; this is the ongoing one - pins written correctly in a language the
+                // player has since changed away from.
+                // Before anything else that looks a pin up by its record: the others all use the
+                // same half-metre match and are just as blind to a record that has drifted.
+                int repaired = PinRecord.RepairPositions();
+                if (repaired > 0)
+                    Plugin.Log.LogInfo($"Moved {repaired} record(s) onto the pin they describe.");
+
+                int reworded = PinRecord.Relabel();
+                if (reworded > 0)
+                    Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
+
                 int adopted = PinRecord.AdoptSubtypeIcons();
                 if (adopted > 0)
                     Plugin.Log.LogInfo($"Moved {adopted} pin(s) from a generic icon onto their own kind's.");
@@ -96,6 +109,75 @@ namespace CarturMapPins
         /// which is far too expensive to do a few times a second. PinData.m_type is what persists
         /// in the save (the sprite is re-derived from it on load), so writing the type is enough
         /// to make this stick across relogs.
+        /// Removes the death pin standing on an emptied tombstone.
+        ///
+        /// Vanilla adds one and never takes it away: Player.OnDeath does
+        /// AddPin(transform.position, PinType.Death, "$hud_mapday {day}", save: true, ...), and
+        /// the only RemovePin for a death pin in Minimap is for m_deathPin, the profile-driven
+        /// one, which is a different pin and is switched off anyway (m_enableLastDeathAutoPin is
+        /// a const false). So a long game leaves a graveyard of markers for graves that are gone.
+        ///
+        /// Nearest match only, and only within the radius the grave itself can occupy: several
+        /// deaths on one spot are several pins, and emptying one grave should clear one pin.
+        ///
+        /// Returns true when a pin was removed, so the caller can say so once rather than each
+        /// time it looks.
+        internal static bool ClearDeathPin(Vector3 pos)
+        {
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return false;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return false;
+
+            // TombStone.PositionCheck resets a grave that drifts more than 4m XZ from its spawn
+            // point, and that spawn point is the death position the pin was given. Double it for
+            // the gap between the dying player and where the grave is put down.
+            const float GraveRadius = 8f;
+
+            Minimap.PinData nearest = null;
+            float best = GraveRadius * GraveRadius;
+
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || !pin.m_save || pin.m_type != Minimap.PinType.Death)
+                    continue;
+
+                float dx = pin.m_pos.x - pos.x;
+                float dz = pin.m_pos.z - pos.z;
+                float sqr = dx * dx + dz * dz;
+                if (sqr > best)
+                    continue;
+
+                best = sqr;
+                nearest = pin;
+            }
+
+            if (nearest == null)
+                return false;
+
+            map.RemovePin(nearest);
+            map.SaveMapData();
+            Plugin.Log.LogInfo($"Grave emptied at {pos.x:F0},{pos.z:F0} - removed its death pin.");
+            return true;
+        }
+
+        /// The pin type a looted chest wears, or None when there is no separate looted icon to
+        /// tell one by. Read every pass by the draw code, so it resolves rather than caches: the
+        /// icon is a config option and can change mid-session.
+        internal static Minimap.PinType LootedChestType()
+        {
+            Plugin.CategorySettings chest = Plugin.SettingsFor(PinCategory.Chest);
+            if (chest == null || Plugin.LootedChestIcon.Value == PinIcon.Default)
+                return Minimap.PinType.None;
+
+            Minimap.PinType normal = chest.ResolvedPinType;
+            Minimap.PinType looted = CustomIcons.Resolve((int)Plugin.LootedChestIcon.Value, normal);
+            return looted == normal ? Minimap.PinType.None : looted;
+        }
+
         private static void SweepLootedChests(Vector3 playerPos)
         {
             Plugin.CategorySettings chestSettings = Plugin.SettingsFor(PinCategory.Chest);
@@ -361,6 +443,13 @@ namespace CarturMapPins
         }
 #endif
 
+        private static bool BuiltByPlayer(GameObject go)
+        {
+            ZNetView nview = go.GetComponent<ZNetView>();
+            ZDO zdo = nview != null ? nview.GetZDO() : null;
+            return zdo != null && zdo.GetLong(ZDOVars.s_creator, 0L) != 0L;
+        }
+
         private static void DrainQueue(Vector3 playerPos)
         {
             if (PendingQueue.Count == 0)
@@ -399,6 +488,14 @@ namespace CarturMapPins
                     Requeue.Add(p);
                     continue;
                 }
+
+                // A piece the local player places reaches the spawn hook with a blank creator:
+                // Player.PlacePiece calls Object.Instantiate (IL_000e), which runs ZNetView.Awake
+                // and ZNetScene.AddInstance with it, and only calls Piece.SetCreator afterwards
+                // (IL_0055). So a hive he just built looked wild there and got queued. By the time
+                // the queue drains - a tick later at the earliest - the creator is on the ZDO.
+                if (PinCatalog.PlayerBuildable(p.Category) && BuiltByPlayer(p.Go))
+                    continue;
 
                 TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
             }
@@ -873,12 +970,11 @@ namespace CarturMapPins
             if (character == null || string.IsNullOrEmpty(character.m_name))
                 return null;
 
-            string name = Localization.instance != null
-                ? Localization.instance.Localize(character.m_name)
-                : character.m_name;
-
-            name = Labels.StripRichText(name);
-            return string.IsNullOrEmpty(name) ? null : name + " Spawner";
+            // The token is kept rather than resolved here. Localize substitutes tokens anywhere
+            // in a string, so "$enemy_greydwarf Spawner" still comes out right on the pin - and
+            // keeping it raw is what lets the label be redone when the language changes. Resolving
+            // it here baked the English name into the record and the save.
+            return character.m_name + " Spawner";
         }
 
         /// The subtype for something arriving through the spawn hook. It drives three things at
@@ -1057,18 +1153,27 @@ namespace CarturMapPins
             // Placing then stacks a second pin on every deposit the player already has. The map
             // is the authority on what is already pinned, so ask it before adding, and take the
             // existing pin into the record so the answer is cheap from here on.
-            if (ExistsOnMap(pos, pinType, settings.DedupeRadius.Value))
+            // The found pin's own position goes into the record, not the position of the thing
+            // that was scanned. They can be up to a dedupe radius apart - 15m for ore - and every
+            // later operation looks for a pin within half a metre of the record. Recording the
+            // wrong one of the two made a record that nothing could ever act on again: the mined
+            // ore sweep found no pin at the recorded spot, gave up, and the pin stayed on the map
+            // forever with nothing in the log to say why.
+            Minimap.PinData existing = ExistsOnMap(pos, pinType, settings.DedupeRadius.Value);
+            if (existing != null)
             {
-                PinRecord.Add(key, pos);
+                PinRecord.Add(key, existing.m_pos);
                 return true;
             }
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
-            Minimap.instance.AddPin(pos, pinType, Labels.Localize(label) ?? string.Empty,
-                save: true, isChecked: false);
+            string written = Labels.ForPin(label);
+            Minimap.instance.AddPin(pos, pinType, written, save: true, isChecked: false);
 
-            PinRecord.Add(key, pos);
+            // Both the source and the written text go into the record, so a later language change
+            // can re-word this pin and still tell our own wording from a hand rename.
+            PinRecord.Add(key, pos, label, written);
             Plugin.Log.LogInfo($"Pinned {key} '{label}' at {pos.x:F0},{pos.z:F0}");
             return true;
         }
@@ -1077,23 +1182,33 @@ namespace CarturMapPins
         /// and position rather than on name, because a name can be edited by hand and the icon
         /// cannot - and because that is the same question vanilla's own private HaveSimilarPin
         /// asks, just at a radius that suits an ore field rather than its hardcoded 1m.
-        private static bool ExistsOnMap(Vector3 pos, Minimap.PinType pinType, float radius)
+        /// The pin itself rather than a yes/no, so the caller can record where it actually is.
+        /// Nearest match, so a dense field pairs each object with the pin standing on it instead
+        /// of whichever happened to come first in the list.
+        private static Minimap.PinData ExistsOnMap(Vector3 pos, Minimap.PinType pinType, float radius)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(Minimap.instance);
             if (pins == null)
-                return false;
+                return null;
 
-            float sqr = radius * radius;
+            Minimap.PinData nearest = null;
+            float best = radius * radius;
+
             foreach (Minimap.PinData pin in pins)
             {
                 if (pin == null || pin.m_type != pinType)
                     continue;
                 float dx = pin.m_pos.x - pos.x;
                 float dz = pin.m_pos.z - pos.z;
-                if (dx * dx + dz * dz <= sqr)
-                    return true;
+                float sqr = dx * dx + dz * dz;
+                if (sqr > best)
+                    continue;
+
+                best = sqr;
+                nearest = pin;
             }
-            return false;
+
+            return nearest;
         }
 
         private static float DistanceXZ(Vector3 a, Vector3 b)

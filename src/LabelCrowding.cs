@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -23,7 +23,6 @@ namespace CarturMapPins
         /// How close the cursor has to be to a pin before its name is forced back on.
         private const float RevealRadius = 60f;
 
-        private static readonly List<Minimap.PinNameData> Hidden = new List<Minimap.PinNameData>();
         private static readonly List<Minimap.PinNameData> Shown = new List<Minimap.PinNameData>();
         private static readonly List<Minimap.PinData> Ordered = new List<Minimap.PinData>();
         private static readonly Dictionary<string, int> NameCounts = new Dictionary<string, int>();
@@ -38,17 +37,39 @@ namespace CarturMapPins
 
         public static void Apply(List<Minimap.PinData> pins)
         {
-            // Everything hidden last pass comes back first, so a label hidden at one zoom or
-            // cursor position is not stuck hidden at the next.
-            foreach (Minimap.PinNameData name in Hidden)
-            {
-                if (name?.PinNameGameObject != null)
-                    name.PinNameGameObject.SetActive(true);
-            }
-            Hidden.Clear();
+            // Nothing is put back here, deliberately. UpdatePins writes every label visibility
+            // every pass - LargeZoom below m_showNamesZoom for the large map, off for everything
+            // else - so a label this pass wants shown is already shown by the time we run.
+            //
+            // Switching the previously-hidden ones back on was the bug behind labels crowding a
+            // zoomed-out map: this runs in a Postfix, so it overrode the decision vanilla had just
+            // made, and a label hidden once for a collision came back lit at every zoom, and on
+            // the small minimap too. Hiding is ours to do; showing is the game to do.
             Shown.Clear();
             Ordered.Clear();
             NameCounts.Clear();
+
+            if (!Plugin.ShowPinLabels.Value)
+            {
+                HideAll(pins);
+                return;
+            }
+
+            // Vanilla has this rule and it is dead on the live component: it hides names while
+            // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
+            // map allows is 1.0 - so the test is true at every zoom and no name is ever hidden by
+            // it. Measured, not assumed; the 0.5 in the assembly is only the field initializer.
+            // So the mod does it, or nobody does.
+            float limit = Plugin.HideLabelsFromZoom.Value;
+            if (limit < 100f && Crowding.ZoomOutPercent() > limit)
+            {
+                HideAll(pins);
+                return;
+            }
+
+            // Before the early return below: a pin that is not being drawn must not leave its
+            // name floating over the map, and that is true whatever the collision setting says.
+            HideOutOfSight(pins);
 
             if (!Plugin.HideCollidingLabels.Value && !PinFilter.Active)
                 return;
@@ -66,7 +87,6 @@ namespace CarturMapPins
                 if (!PinFilter.Matches(pin.m_name))
                 {
                     name.PinNameGameObject.SetActive(false);
-                    Hidden.Add(name);
                     continue;
                 }
 
@@ -101,8 +121,56 @@ namespace CarturMapPins
                 }
 
                 name.PinNameGameObject.SetActive(false);
-                Hidden.Add(name);
             }
+        }
+
+        private static void HideOutOfSight(List<Minimap.PinData> pins)
+        {
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (!Crowding.OutOfSight(pin))
+                    continue;
+
+                Minimap.PinNameData name = pin?.m_NamePinData;
+                if (name?.PinNameGameObject == null || !name.PinNameGameObject.activeInHierarchy)
+                    continue;
+
+                name.PinNameGameObject.SetActive(false);
+            }
+        }
+
+        /// Every label off, bar the one under the cursor. The exception is not a compromise on
+        /// the setting: a map of unlabelled icons cannot be read at all without some way to ask
+        /// what one of them is, and this is the same reveal the collision hiding already uses.
+        private static void HideAll(List<Minimap.PinData> pins)
+        {
+            Vector2 cursor = CursorNear(pins);
+
+            foreach (Minimap.PinData pin in pins)
+            {
+                Minimap.PinNameData name = pin?.m_NamePinData;
+                if (name?.PinNameGameObject == null || !name.PinNameGameObject.activeInHierarchy)
+                    continue;
+
+                if (!Crowding.OutOfSight(pin) && pin.m_iconElement != null &&
+                    Vector2.Distance(pin.m_iconElement.rectTransform.anchoredPosition, cursor) < RevealRadius)
+                    continue;
+
+                name.PinNameGameObject.SetActive(false);
+            }
+        }
+
+        /// The cursor needs any one pin's icon to convert against, since they all share a parent.
+        /// A pin list with no drawn icons in it means the map is not showing anything, and the
+        /// off-screen answer hides everything, which is what was asked for anyway.
+        private static Vector2 CursorNear(List<Minimap.PinData> pins)
+        {
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin?.m_iconElement != null)
+                    return CursorIn(pin.m_iconElement);
+            }
+            return new Vector2(float.MaxValue, float.MaxValue);
         }
 
         private static bool Collides(Rect mine)

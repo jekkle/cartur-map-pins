@@ -1,5 +1,54 @@
 # Changelog
 
+## 1.5.0
+
+- **The readability settings 1.4.0's page described now actually exist.** The listing
+  documented `ShowPinLabels`, `MergeRepeatedPins`, `ZoomedOutPinScale` and
+  `HidePinsBeyond`; the DLL had none of them, and the zoom cutoff was named
+  `HideLabelsBeyondZoom` on the page and did not exist either. All six are real
+  settings now - the four above plus `HideLabelsFromZoom` and `ShrinkPinsFromZoom` -
+  and the table in the README matches what the config file writes.
+
+- **Crowding is measured in world metres, over every pin.** The first version measured
+  it between icons where they had landed on screen, which seemed obviously right and
+  was not: a cell boundary is fixed to the screen, so panning one pixel slid every pin
+  towards a different cell, and pins lose their icons the moment they scroll off, so
+  the set being measured changed every time the view moved. No two looks at the same
+  map agreed. A patch of ground does not move when you drag the map, so the answers
+  hold still now.
+
+- **A death marker goes when its grave is emptied.** Vanilla adds one in
+  `Player.OnDeath` and never removes it - the only `RemovePin` for a death pin is for
+  `m_deathPin`, a different pin that is switched off by a `const false` - so a long
+  save collects markers for graves that are long gone. Hooked on
+  `TombStone.GiveBoost`, which `UpdateDespawn` calls only once the grave is both
+  unused and empty, immediately before destroying it. Nearest pin only, and only
+  within the radius the grave can occupy, so several deaths on one spot stay several
+  markers.
+
+- **Player-built beehives and chests are not pinned any more.** A piece you place
+  reached the spawn hook with a blank creator: `Player.PlacePiece` instantiates the
+  prefab - which runs `ZNetView.Awake`, and this mod's hook with it - and only calls
+  `Piece.SetCreator` afterwards. So a hive you had just built looked wild. The creator
+  is read again when the pin is actually placed, a tick later, by which time the ZDO
+  carries it.
+
+- **Pin names follow a language change.** Each record keeps the label before Localize
+  ran on it, so switching the game's language re-words this mod's pins into the new
+  one. A pin you renamed by hand is left alone: the record also keeps the exact text
+  the mod last wrote, and a pin that no longer reads that way was renamed by you.
+
+- **Custom icon types fall back to a vanilla glyph instead of a white box.** Reserving
+  the custom type range leaves those types valid but unknown to `Minimap.GetSprite`,
+  which returns a null Sprite, and a Unity Image with a null sprite draws a solid white
+  square. Every custom type without a sprite now points at a vanilla one, so a player
+  with custom icons switched off sees what they saw before, and the pin keeps the type
+  that says which icon it wants back.
+
+- **New command `carturpins_dedupe`.** Removes a leftover second copy of one of this
+  mod's pins that no record points at, which nothing else can clean up. Counts by
+  default; pass `yes` to actually remove them.
+
 ## 1.4.0
 
 - **The map stays readable when it fills up.** An ore field is a dozen separate deposits

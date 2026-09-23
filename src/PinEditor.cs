@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using TMPro;
@@ -564,7 +564,7 @@ namespace CarturMapPins
         private static readonly MethodInfo DestroyMapMarker =
             AccessTools.Method(typeof(Minimap.PinNameData), "DestroyMapMarker");
 
-        private static void RefreshLabel(Minimap.PinData pin)
+        internal static void RefreshLabel(Minimap.PinData pin)
         {
             if (pin.m_NamePinData == null)
                 pin.m_NamePinData = new Minimap.PinNameData(pin);

@@ -96,7 +96,8 @@ fades, so you can see where the copper is without losing the shape of the map.
 | `DiscoveryRadius` | 60 | Metres. How close you must get before something pins. |
 | `ShowPinLabels` | true | Draw the name under each pin. |
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
-| `HideLabelsBeyondZoom` | 0.5 | Hide names once zoomed out past this. 1 never hides. |
+| `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
+| `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
 | `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
@@ -144,6 +145,7 @@ would throw away a map somebody spent a long time filling in.
 | `carturpins_reicon` | Resets this mod's pins to their category's current icon. Hand-placed pins are left alone. |
 | `carturpins_count` | How many are on record. |
 | `carturpins_forget_missing` | Forgets records whose pin is gone, so those places can be pinned again. |
+| `carturpins_dedupe` | Removes leftover duplicate pins no record points at. Counts only, unless you pass `yes`. |
 | `carturpins_zoom` | Prints the zoom and sizing numbers behind what is drawn. For working out why the map looks the way it does. |
 
 ## If you use badgers Valheim Skies

@@ -62,6 +62,12 @@ namespace CarturMapPins
 
         public static bool Contains(int hash) => ByHash.ContainsKey(hash);
 
+        /// Categories that also exist in player-built form, where a pin would just mark
+        /// somebody's base. These are the ones that have to be creator-checked before pinning.
+        public static bool PlayerBuildable(PinCategory category) =>
+            category == PinCategory.Beehive || category == PinCategory.Chest ||
+            category == PinCategory.Prop;
+
         public static PickableGroup GroupOf(int prefabHash) =>
             PickableGroups.TryGetValue(prefabHash, out PickableGroup g) ? g : PickableGroup.Other;
 

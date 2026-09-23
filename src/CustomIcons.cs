@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
@@ -134,8 +134,27 @@ namespace CarturMapPins
         {
             if (map == null || _registeredFor == map)
                 return;
-            if (!Plugin.CustomIconsEnabled.Value)
+
+            // Before either of the bail-outs below, and never skipped.
+            //
+            // AddPin clamps a type it does not recognise: "if ((int)type >= m_visibleIconTypes
+            // .Length) { ZLog.LogWarning(...); type = PinType.Icon3; }" - read off the installed
+            // assembly_valheim. Loading a save with custom-icon pins while this array is still
+            // vanilla-sized rewrites every one of them to Icon3 in memory, and the next profile
+            // save writes that to disk. The pin does not lose its icon, it loses which icon it
+            // was, and no later repair can recover it.
+            //
+            // The size comes from the PinIcon enum, so it needs no sheet and no config - which is
+            // exactly why it can run before the sheet is loaded or the feature is even switched
+            // on. Turning custom icons off must mean "do not draw them", never "destroy them".
+            if (!Reserve(map))
                 return;
+
+            if (!Plugin.CustomIconsEnabled.Value)
+            {
+                FallbackSprites(map);
+                return;
+            }
 
             try
             {
@@ -145,7 +164,10 @@ namespace CarturMapPins
                 {
                     Texture2D sheet = LoadSheet();
                     if (sheet == null)
+                    {
+                        FallbackSprites(map);
                         return;
+                    }
                     _sprites = Slice(sheet, IconCount);
                 }
 
@@ -156,9 +178,6 @@ namespace CarturMapPins
                     // new sheet holds at their index, which is what happened before this existed.
                     _legacy = old != null ? Slice(old, LegacyIconCount) : new Sprite[0];
                 }
-
-                // Grow the visibility filter FIRST - AddPin and the render loop both index it.
-                GrowVisibleIconTypes(map, CurrentBase + _sprites.Length + 1);
 
                 int added = Register(map, _sprites, TypeForIndex) +
                             Register(map, _legacy, LegacyTypeForIndex);
@@ -189,6 +208,61 @@ namespace CarturMapPins
         /// Swapping the sprite in m_icons rather than touching the pin: the pin is re-created and
         /// re-positioned by UpdateProfilePins on its own schedule, and anything done to the pin
         /// itself would have to be redone every time it does that.
+        /// Makes the custom type range valid on this Minimap. False when it could not be done,
+        /// which is the one case where registering anything further would be worse than doing
+        /// nothing: the types would be clamped on load and the save rewritten.
+        private static bool Reserve(Minimap map)
+        {
+            try
+            {
+                GrowVisibleIconTypes(map, CurrentBase + IconCount + 1);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Could not reserve the custom pin types: {e.Message}");
+                return false;
+            }
+        }
+
+        /// Gives every custom type that has no sprite a vanilla one to draw.
+        ///
+        /// Reserve alone leaves those types valid but unknown to Minimap.GetSprite, which returns
+        /// the default of a struct - a null Sprite - and a Unity Image with a null sprite draws a
+        /// solid white box. So the save would be safe and the map would be full of white squares.
+        /// Pointing them at a vanilla glyph means a player with custom icons off sees what they
+        /// saw before this existed, while the pin keeps the type that says which icon it wants
+        /// back when they turn them on again.
+        private static void FallbackSprites(Minimap map)
+        {
+            Sprite stand_in = VanillaSprite(map, Minimap.PinType.Icon3);
+            if (stand_in == null)
+                return;
+
+            int added = 0;
+            for (int type = FirstCustomType; type < CurrentBase + IconCount; type++)
+            {
+                var pinType = (Minimap.PinType)type;
+                if (AlreadyRegistered(map, pinType))
+                    continue;
+                map.m_icons.Add(new Minimap.SpriteData { m_name = pinType, m_icon = stand_in });
+                added++;
+            }
+
+            if (added > 0)
+                Plugin.Log.LogInfo($"Custom icons unavailable - {added} custom pin type(s) drawing vanilla's Icon3. The pins keep their own type and come back when icons are switched on.");
+        }
+
+        private static Sprite VanillaSprite(Minimap map, Minimap.PinType type)
+        {
+            foreach (Minimap.SpriteData data in map.m_icons)
+            {
+                if (data.m_name == type)
+                    return data.m_icon;
+            }
+            return null;
+        }
+
         private static void ReplaceBedSprite(Minimap map)
         {
             if (!Plugin.ReplaceBedMarker.Value)

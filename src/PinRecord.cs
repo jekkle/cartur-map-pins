@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -26,18 +26,126 @@ namespace CarturMapPins
         {
             public string Key;
             public Vector3 Pos;
+
+            /// The label before Localize ran on it - "$enemy_boar Spawner", "Copper". Kept so the
+            /// pin can be re-worded when the player changes the game's language, which the
+            /// localized text alone cannot be: "Eber" says nothing about which token produced it.
+            public string Source;
+
+            /// The exact text this mod last put on the pin. A pin that no longer reads this way
+            /// was renamed by hand, and a rename outranks a translation - this is the only thing
+            /// that tells the two apart.
+            public string Written;
         }
 
         private static readonly List<Entry> Entries = new List<Entry>();
         private static string _path;
+        private static string _configDir;
+        private static bool _loaded;
 
-        public static int Count => Entries.Count;
+        public static int Count { get { EnsureLoaded(); return Entries.Count; } }
 
+        /// Remembers where the records live. The file itself cannot be chosen yet: which one it is
+        /// depends on the world and the character, and at plugin load there is neither.
         public static void Load(string configDir)
         {
-            _path = Path.Combine(configDir, "com.jekkle.valheim.carturmappins.pins.txt");
+            _configDir = configDir;
+            Unload();
+        }
+
+        /// Forgets the loaded record, so the next use resolves the file again.
+        ///
+        /// Called when a world is torn down. Without it, walking out to the menu and into a second
+        /// world would keep the first world's records in memory and then write them over the
+        /// second world's file.
+        public static void Unload()
+        {
+            Entries.Clear();
+            _path = null;
+            _loaded = false;
+            _dirty = false;
+        }
+
+        /// One record file per world per character.
+        ///
+        /// There used to be one file for everything, read once at plugin load. The record is the
+        /// dedupe set - "we already pinned this" - so a second character entering a world the
+        /// first had explored was told every deposit in it was already pinned, and pinned nothing,
+        /// on a map that was empty. Same for a second world: one file, every world's positions in
+        /// it, each one suppressing pins somewhere else.
+        ///
+        /// Resolved lazily rather than at load because neither key exists at plugin load. Both are
+        /// read from the game, not guessed: ZNet.World is a public static property and World.m_uid
+        /// is the world's own unique id (the name alone is not unique - two worlds can share one).
+        /// PlayerProfile.m_filename is the character's save file name, so it is unique per
+        /// character and already safe to put in a path.
+        ///
+        /// Returns quietly while either is missing, so the next call tries again.
+        private static void EnsureLoaded()
+        {
+            if (_loaded || string.IsNullOrEmpty(_configDir))
+                return;
+
+            World world = ZNet.World;
+            PlayerProfile profile = Game.instance != null ? Game.instance.GetPlayerProfile() : null;
+            if (world == null || profile == null || string.IsNullOrEmpty(profile.m_filename))
+                return;
+
+            string key = $"{Sanitize(world.m_name)}-{world.m_uid}.{Sanitize(profile.m_filename)}";
+            _path = Path.Combine(_configDir, $"com.jekkle.valheim.carturmappins.{key}.pins.txt");
+            _loaded = true;
             Entries.Clear();
 
+            AdoptSharedRecord();
+            ReadFile();
+        }
+
+        /// Hands the old single shared record to the first world and character that asks for one,
+        /// once.
+        ///
+        /// That file was written by somebody playing somewhere, and throwing it away would make
+        /// them rediscover a map they had already filled in. Handing it to everybody would keep
+        /// the bug this fix exists to remove, so a marker file beside it says it has been claimed.
+        /// The old file is left exactly where it is - nothing is renamed and nothing is deleted.
+        private static void AdoptSharedRecord()
+        {
+            if (File.Exists(_path))
+                return;
+
+            string shared = Path.Combine(_configDir, "com.jekkle.valheim.carturmappins.pins.txt");
+            string claimed = shared + ".claimed";
+            if (!File.Exists(shared) || File.Exists(claimed))
+                return;
+
+            try
+            {
+                File.Copy(shared, _path);
+                File.WriteAllText(claimed,
+                    "The single shared pin record was handed to " + Path.GetFileName(_path) + "." + Environment.NewLine +
+                    "Records are now kept per world per character. The original is left beside this file," + Environment.NewLine +
+                    "unread; delete this marker to hand it to the next world or character instead." + Environment.NewLine);
+                Plugin.Log.LogInfo($"Adopted the old shared pin record into {Path.GetFileName(_path)}.");
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Could not adopt the old shared pin record: {e.Message}");
+            }
+        }
+
+        /// Anything that cannot go in a file name, and the separators this file name uses.
+        private static string Sanitize(string value)
+        {
+            if (string.IsNullOrEmpty(value))
+                return "unnamed";
+
+            var sb = new System.Text.StringBuilder(value.Length);
+            foreach (char c in value)
+                sb.Append(char.IsLetterOrDigit(c) ? c : '_');
+            return sb.Length > 0 ? sb.ToString() : "unnamed";
+        }
+
+        private static void ReadFile()
+        {
             if (!File.Exists(_path))
                 return;
 
@@ -45,10 +153,13 @@ namespace CarturMapPins
             {
                 foreach (string line in File.ReadAllLines(_path))
                 {
-                    // key|x|y|z   (key is "Ore:Copper", "Dungeon", ...)
+                    // key|x|y|z|source|written   (key is "Ore:Copper", "Dungeon", ...)
+                    // Lines written before 1.3.7 carry only the first four fields. They stay
+                    // valid and simply never re-word: the source label they were built from was
+                    // never recorded, so there is nothing to translate them from.
                     string[] parts = line.Split('|');
 
-                    if (parts.Length != 4)
+                    if (parts.Length != 4 && parts.Length != 6)
                         continue;
                     if (string.IsNullOrEmpty(parts[0]))
                         continue;
@@ -57,9 +168,15 @@ namespace CarturMapPins
                         !float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
                         continue;
 
-                    Entries.Add(new Entry { Key = parts[0], Pos = new Vector3(x, y, z) });
+                    Entries.Add(new Entry
+                    {
+                        Key = parts[0],
+                        Pos = new Vector3(x, y, z),
+                        Source = parts.Length == 6 ? parts[4] : null,
+                        Written = parts.Length == 6 ? parts[5] : null,
+                    });
                 }
-                Plugin.Log.LogInfo($"Loaded {Entries.Count} previously placed pins from record.");
+                Plugin.Log.LogInfo($"Loaded {Entries.Count} previously placed pins from {Path.GetFileName(_path)}.");
             }
             catch (Exception e)
             {
@@ -72,6 +189,7 @@ namespace CarturMapPins
         /// too tight for an ore field where deposits sit a few metres apart.
         public static bool Exists(string key, Vector3 pos, float radius)
         {
+            EnsureLoaded();
             // Records written before subtypes existed use the bare category ("Ore", "Pickable")
             // where we now write "Ore:Copper". The ore type can't be recovered from them, but a
             // legacy entry still means "we pinned something of this category here", so it counts
@@ -95,9 +213,18 @@ namespace CarturMapPins
 
         private static bool _dirty;
 
-        public static void Add(string key, Vector3 pos)
+        /// `source` is the label before Localize, `written` the text actually put on the pin.
+        /// Both null for a pin that was already on the map when we adopted it: we did not write
+        /// its name, so there is no way to know whether the player has since edited it, and
+        /// re-wording it on a language change would be overwriting something we never owned.
+        public static void Add(string key, Vector3 pos, string source = null, string written = null)
         {
-            Entries.Add(new Entry { Key = key, Pos = pos });
+            EnsureLoaded();
+            // No file resolved yet means no world or no character, which means nothing placed a
+            // pin either. Appending now would only be thrown away when the real record loads.
+            if (!_loaded)
+                return;
+            Entries.Add(new Entry { Key = key, Pos = pos, Source = source, Written = written });
             // Marked dirty rather than written immediately: walking into a dense area can place
             // pins several times a second, and rewriting the whole file per pin is needless disk
             // churn. Flush() is called from the throttled tick.
@@ -120,6 +247,7 @@ namespace CarturMapPins
         /// Returns true when an entry was promoted.
         public static bool Upgrade(PinCategory category, string subtype, Vector3 pos, float radius, Minimap.PinType wanted)
         {
+            EnsureLoaded();
             if (string.IsNullOrEmpty(subtype))
                 return false;
 
@@ -145,7 +273,13 @@ namespace CarturMapPins
                 if (pin == null || !Repoint(map, pin, wanted))
                     return false;
 
-                Entries[i] = new Entry { Key = bareKey + ":" + subtype, Pos = Entries[i].Pos };
+                Entries[i] = new Entry
+                {
+                    Key = bareKey + ":" + subtype,
+                    Pos = Entries[i].Pos,
+                    Source = Entries[i].Source,
+                    Written = Entries[i].Written,
+                };
                 _dirty = true;
                 map.SaveMapData();
                 Plugin.Log.LogInfo($"Upgraded '{bareKey}' pin at {pos.x:F0},{pos.z:F0} to '{bareKey}:{subtype}'.");
@@ -161,6 +295,7 @@ namespace CarturMapPins
         /// the two - so resurrecting pins is never done to somebody's map without them asking.
         public static int ForgetMissing()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null)
                 return 0;
@@ -180,6 +315,7 @@ namespace CarturMapPins
         /// pin, so a dungeon the mod ticks looks exactly like one you ticked yourself.
         public static bool SetChecked(PinCategory category, Vector3 pos, float radius, bool value)
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null)
                 return false;
@@ -198,7 +334,7 @@ namespace CarturMapPins
 
                 Minimap.PinData pin = FindPinAt(map, e.Pos);
                 if (pin == null || pin.m_checked == value)
-                    return false;
+                    continue;
 
                 // m_checked is what saves and what UpdatePins reads; the element is the tick
                 // already drawn on screen, a GameObject rather than a graphic, so it is shown or
@@ -224,6 +360,7 @@ namespace CarturMapPins
         /// change is left exactly as it was.
         public static int LocalizeNames()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null)
                 return 0;
@@ -243,6 +380,7 @@ namespace CarturMapPins
                     continue;
 
                 pin.m_name = resolved;
+                PinEditor.RefreshLabel(pin);
                 changed++;
             }
 
@@ -262,6 +400,7 @@ namespace CarturMapPins
         /// that carries each ore's icon, so a pin on the generic icon has no ore colour to find.
         public static int AdoptSubtypeIcons()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null || !CustomIcons.Ready)
                 return 0;
@@ -309,6 +448,7 @@ namespace CarturMapPins
         /// Only pins in the record, so hand-placed ones keep whatever they were given.
         public static int RepointAllToCurrent()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null || !CustomIcons.Ready)
                 return 0;
@@ -346,6 +486,7 @@ namespace CarturMapPins
         /// because the caller removes entries as it goes.
         public static List<Vector3> PositionsOf(PinCategory category)
         {
+            EnsureLoaded();
             string bareKey = category.ToString();
             var found = new List<Vector3>();
             foreach (Entry e in Entries)
@@ -363,6 +504,7 @@ namespace CarturMapPins
         /// sitting on top of a mined-out deposit is left alone unless it is the one we recorded.
         public static bool Forget(PinCategory category, Vector3 pos, float radius)
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null)
                 return false;
@@ -383,9 +525,11 @@ namespace CarturMapPins
                 // world, so a copper deposit recorded in another save sits in the list wherever
                 // you are - and dropping it would leave that world's pin unrecorded and liable to
                 // be pinned a second time. Nothing to remove, so nothing is removed.
+                // Skipped, not given up on. Returning here meant the first record in radius with
+                // no pin ended the search, so a single stale entry hid every good one behind it.
                 Minimap.PinData pin = FindPinAt(map, Entries[i].Pos);
                 if (pin == null)
-                    return false;
+                    continue;
 
                 map.RemovePin(pin);
                 map.SaveMapData();
@@ -402,6 +546,7 @@ namespace CarturMapPins
         /// is standing in for a ruin from an ordinary one.
         public static string SubtypeNear(PinCategory category, Vector3 pos, float radius)
         {
+            EnsureLoaded();
             string prefix = category.ToString() + ":";
             float sqr = radius * radius;
             foreach (Entry e in Entries)
@@ -419,6 +564,7 @@ namespace CarturMapPins
         /// whether vanilla's own marker at the same spot is now a duplicate of ours.
         public static bool HasCategoryNear(PinCategory category, Vector3 pos, float radius)
         {
+            EnsureLoaded();
             string bareKey = category.ToString();
             float sqr = radius * radius;
             foreach (Entry e in Entries)
@@ -435,6 +581,7 @@ namespace CarturMapPins
         /// Writes pending changes at most once per interval. Cheap no-op when nothing changed.
         public static void Flush()
         {
+            EnsureLoaded();
             if (!_dirty)
                 return;
             _dirty = false;
@@ -445,6 +592,7 @@ namespace CarturMapPins
         /// Hand-placed pins are matched by position/type against the record, so they survive.
         public static int RemoveAll()
         {
+            EnsureLoaded();
             int removed = 0;
             Minimap map = Minimap.instance;
 
@@ -480,6 +628,7 @@ namespace CarturMapPins
         /// never touched - they aren't in the record.
         public static int RelabelSpawners()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null)
                 return 0;
@@ -580,6 +729,7 @@ namespace CarturMapPins
         /// because their artwork has shifted too and there is no way to recover what was meant.
         public static int MigrateIcons()
         {
+            EnsureLoaded();
             Minimap map = Minimap.instance;
             if (map == null || !CustomIcons.Ready)
                 return 0;
@@ -712,6 +862,261 @@ namespace CarturMapPins
             return null;
         }
 
+        /// Moves a record onto the pin it describes, when the two have come apart.
+        ///
+        /// Records adopted from a pin already on the map used to store the position of the OBJECT
+        /// that was scanned rather than of the pin that was found, and those two are allowed to be
+        /// a whole dedupe radius apart - 15 metres for ore. Every operation here looks for a pin
+        /// within half a metre of the record, so a record off by more than that described a pin
+        /// nothing could ever find again: the mined-ore sweep looked, found nothing, and quietly
+        /// gave up, which is why pins stayed on worked-out deposits with nothing in the log.
+        ///
+        /// Placing records the pin's own position now, so this is a repair for maps that already
+        /// have the bad ones, not something that keeps happening.
+        ///
+        /// A pin already sitting under another record is never taken: in a dense field the nearest
+        /// pin to a drifted record is often its neighbour's, and stealing it would leave two
+        /// records on one pin and another pin orphaned again.
+        public static int RepairPositions()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return 0;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return 0;
+
+            int moved = 0;
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                Entry e = Entries[i];
+                if (FindPinAt(map, e.Pos) != null)
+                    continue;   // already agrees
+
+                float radius = RadiusFor(e.Key);
+                float best = radius * radius;
+                Minimap.PinData match = null;
+
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (pin == null || !pin.m_save)
+                        continue;
+
+                    float dx = pin.m_pos.x - e.Pos.x;
+                    float dz = pin.m_pos.z - e.Pos.z;
+                    float sqr = dx * dx + dz * dz;
+                    if (sqr > best || ClaimedByAnother(pin.m_pos, i))
+                        continue;
+
+                    best = sqr;
+                    match = pin;
+                }
+
+                if (match == null)
+                    continue;
+
+                Entries[i] = new Entry { Key = e.Key, Pos = match.m_pos, Source = e.Source, Written = e.Written };
+                moved++;
+            }
+
+            if (moved > 0)
+            {
+                _dirty = true;
+                Save();
+            }
+            return moved;
+        }
+
+        /// Record health in one line: how many records have a pin where they say, how many have
+        /// one close by but not where they say, and how many describe nothing on the map at all.
+        public static string Audit()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return "no map";
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return "no pins";
+
+            int exact = 0, near = 0, orphan = 0;
+            foreach (Entry e in Entries)
+            {
+                if (FindPinAt(map, e.Pos) != null) { exact++; continue; }
+
+                float radius = RadiusFor(e.Key);
+                float sqr = radius * radius;
+                bool found = false;
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (pin == null || !pin.m_save)
+                        continue;
+                    float dx = pin.m_pos.x - e.Pos.x;
+                    float dz = pin.m_pos.z - e.Pos.z;
+                    if (dx * dx + dz * dz <= sqr) { found = true; break; }
+                }
+                if (found) near++; else orphan++;
+            }
+
+            int saved = 0, orphanPins = 0, twinned = 0;
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || !pin.m_save)
+                    continue;
+                saved++;
+                if (RecordedAt(pin.m_pos))
+                    continue;
+
+                orphanPins++;
+                if (TwinOf(pins, pin) != null)
+                    twinned++;
+            }
+
+            // Ore is reported separately because it is the only category that removes its own
+            // pins, so it is the only one where a record being unusable is visible. Two different
+            // faults look identical from the map - a record that cannot find its pin, and a
+            // record whose deposit is gone but which still has a live node inside the sweep's
+            // radius, because that radius covers every ore type and not just this one.
+            int oreTotal = 0, oreBlocked = 0, oreFar = 0;
+            Player player = Player.m_localPlayer;
+            Vector3 me = player != null ? player.transform.position : Vector3.zero;
+
+            foreach (Entry e in Entries)
+            {
+                if (e.Key != "Ore" && !e.Key.StartsWith("Ore:", StringComparison.Ordinal))
+                    continue;
+
+                oreTotal++;
+                float dx = e.Pos.x - me.x;
+                float dz = e.Pos.z - me.z;
+                if (dx * dx + dz * dz > 25f * 25f)
+                {
+                    oreFar++;   // outside the sweep's reach, so it is not even being considered
+                    continue;
+                }
+
+                if (OreRegistry.NodeNear(e.Pos, RadiusFor(e.Key)))
+                    oreBlocked++;
+            }
+
+            return $"{Entries.Count} record(s): {exact} on their pin, {near} near one, {orphan} describing nothing. "
+                 + $"{saved} saved pin(s), {orphanPins} with no record, {twinned} of those a twin of a recorded pin. "
+                 + $"file {(string.IsNullOrEmpty(_path) ? "(none)" : Path.GetFileName(_path))}. "
+                 + $"Ore: {oreTotal} record(s), {oreFar} beyond the 25m sweep, "
+                 + $"{oreBlocked} of the rest still have a live node within their spacing radius.";
+        }
+
+        private static bool RecordedAt(Vector3 pos)
+        {
+            foreach (Entry e in Entries)
+            {
+                Vector3 d = e.Pos - pos;
+                if (d.x * d.x + d.z * d.z < 0.25f)
+                    return true;
+            }
+            return false;
+        }
+
+        /// A recorded pin this one is a second copy of.
+        ///
+        /// The old duplicate bug put two pins on one deposit and recorded only one of them: the
+        /// second was placed by a run whose record file had been emptied. Forget then took the
+        /// recorded one and deleted the record, leaving the twin with nothing pointing at it - and
+        /// every sweep works from the record list, so nothing looks at it again. That is a pin
+        /// stuck on a worked-out deposit forever.
+        ///
+        /// Same type AND same name AND close by. Type alone would catch a pin placed by hand that
+        /// happens to stand near one of ours; a duplicate carries the same label because the same
+        /// code wrote it.
+        private static Minimap.PinData TwinOf(List<Minimap.PinData> pins, Minimap.PinData orphan)
+        {
+            const float SameSpot = 4f;
+            float sqr = SameSpot * SameSpot;
+
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || !pin.m_save || ReferenceEquals(pin, orphan))
+                    continue;
+                if (pin.m_type != orphan.m_type || pin.m_name != orphan.m_name)
+                    continue;
+
+                Vector3 d = pin.m_pos - orphan.m_pos;
+                if (d.x * d.x + d.z * d.z > sqr)
+                    continue;
+
+                if (RecordedAt(pin.m_pos))
+                    return pin;
+            }
+            return null;
+        }
+
+        /// Removes pins the old duplicate bug left behind: a second copy of a recorded pin, with
+        /// no record of its own, which nothing else can ever act on.
+        ///
+        /// Never touches a pin that stands alone, and never the recorded one of a pair - so a pin
+        /// you placed by hand survives unless it is a same-name same-icon copy sitting on top of
+        /// one of ours, which is the thing being cleaned up.
+        public static int RemoveOrphanTwins()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return 0;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins == null)
+                return 0;
+
+            var doomed = new List<Minimap.PinData>();
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || !pin.m_save || RecordedAt(pin.m_pos))
+                    continue;
+                if (TwinOf(pins, pin) != null)
+                    doomed.Add(pin);
+            }
+
+            foreach (Minimap.PinData pin in doomed)
+            {
+                Plugin.Log.LogInfo($"Removed a duplicate '{pin.m_name}' pin at {pin.m_pos.x:F0},{pin.m_pos.z:F0} that no record pointed at.");
+                map.RemovePin(pin);
+            }
+
+            if (doomed.Count > 0)
+                map.SaveMapData();
+            return doomed.Count;
+        }
+
+        /// How far a record of this kind was ever allowed to drift from its pin, which is the
+        /// category's own dedupe radius. Falls back to something generous when the category no
+        /// longer exists - a record from a version that had one this one does not.
+        private static float RadiusFor(string key)
+        {
+            int colon = key.IndexOf(':');
+            string name = colon > 0 ? key.Substring(0, colon) : key;
+            if (!Enum.TryParse(name, out PinCategory category))
+                return 15f;
+
+            Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+            return settings != null ? Mathf.Max(settings.DedupeRadius.Value, 1f) : 15f;
+        }
+
+        private static bool ClaimedByAnother(Vector3 pinPos, int skip)
+        {
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                if (i == skip)
+                    continue;
+                Vector3 d = Entries[i].Pos - pinPos;
+                if (d.x * d.x + d.z * d.z < 0.25f)
+                    return true;
+            }
+            return false;
+        }
+
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
@@ -729,6 +1134,65 @@ namespace CarturMapPins
             return null;
         }
 
+        /// The record is one pipe-separated line per pin, so a pipe inside a label would split
+        /// into a field of its own and make the line unreadable on the next load. No Valheim name
+        /// contains one, but a label can come from another mod's prefab.
+        private static string Field(string value) =>
+            string.IsNullOrEmpty(value) ? string.Empty : value.Replace('|', ' ');
+
+        /// Re-words our pins into the language the game is currently set to.
+        ///
+        /// A pin's name is written into the character save as plain text, so a label localized
+        /// when the pin was placed stays in that language forever - switching the game to German
+        /// used to leave every pin already on the map in English. Re-deriving it needs the token
+        /// it came from, which is what Entry.Source is for.
+        ///
+        /// Three things are deliberately left alone:
+        ///   - a label with no '$' in it, because it was built from a prefab name and reads the
+        ///     same in every language - there is nothing to redo;
+        ///   - a pin whose name is not what we last wrote, because the player renamed it;
+        ///   - a record from before 1.3.7, which has no Source to work from.
+        public static int Relabel()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null || Localization.instance == null)
+                return 0;
+
+            int changed = 0;
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                Entry e = Entries[i];
+                if (string.IsNullOrEmpty(e.Source) || string.IsNullOrEmpty(e.Written))
+                    continue;
+                if (e.Source.IndexOf('$') < 0)
+                    continue;
+
+                string wanted = Labels.ForPin(e.Source);
+                if (string.IsNullOrEmpty(wanted) || wanted == e.Written)
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_name != e.Written)
+                    continue;
+
+                pin.m_name = wanted;
+                // A label's text is written once, when its marker is built - see the comment on
+                // PinEditor.RefreshLabel. Without this the new wording sits in the save and on
+                // the map data while the map keeps drawing the old one until the world reloads.
+                PinEditor.RefreshLabel(pin);
+                Entries[i] = new Entry { Key = e.Key, Pos = e.Pos, Source = e.Source, Written = wanted };
+                changed++;
+            }
+
+            if (changed > 0)
+            {
+                _dirty = true;
+                map.SaveMapData();
+            }
+            return changed;
+        }
+
         private static void Save()
         {
             if (string.IsNullOrEmpty(_path))
@@ -739,8 +1203,8 @@ namespace CarturMapPins
                 var lines = new List<string>(Entries.Count);
                 foreach (Entry e in Entries)
                 {
-                    lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}",
-                        e.Key, e.Pos.x, e.Pos.y, e.Pos.z));
+                    lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}|{5}",
+                        e.Key, e.Pos.x, e.Pos.y, e.Pos.z, Field(e.Source), Field(e.Written)));
                 }
                 File.WriteAllLines(_path, lines.ToArray());
             }
