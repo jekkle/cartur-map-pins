@@ -497,12 +497,43 @@ namespace CarturMapPins
             return found;
         }
 
+        /// Position and subtype of every record in this category.
+        ///
+        /// The mined-ore sweep needs both. Its radius covers whatever else is standing nearby and
+        /// not only the ore it is asking about, so a position alone lets a live tin node vouch for
+        /// a mined-out copper pin, and lets the copper pin's removal take the tin pin with it.
+        public static List<KeyValuePair<Vector3, string>> RecordsOf(PinCategory category)
+        {
+            EnsureLoaded();
+            string bareKey = category.ToString();
+            string prefix = bareKey + ":";
+            var found = new List<KeyValuePair<Vector3, string>>();
+            foreach (Entry e in Entries)
+            {
+                if (e.Key == bareKey)
+                    found.Add(new KeyValuePair<Vector3, string>(e.Pos, null));
+                else if (e.Key.StartsWith(prefix, StringComparison.Ordinal))
+                    found.Add(new KeyValuePair<Vector3, string>(e.Pos, e.Key.Substring(prefix.Length)));
+            }
+            return found;
+        }
+
         /// Removes our pin of this category near a position, and the record with it.
         ///
         /// Only ever called for something the world says is gone. The pin is matched the same way
         /// the migration matches: by position, and only pins the game saved - so a hand-placed pin
         /// sitting on top of a mined-out deposit is left alone unless it is the one we recorded.
-        public static bool Forget(PinCategory category, Vector3 pos, float radius)
+        ///
+        /// `subtype` narrows it to one kind within the category, and the mined-ore sweep must pass
+        /// it. The radius is a category radius - 15 metres for ore - and two deposits of different
+        /// ores standing that close are two separate pins, because dedupe only ever merges a pin
+        /// with its own kind. Without this the first ore record inside the radius was taken, which
+        /// on a copper node beside a tin one removed whichever pin came first in the file: mine one
+        /// deposit and its untouched neighbour loses its pin.
+        ///
+        /// Null accepts any subtype, which is what a record written before subtypes were recorded
+        /// has, and what every other caller wants.
+        public static bool Forget(PinCategory category, Vector3 pos, float radius, string subtype = null)
         {
             EnsureLoaded();
             Minimap map = Minimap.instance;
@@ -510,11 +541,17 @@ namespace CarturMapPins
                 return false;
 
             string bareKey = category.ToString();
+            string wanted = subtype != null ? bareKey + ":" + subtype : null;
             float sqr = radius * radius;
 
             for (int i = Entries.Count - 1; i >= 0; i--)
             {
-                if (Entries[i].Key != bareKey && !Entries[i].Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                if (wanted != null)
+                {
+                    if (Entries[i].Key != wanted)
+                        continue;
+                }
+                else if (Entries[i].Key != bareKey && !Entries[i].Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
                     continue;
 
                 Vector3 d = Entries[i].Pos - pos;
@@ -978,8 +1015,8 @@ namespace CarturMapPins
             // Ore is reported separately because it is the only category that removes its own
             // pins, so it is the only one where a record being unusable is visible. Two different
             // faults look identical from the map - a record that cannot find its pin, and a
-            // record whose deposit is gone but which still has a live node inside the sweep's
-            // radius, because that radius covers every ore type and not just this one.
+            // record whose deposit is gone but which still has a live node of its own ore inside
+            // the sweep's radius.
             int oreTotal = 0, oreBlocked = 0, oreFar = 0;
             Player player = Player.m_localPlayer;
             Vector3 me = player != null ? player.transform.position : Vector3.zero;
@@ -998,7 +1035,8 @@ namespace CarturMapPins
                     continue;
                 }
 
-                if (OreRegistry.NodeNear(e.Pos, RadiusFor(e.Key)))
+                int colon = e.Key.IndexOf(':');
+                if (OreRegistry.NodeNear(e.Pos, RadiusFor(e.Key), colon > 0 ? e.Key.Substring(colon + 1) : null))
                     oreBlocked++;
             }
 

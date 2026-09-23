@@ -354,6 +354,14 @@ namespace CarturMapPins
         /// player walked away would be unforgivable. Third, only when nothing we have seen is
         /// still standing within the dedupe radius.
         ///
+        /// And fifth - fourth in the list below, but the one that was missing - the question is
+        /// asked about one ore, not about ore in general. Both the radius that keeps a pin alive
+        /// and the radius that removes it are the category's dedupe radius, 15 metres, while
+        /// dedupe itself only ever merges a pin with its own kind. So a copper deposit and a tin
+        /// deposit ten metres apart are two pins inside each other's radius: a live tin node used
+        /// to vouch for mined-out copper forever, and removing the copper pin took whichever of
+        /// the two records came first in the file. Mine one deposit, lose its neighbour's pin.
+        ///
         /// And fourth, only after three sweeps in a row say so, within 25 metres. A loaded zone
         /// does not mean a populated one: ZNetScene creates its objects over many frames, so a
         /// node can be missing for a second or two simply because the game has not got to it yet.
@@ -379,16 +387,22 @@ namespace CarturMapPins
             const int MissesNeeded = 3;
             float near = Mathf.Max(settings.DedupeRadius.Value, 5f);
 
-            foreach (Vector3 pos in PinRecord.PositionsOf(PinCategory.Ore))
+            foreach (System.Collections.Generic.KeyValuePair<Vector3, string> record
+                     in PinRecord.RecordsOf(PinCategory.Ore))
             {
+                Vector3 pos = record.Key;
+                string ore = record.Value;
+
                 if (DistanceXZ(pos, playerPos) > CloseEnough)
                     continue;
                 if (!zones.IsZoneLoaded(pos))
                     continue;
 
                 long key = ((long)Mathf.RoundToInt(pos.x) << 32) ^ (uint)Mathf.RoundToInt(pos.z);
+                if (ore != null)
+                    key ^= (long)ore.GetHashCode() << 16;
 
-                if (OreRegistry.NodeNear(pos, near))
+                if (OreRegistry.NodeNear(pos, near, ore))
                 {
                     _oreMisses.Remove(key);
                     continue;
@@ -401,9 +415,9 @@ namespace CarturMapPins
 
                 _oreMisses.Remove(key);
 
-                if (!PinRecord.Forget(PinCategory.Ore, pos, near))
+                if (!PinRecord.Forget(PinCategory.Ore, pos, near, ore))
                     continue;
-                Plugin.Log.LogInfo($"Ore pin at {pos.x:F0},{pos.z:F0} removed - the deposit is gone.");
+                Plugin.Log.LogInfo($"{ore ?? "Ore"} pin at {pos.x:F0},{pos.z:F0} removed - the deposit is gone.");
             }
         }
 

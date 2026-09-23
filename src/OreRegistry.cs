@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -20,6 +20,11 @@ namespace CarturMapPins
         {
             public GameObject Go;
             public Vector3 Pos;
+            /// Which ore this node yields - the same string the pin's record carries as its
+            /// subtype. Without it every question asked here is answered for the wrong deposit:
+            /// the radius the sweep works in covers whatever else is standing nearby, and a tin
+            /// node ten metres away would vouch for a mined-out copper pin forever.
+            public string Type;
         }
 
         private static readonly List<Node> Seen = new List<Node>();
@@ -28,7 +33,7 @@ namespace CarturMapPins
         public static int Count => Seen.Count;
 #endif
 
-        public static void Add(GameObject go)
+        public static void Add(GameObject go, string type)
         {
             if (go == null)
                 return;
@@ -37,7 +42,7 @@ namespace CarturMapPins
                 if (Seen[i].Go == go)
                     return;
             }
-            Seen.Add(new Node { Go = go, Pos = go.transform.position });
+            Seen.Add(new Node { Go = go, Pos = go.transform.position, Type = type });
         }
 
         public static void Clear() => Seen.Clear();
@@ -58,9 +63,13 @@ namespace CarturMapPins
 
         /// True when a node we have seen is still standing within `radius` of a position.
         ///
+        /// `type` is the ore the asker is asking about, and only nodes of that ore answer. Pass
+        /// null to accept any, which is what a record with no subtype - written by a version of
+        /// this mod that did not record one - has to fall back to.
+        ///
         /// Prunes as it goes: an entry whose object Unity has nulled is either mined or unloaded,
         /// and either way it is no longer evidence that something is there.
-        public static bool NodeNear(Vector3 pos, float radius)
+        public static bool NodeNear(Vector3 pos, float radius, string type)
         {
             float sqr = radius * radius;
             bool found = false;
@@ -72,6 +81,9 @@ namespace CarturMapPins
                     Seen.RemoveAt(i);
                     continue;
                 }
+
+                if (type != null && Seen[i].Type != null && Seen[i].Type != type)
+                    continue;
 
                 Vector3 d = Seen[i].Pos - pos;
                 if (d.x * d.x + d.z * d.z <= sqr)

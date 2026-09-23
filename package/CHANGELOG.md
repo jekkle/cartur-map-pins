@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.1
+
+- **Mining one deposit no longer takes a neighbouring deposit's pin with it.** Reported on
+  Nexus as the ore marker disappearing "as soon as even a single piece is mined", and it was
+  real. The sweep that forgets a mined-out deposit worked in the Ore category's dedupe radius,
+  15 metres, but dedupe itself only ever merges a pin with its own kind - so a copper deposit
+  and a tin deposit ten metres apart are two separate pins sitting inside each other's radius.
+  The sweep could not tell them apart: it took the first ore record in range, which on a mined
+  copper node was sometimes the untouched tin one. The same blindness ran the other way, where
+  a live tin node vouched for mined-out copper and kept a dead pin on the map forever.
+  Registered nodes now carry which ore they are, and both halves of the sweep ask about one
+  ore rather than about ore in general. Records written before subtypes were recorded still
+  behave as they did.
+
 ## 1.5.0
 
 - **The readability settings 1.4.0's page described now actually exist.** The listing
