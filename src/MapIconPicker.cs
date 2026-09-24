@@ -265,6 +265,13 @@ namespace CarturMapPins
             rt.offsetMax = new Vector2(-6f, -3f);
 
             input.text = string.Empty;
+            // The box and the filter are cleared together. PinFilter.Text is static and survives
+            // leaving a world, while this input is a fresh clone built per Minimap - and the only
+            // thing that ever writes PinFilter.Text is the listener attached further down, after
+            // this line. So clearing the box alone left the last world's search still filtering:
+            // the new world opened with every pin that did not match it dimmed, above a search box
+            // that looked empty.
+            PinFilter.Text = string.Empty;
             if (input.placeholder is TMP_Text placeholder)
                 placeholder.text = "Search pins...";
 

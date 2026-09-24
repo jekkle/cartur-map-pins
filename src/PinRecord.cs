@@ -321,11 +321,12 @@ namespace CarturMapPins
                 return false;
 
             string bareKey = category.ToString();
+            string prefix = bareKey + ":";
             float sqr = radius * radius;
 
             foreach (Entry e in Entries)
             {
-                if (e.Key != bareKey && !e.Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                if (e.Key != bareKey && !e.Key.StartsWith(prefix, StringComparison.Ordinal))
                     continue;
 
                 Vector3 d = e.Pos - pos;
@@ -541,7 +542,8 @@ namespace CarturMapPins
                 return false;
 
             string bareKey = category.ToString();
-            string wanted = subtype != null ? bareKey + ":" + subtype : null;
+            string prefix = bareKey + ":";
+            string wanted = subtype != null ? prefix + subtype : null;
             float sqr = radius * radius;
 
             for (int i = Entries.Count - 1; i >= 0; i--)
@@ -551,7 +553,7 @@ namespace CarturMapPins
                     if (Entries[i].Key != wanted)
                         continue;
                 }
-                else if (Entries[i].Key != bareKey && !Entries[i].Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                else if (Entries[i].Key != bareKey && !Entries[i].Key.StartsWith(prefix, StringComparison.Ordinal))
                     continue;
 
                 Vector3 d = Entries[i].Pos - pos;
@@ -603,10 +605,11 @@ namespace CarturMapPins
         {
             EnsureLoaded();
             string bareKey = category.ToString();
+            string prefix = bareKey + ":";
             float sqr = radius * radius;
             foreach (Entry e in Entries)
             {
-                if (e.Key != bareKey && !e.Key.StartsWith(bareKey + ":", StringComparison.Ordinal))
+                if (e.Key != bareKey && !e.Key.StartsWith(prefix, StringComparison.Ordinal))
                     continue;
                 Vector3 d = e.Pos - pos;
                 if (d.x * d.x + d.z * d.z <= sqr)
@@ -914,6 +917,12 @@ namespace CarturMapPins
         /// A pin already sitting under another record is never taken: in a dense field the nearest
         /// pin to a drifted record is often its neighbour's, and stealing it would leave two
         /// records on one pin and another pin orphaned again.
+        ///
+        /// Nor is a pin whose icon says it was never ours - see OursByIcon. This used to search on
+        /// distance alone, over a whole dedupe radius (15 metres for ore), so a drifted record
+        /// could adopt a pin the player had placed by hand. From that moment the record described
+        /// the player's pin, and both the mined-ore sweep and carturpins_clear delete whatever
+        /// stands at a record's position - so a repair pass silently destroyed hand-placed pins.
         public static int RepairPositions()
         {
             EnsureLoaded();
@@ -938,7 +947,7 @@ namespace CarturMapPins
 
                 foreach (Minimap.PinData pin in pins)
                 {
-                    if (pin == null || !pin.m_save)
+                    if (pin == null || !pin.m_save || !OursByIcon(e.Key, pin.m_type))
                         continue;
 
                     float dx = pin.m_pos.x - e.Pos.x;
@@ -1140,6 +1149,37 @@ namespace CarturMapPins
 
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             return settings != null ? Mathf.Max(settings.DedupeRadius.Value, 1f) : 15f;
+        }
+
+        /// Whether a pin on the map could be the one a record with this key describes, judged by
+        /// the only thing about a pin the player cannot edit: its icon.
+        ///
+        /// Every other matcher in this mod asks this question - ExistsOnMap compares m_type,
+        /// TwinOf compares type and name - and RepairPositions did not, which is how it came to
+        /// adopt pins nobody here placed.
+        ///
+        /// Two icons are accepted rather than one: the icon this key resolves to today, and the
+        /// category's own generic icon. A record written before its kind had artwork still sits on
+        /// a pin wearing the generic glyph - that is exactly the state AdoptSubtypeIcons exists to
+        /// repair - and demanding the kind's icon would refuse to repair the oldest records, which
+        /// are the ones most likely to have drifted in the first place.
+        ///
+        /// A key naming a category this version no longer has matches nothing, so nothing moves.
+        /// That is the safe answer: a record that cannot be read must not claim a pin.
+        private static bool OursByIcon(string key, Minimap.PinType type)
+        {
+            int colon = key.IndexOf(':');
+            string categoryName = colon > 0 ? key.Substring(0, colon) : key;
+            string subtype = colon > 0 ? key.Substring(colon + 1) : null;
+
+            if (!Enum.TryParse(categoryName, out PinCategory category))
+                return false;
+
+            Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+            if (settings == null)
+                return false;
+
+            return type == PinPlacer.IconFor(category, subtype, settings) || type == settings.ResolvedPinType;
         }
 
         private static bool ClaimedByAnother(Vector3 pinPos, int skip)

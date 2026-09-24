@@ -198,16 +198,6 @@ namespace CarturMapPins
             }
         }
 
-        /// Repoints vanilla's own spawn-point marker at the house icon.
-        ///
-        /// Minimap keeps one m_spawnPointPin and moves it when you claim a different bed, so it
-        /// marks where you respawn rather than where you have lived. The mod's own Home pins mark
-        /// the beds and stay put - and since the two sit on the same spot for the bed you are
-        /// currently using, vanilla's bed glyph on top of our house would just be a double.
-        ///
-        /// Swapping the sprite in m_icons rather than touching the pin: the pin is re-created and
-        /// re-positioned by UpdateProfilePins on its own schedule, and anything done to the pin
-        /// itself would have to be redone every time it does that.
         /// Makes the custom type range valid on this Minimap. False when it could not be done,
         /// which is the one case where registering anything further would be worse than doing
         /// nothing: the types would be clamped on load and the save rewritten.
@@ -263,6 +253,16 @@ namespace CarturMapPins
             return null;
         }
 
+        /// Repoints vanilla's own spawn-point marker at the house icon.
+        ///
+        /// Minimap keeps one m_spawnPointPin and moves it when you claim a different bed, so it
+        /// marks where you respawn rather than where you have lived. The mod's own Home pins mark
+        /// the beds and stay put - and since the two sit on the same spot for the bed you are
+        /// currently using, vanilla's bed glyph on top of our house would just be a double.
+        ///
+        /// Swapping the sprite in m_icons rather than touching the pin: the pin is re-created and
+        /// re-positioned by UpdateProfilePins on its own schedule, and anything done to the pin
+        /// itself would have to be redone every time it does that.
         private static void ReplaceBedSprite(Minimap map)
         {
             if (!Plugin.ReplaceBedMarker.Value)

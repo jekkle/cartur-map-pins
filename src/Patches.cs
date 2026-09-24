@@ -384,6 +384,12 @@ namespace CarturMapPins
     {
         private static readonly FieldInfo LocationPins = AccessTools.Field(typeof(Minimap), "m_locationPins");
 
+        /// The countdown UpdateLocationPins throttles itself with. Read to tell a refill frame from
+        /// the hundreds of frames in between - see the Postfix.
+        private static readonly FieldInfo LocationsTimer = AccessTools.Field(typeof(Minimap), "m_updateLocationsTimer");
+
+        private static float _lastTimer;
+
         /// Altars are large; vanilla's marker sits at the location centre while ours lands on the
         /// offering bowl, so this is generous rather than exact.
         private const float SamePlace = 12f;
@@ -435,13 +441,44 @@ namespace CarturMapPins
 
         private static void Postfix(Minimap __instance)
         {
+            // The class comment above says m_locationPins is refilled every 5s and that a postfix
+            // on UpdateLocationPins "is exactly that moment". That reads as though this body runs
+            // every 5s. It does not, and that reading was wrong: the 5s throttle is the method's
+            // own first instructions - "m_updateLocationsTimer -= dt; if (> 0) return;" - while the
+            // game calls the method every frame (Minimap.Update -> UpdateDynamicPins). A Harmony
+            // postfix fires on the early return like any other, so everything below was walking the
+            // dictionary and asking PinRecord about every entry at frame rate.
+            //
+            // The timer only ever goes up in the one place that does the refill, where it is reset
+            // to 5; every other frame it counts down. So a rise is a refill and nothing else.
+            // Reading the rise rather than testing for 5 keeps this working if a game update
+            // changes the interval. If the field is ever renamed the gate simply drops out and
+            // this runs per frame again - correct, just not cheap.
+            if (LocationsTimer?.GetValue(__instance) is float timer)
+            {
+                bool refilled = timer > _lastTimer;
+                _lastTimer = timer;
+                if (!refilled)
+                    return;
+            }
+
             var pins = LocationPins?.GetValue(__instance) as Dictionary<Vector3, Minimap.PinData>;
             if (pins == null || pins.Count == 0)
                 return;
 
+            // The pins the map is actually drawing. An entry we dropped on an earlier refill keeps
+            // its key here on purpose (see the removal loop below), so it comes round again every
+            // 5s - and RemovePin sets m_pinUpdateRequired, which costs a full UpdatePins rebuild
+            // each time. Its PinData is out of m_pins, which is how an already-dropped one is told
+            // apart from a freshly added one.
+            List<Minimap.PinData> live = MinimapAccess.GetPins(__instance);
+
             List<Vector3> drop = null;
             foreach (KeyValuePair<Vector3, Minimap.PinData> kv in pins)
             {
+                if (kv.Value == null || (live != null && !live.Contains(kv.Value)))
+                    continue;
+
                 foreach (PinCategory category in Replaced)
                 {
                     Plugin.CategorySettings settings = Plugin.SettingsFor(category);
@@ -458,11 +495,15 @@ namespace CarturMapPins
             if (drop == null)
                 return;
 
+            // RemovePin only - the key stays in m_locationPins deliberately. Vanilla's refill is
+            // "if (!m_locationPins.ContainsKey(key)) { AddPin; m_locationPins.Add; ZLog.Log }", so
+            // taking the key out told it this location was new again: it re-added the marker on the
+            // next tick, and the one after that, forever, with a log line and an m_pinUpdateRequired
+            // rebuild each time. Leaving the key means the marker is gone and stays gone. Vanilla's
+            // own first loop drops the key when the location stops being reported at all, so
+            // nothing is leaked.
             foreach (Vector3 key in drop)
-            {
                 __instance.RemovePin(pins[key]);
-                pins.Remove(key);
-            }
         }
     }
 }

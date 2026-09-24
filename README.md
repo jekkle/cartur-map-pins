@@ -71,7 +71,7 @@ pin; leave it off to avoid the duplicate.
 
 ## Icons
 
-The mod ships its own sheet of 152 icons, registered as **extra** pin types
+The mod ships its own sheet of 153 icons, registered as **extra** pin types
 appended after the vanilla ones — nothing vanilla is replaced, so `Boss`, `Death`,
 `Bed` and `Icon0`–`Icon4` all keep working and stay selectable.
 
@@ -157,9 +157,28 @@ Fully quit and relaunch Valheim afterwards — BepInEx only scans plugins at sta
 - `carturpins_clear` — removes every pin this mod created; hand-placed pins are
   left alone.
 - `carturpins_count` — how many pins are on record.
+- `carturpins_reicon` — sets every pin this mod placed to the icon its category
+  and kind use today. Run it after changing icon settings, or if pins are still
+  showing artwork from an older sheet.
+- `carturpins_forget_missing` — forgets records whose pin is no longer on the
+  map, so those places can pin again. Also brings back pins you deleted on purpose.
+- `carturpins_dedupe` — removes leftover duplicate pins that no record points at.
+  Counts only, unless you pass `yes`.
+- `carturpins_audit` — how many records sit on their pin, how many near one, and
+  how many describe nothing.
+- `carturpins_zoom` — dumps the zoom and sizing numbers behind pin scaling, plus
+  a sample of pins as drawn. Run it once zoomed in and once zoomed out.
 
-Pins the mod places are tracked in a side-car file next to the config
-(`…carturmappins.pins.txt`). That file is also the dedupe set across sessions.
+A further six `carturpins_*` dump commands exist behind the `DIAGNOSTICS` compile
+flag and are not in a release build.
+
+Pins the mod places are tracked in a side-car file next to the config, **one file
+per world per character** — `…carturmappins.<world>-<uid>.<character>.pins.txt`.
+That file is also the dedupe set across sessions, which is why it cannot be shared:
+one file for everything told a second character that a world the first had explored
+was already pinned, on a map that was empty. The old single
+`…carturmappins.pins.txt` is adopted once, by the first world and character to ask
+for a record, and then left alone.
 
 The obvious alternative — tagging pins via `PinData.m_ownerID`, one of the few
 fields Valheim persists — **must not be used**: the pin render loop skips any pin
@@ -168,10 +187,12 @@ silently invisible while still accumulating in your save.
 
 ## Status
 
-Builds clean, resolves clean against the installed game, and deploys.
-**Not yet launch-tested in game.** First run should confirm, in `LogOutput.log`:
+Released. `package/manifest.json` holds the published version; `package/CHANGELOG.md`
+is the history. Packed builds are in `dist/`.
 
-- `Registered 152 custom pin icons` and `Grew Minimap.m_visibleIconTypes`.
+After a change, the smoke test is still to launch and read `LogOutput.log` for:
+
+- `Registered … custom pin icons` and `Grew Minimap.m_visibleIconTypes`.
 - The catalog counts (how many prefabs matched per category).
 - Pins appear with the right icon *and* label — particularly that ore types,
   traders and spawners get their own icons rather than the category fallback.
