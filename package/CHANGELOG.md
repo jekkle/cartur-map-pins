@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.2
+
+- **A pin you placed by hand is no longer at risk.** The repair pass that moves a record back
+  onto its pin matched on saved-flag and distance alone, with no check of the pin's type - every
+  other matcher in the mod has one. A drifted record could therefore adopt your own pin, and the
+  mined-out-ore sweep would then remove it. The type is checked now.
+- **Traders and boss altars stop churning.** The mod removed vanilla's dictionary entry as well as
+  its pin, so vanilla re-added the marker every five seconds for the rest of the session, each time
+  forcing a full map rebuild and writing a log line.
+- **That same check stops running every frame.** The game's five-second throttle sits inside the
+  method, so a postfix on it fired on every frame regardless.
+- **A new world no longer opens with the search filter still applied.** The box was cleared; the
+  filter behind it was not, so pins stayed dimmed under an apparently empty box.
 ## 1.5.1
 
 - **Mining one deposit no longer takes a neighbouring deposit's pin with it.** Reported on

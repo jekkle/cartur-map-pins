@@ -1,6 +1,6 @@
 {
   "name": "Carturs_Map_Pins",
-  "version_number": "1.5.1",
+  "version_number": "1.5.2",
   "website_url": "https://github.com/jekkle/cartur-map-pins",
   "description": "Drops labelled map pins on ore, dungeons, camps, chests, minibosses and more as you find them. 153 icons, a switch for every kind, and your bed marked as home.",
   "dependencies": [
