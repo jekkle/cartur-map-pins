@@ -314,6 +314,7 @@ namespace CarturMapPins
             // character, and at plugin load there is neither - it resolves on first use.
             PinRecord.Load(Paths.ConfigPath);
             PinStyles.Load(Paths.ConfigPath);
+            CartTracker.BindConfig(Config);
 
             // Valheim raises this when the language is changed in the settings, and Minimap
             // subscribes to it for its own event pins (read off the installed assembly_valheim,
@@ -384,7 +385,7 @@ namespace CarturMapPins
             }
             else
             {
-                int before = PinRecord.Count;
+                int before = PinRecord.Count + CartTracker.CountCurrentContext();
                 int removed = PinRecord.RemoveAll();
                 Minimap.instance.SaveMapData();
                 Log.LogInfo($"Reset pins: removed {removed} of {before} recorded pin(s). They will be pinned again as you rediscover them.");
@@ -691,7 +692,7 @@ namespace CarturMapPins
                 "Removes every map pin Cartur's Map Pins created. Hand-placed pins are left alone.",
                 args =>
                 {
-                    int before = PinRecord.Count;
+                    int before = PinRecord.Count + CartTracker.CountCurrentContext();
                     int removed = PinRecord.RemoveAll();
                     Minimap.instance?.SaveMapData();
                     args.Context?.AddString($"Removed {removed} of {before} recorded pins.");
@@ -719,7 +720,7 @@ namespace CarturMapPins
 
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
-                args => args.Context?.AddString($"{PinRecord.Count} pins on record."));
+                args => args.Context?.AddString($"{PinRecord.Count + CartTracker.CountCurrentContext()} pins on record."));
 
 #if DIAGNOSTICS
             new Terminal.ConsoleCommand("carturpins_probe",
