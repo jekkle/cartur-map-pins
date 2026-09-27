@@ -472,9 +472,40 @@ namespace CarturMapPins
             return sprites;
         }
 
+        /// Cached, because IsVisible is read once per cell every time a grid is built.
+        private static readonly FieldInfo VisibleTypesField =
+            AccessTools.Field(typeof(Minimap), "m_visibleIconTypes");
+
+        /// Vanilla's own "hide this pin type" toggle, reached by right-clicking an icon.
+        ///
+        /// Nothing here reimplements the filter, because there is nothing to reimplement:
+        /// Minimap.ToggleIconFilter flips the entry in m_visibleIconTypes, raises
+        /// m_pinUpdateRequired so the map redraws, and recolours vanilla's own buttons. It indexes
+        /// the array by raw pin type, and GrowVisibleIconTypes has already made room for every
+        /// custom type, so it works on ours unchanged.
+        private static readonly MethodInfo ToggleFilterMethod =
+            AccessTools.Method(typeof(Minimap), "ToggleIconFilter", new[] { typeof(Minimap.PinType) });
+
+        public static void ToggleFilter(Minimap map, Minimap.PinType type)
+        {
+            if (map == null || ToggleFilterMethod == null)
+                return;
+            ToggleFilterMethod.Invoke(map, new object[] { type });
+        }
+
+        /// Visible unless the array says otherwise. An index past the end reads as visible rather
+        /// than as hidden: that is the state a type has before the array is grown, and a cell
+        /// drawn greyed-out for a pin that is in fact showing would be a lie.
+        public static bool IsVisible(Minimap map, Minimap.PinType type)
+        {
+            var visible = map != null ? VisibleTypesField?.GetValue(map) as bool[] : null;
+            int index = (int)type;
+            return visible == null || index < 0 || index >= visible.Length || visible[index];
+        }
+
         private static void GrowVisibleIconTypes(Minimap map, int size)
         {
-            FieldInfo field = AccessTools.Field(typeof(Minimap), "m_visibleIconTypes");
+            FieldInfo field = VisibleTypesField;
             if (field == null)
                 throw new InvalidOperationException("Minimap.m_visibleIconTypes not found - refusing to register custom icons, since AddPin would silently rewrite them to Icon3 in the save.");
 

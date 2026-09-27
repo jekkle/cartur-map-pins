@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.UI;
 
 namespace CarturMapPins
@@ -152,6 +153,10 @@ namespace CarturMapPins
         public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
         public static readonly Color Hovered = new Color(1f, 1f, 1f, 1f);
 
+        /// A cell whose pin type is currently filtered off the map. Faded rather than hidden:
+        /// the cell still has to be there to right-click a second time and bring the pins back.
+        public static readonly Color Filtered = new Color(1f, 1f, 1f, 0.22f);
+
         /// Marks a cell's border as chosen or not. Colour rather than visibility, because the
         /// border is there at rest too - it is what gives the grid its shape.
         public static void SetSelected(Image border, bool selected)
@@ -283,7 +288,9 @@ namespace CarturMapPins
 
             Image icon = iconGo.AddComponent<Image>();
             icon.sprite = CustomIcons.SpriteForPicker(index);
-            icon.color = Color.white;
+            icon.color = CustomIcons.IsVisible(Minimap.instance, CustomIcons.TypeForPicker(index))
+                ? Color.white
+                : Filtered;
             icon.preserveAspect = true;
             icon.raycastTarget = false;
 
@@ -312,6 +319,37 @@ namespace CarturMapPins
             button.onClick = new Button.ButtonClickedEvent();
             int captured = index;
             button.onClick.AddListener(() => onClick(captured));
+
+            // The same problem as onClick above, for the other mouse button, and it had to be
+            // fixed the same way.
+            //
+            // Read off the shipped prefab (SoftRef bundle 17245031): vanilla's pin button
+            // GameObject "Icon0" carries a Button AND a MouseClick on the SAME object, and
+            // MouseClick.m_rightClick holds a serialized persistent call to
+            // Minimap.OnAltPressedIcon0 - which is just ToggleIconFilter(Icon0) with the type
+            // hardcoded. Instantiate clones that call along with everything else, and the
+            // template is always one fixed vanilla button (FindTemplateButton takes the first
+            // non-null of m_selectedIcon0/1/2/Boss). So before this, right-clicking ANY cell in
+            // this grid hid one fixed vanilla pin type rather than the icon under the cursor -
+            // reported as "whenever I right click their icon to hide them it just hides the
+            // vanilla campfire pins".
+            //
+            // Fresh UnityEvents rather than RemoveAllListeners(), for the reason given above:
+            // RemoveAllListeners leaves the prefab's serialized calls in place.
+            MouseClick mouse = cell.GetComponent<MouseClick>();
+            if (mouse != null)
+            {
+                mouse.m_leftClick = new UnityEvent();
+                mouse.m_middleClick = new UnityEvent();
+                mouse.m_rightClick = new UnityEvent();
+                mouse.m_rightClick.AddListener(() =>
+                {
+                    Minimap map = Minimap.instance;
+                    Minimap.PinType type = CustomIcons.TypeForPicker(captured);
+                    CustomIcons.ToggleFilter(map, type);
+                    icon.color = CustomIcons.IsVisible(map, type) ? Color.white : Filtered;
+                });
+            }
 
             // The border is what the caller drives now, not vanilla's highlight.
             return border;

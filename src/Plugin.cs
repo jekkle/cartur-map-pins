@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.5.2";
+        public const string PluginVersion = "1.6.0";
 
         internal static ManualLogSource Log;
 
@@ -22,6 +22,17 @@ namespace CarturMapPins
 #endif
         public static ConfigEntry<bool> CustomIconsEnabled;
         public static ConfigEntry<bool> MapPickerEnabled;
+
+        /// What the cartography table is allowed to publish from this map.
+        public enum PinSharingMode { Everything, HandPlacedOnly, Nothing }
+
+        public static ConfigEntry<PinSharingMode> PinSharing;
+
+        public static ConfigEntry<PinIcon> CartIcon;
+        public static ConfigEntry<bool> TrackBoats;
+        public static ConfigEntry<bool> TrackCarts;
+        public static ConfigEntry<bool> TrackTames;
+        public static ConfigEntry<float> TrackForgetRadius;
         public static ConfigEntry<float> MapPickerRight;
         public static ConfigEntry<float> MapPickerBottom;
 
@@ -128,6 +139,37 @@ namespace CarturMapPins
                     null, Attr(advanced: true)));
             MapPickerBottom = Config.Bind("CustomIcons", "MapPickerBottom", 74f,
                 new ConfigDescription("How far up from the bottom of the map screen the picker sits. The default clears the Visible to other players box below it.",
+                    null, Attr(advanced: true)));
+
+            PinSharing = Config.Bind("General", "PinSharing", PinSharingMode.Everything,
+                new ConfigDescription("What a cartography table publishes from your map. Everything: vanilla behaviour. HandPlacedOnly: your own pins are shared but the ones this mod placed for you are not - so a few hundred ore and pickable pins do not land on everyone else's map. Nothing: the table still shares your explored ground, but none of your pins. Reading other people's pins off a table is unaffected either way, and your own map is never changed.",
+                    null, Attr(order: 7)));
+
+            // Pins that follow the thing rather than mark the spot. Separate section because
+            // these behave differently from every other pin in the mod: they move, they are not
+            // saved into the map, and they are not deduped by position.
+            TrackBoats = Config.Bind("Tracking", "Boats", true,
+                new ConfigDescription("Put a pin on your boats and keep it on them as they move. When a boat is too far away for the game to have it loaded, its pin stays where you last saw it.",
+                    null, Attr(order: 6)));
+            TrackCarts = Config.Bind("Tracking", "Carts", true,
+                new ConfigDescription("The same for carts.", null, Attr(order: 5)));
+            TrackTames = Config.Bind("Tracking", "Tames", true,
+                new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle). Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
+                    null, Attr(order: 4)));
+            CartIcon = Config.Bind("Tracking", "CartIcon", PinIcon.UtilCart,
+                new ConfigDescription("Icon for tracked carts.", null, IconAttr(order: 3)));
+
+            // One entry per boat and per tame, generated from the same tables the tracker matches
+            // against, so the menu can never fall behind what the mod recognises. Not run through
+            // AdoptLegacy like the subtype icons are: these keys are new, so there is no 1.2.2
+            // value to adopt and pretending otherwise would only confuse the next reader.
+            foreach (Trackers.IconKind kind in Trackers.BoatKinds)
+                BindTrackedIcon("Boat Icons", kind);
+            foreach (Trackers.IconKind kind in Trackers.TameKinds)
+                BindTrackedIcon("Tame Icons", kind);
+
+            TrackForgetRadius = Config.Bind("Tracking", "ForgetRadius", 32f,
+                new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",
                     null, Attr(advanced: true)));
 
             CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
@@ -285,21 +327,27 @@ namespace CarturMapPins
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Ores))
                 BindSubtypeIcon("Ore Icons", e);
 
+            // Not advanced, deliberately. Every other category's Enabled switch is on the plain
+            // page, and these five were the exception - so the one switch that turns mushroom
+            // pins on was invisible unless you had already found the Advanced checkbox. Four
+            // separate people asked for "a way to toggle pickables", and one filed it as a bug
+            // ("Common Mushroom No Auto Pin"), which is what a setting nobody can find looks like
+            // from outside. The defaults are unchanged; only where they are drawn has changed.
             _pickHighValue = Config.Bind("Pickables", "HighValue", true,
                 new ConfigDescription("Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.",
-                    null, Attr(advanced: true)));
+                    null, Attr(order: 5)));
             _pickBerries = Config.Bind("Pickables", "BerriesAndMushrooms", false,
                 new ConfigDescription("Raspberry/blueberry/cloudberry bushes and mushrooms.",
-                    null, Attr(advanced: true)));
+                    null, Attr(order: 4)));
             _pickCrops = Config.Bind("Pickables", "CropsAndHerbs", false,
                 new ConfigDescription("Thistle, dandelion, seeds, barley, flax.",
-                    null, Attr(advanced: true)));
+                    null, Attr(order: 3)));
             _pickJunk = Config.Bind("Pickables", "BranchesStonesFlint", false,
                 new ConfigDescription("Not recommended: these blanket every biome and would carpet the map and bloat your save file.",
-                    null, Attr(advanced: true)));
+                    null, Attr(order: 2)));
             _pickOther = Config.Bind("Pickables", "Unrecognised", false,
                 new ConfigDescription("Any pickable that didn't match a known group (including modded ones). Check the log to see what these are.",
-                    null, Attr(advanced: true)));
+                    null, Attr(order: 1)));
 
             // Pickable groups get their own icons - one shared icon for berries, crops and
             // surtling cores alike would lose most of the value of pinning them at all.
@@ -312,7 +360,13 @@ namespace CarturMapPins
 
             // Only notes where records live. Which file is this one depends on the world and the
             // character, and at plugin load there is neither - it resolves on first use.
+            // Before any pin is placed: an unregistered token would be drawn as
+            // "[carturpins_frost_cave]", and Token() deliberately refuses to emit one it has not
+            // registered, so registering late would silently leave the first pins in English.
+            Translations.Register();
+
             PinRecord.Load(Paths.ConfigPath);
+            Trackers.Load(Paths.ConfigPath);
             PinStyles.Load(Paths.ConfigPath);
 
             // Valheim raises this when the language is changed in the settings, and Minimap
@@ -346,6 +400,11 @@ namespace CarturMapPins
         {
             try
             {
+                // Before Relabel, not after: switching language makes Localization reload its
+                // table, which drops every word a mod added, so the tokens have to go back in
+                // before anything asks for their text.
+                Translations.Register();
+
                 int reworded = PinRecord.Relabel();
                 if (reworded > 0)
                     Log.LogInfo($"Language changed: re-worded {reworded} pin(s).");
@@ -549,6 +608,24 @@ namespace CarturMapPins
                     null, Attr(advanced: true)));
         }
 
+        /// Icons for the things the tracker follows, keyed by the prefab name so a lookup at
+        /// scan time is a straight dictionary hit.
+        private static readonly Dictionary<string, ConfigEntry<PinIcon>> TrackedIcons =
+            new Dictionary<string, ConfigEntry<PinIcon>>(System.StringComparer.OrdinalIgnoreCase);
+
+        private void BindTrackedIcon(string section, Trackers.IconKind kind)
+        {
+            TrackedIcons[kind.Prefab] = Config.Bind(section, kind.Display, kind.Default,
+                new ConfigDescription($"Icon for a tracked {kind.Display}.", null, IconAttr(order: 1)));
+        }
+
+        /// The chosen icon for a tracked prefab, or `fallback` for something not in the tables -
+        /// a modded boat, or a tame from another mod.
+        public static PinIcon TrackedIconFor(string prefab, PinIcon fallback) =>
+            prefab != null && TrackedIcons.TryGetValue(prefab, out ConfigEntry<PinIcon> entry)
+                ? entry.Value
+                : fallback;
+
         private void BindSubtypeIcon(string section, Subtypes.Entry entry)
         {
             if (SubtypeIcons.ContainsKey(entry.Name))
@@ -609,6 +686,16 @@ namespace CarturMapPins
             {
                 case PickableGroup.HighValue: return _pickHighValue.Value;
                 case PickableGroup.Berries: return _pickBerries.Value;
+                // Mushrooms are a separate group from Berries because they get a separate icon,
+                // but they are NOT a separate switch - BerriesAndMushrooms says in its own
+                // description that it covers both. Without this case they fell through to
+                // default, which is the Unrecognised switch: off by default, and described as
+                // "didn't match a known group". So turning BerriesAndMushrooms on pinned berries
+                // and silently did nothing for mushrooms, and the only way to get a mushroom pin
+                // was to turn on a switch that says it is for things the mod failed to classify.
+                // Reported as the bug "Common Mushroom No Auto Pin" - Pickable_Mushroom classifies
+                // correctly as Mushrooms, so the classifier was never the problem, this gate was.
+                case PickableGroup.Mushrooms: return _pickBerries.Value;
                 case PickableGroup.Crops: return _pickCrops.Value;
                 case PickableGroup.Junk: return _pickJunk.Value;
                 default: return _pickOther.Value;
@@ -618,6 +705,7 @@ namespace CarturMapPins
         private void Update()
         {
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
+            Trackers.Tick(UnityEngine.Time.deltaTime);
         }
 
         private static void RegisterCommands()

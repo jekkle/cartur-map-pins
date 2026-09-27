@@ -1,10 +1,71 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
 
 namespace CarturMapPins
 {
+    /// Keeps this mod's pins off the cartography table when the player asks for that.
+    ///
+    /// Minimap.GetSharedMapData is the single funnel - MapTable.GetMapData is its only caller in
+    /// the whole game - and it already decides what to publish with two tests it applies itself:
+    /// it skips any pin whose m_save is false, and any pin of type Death. So there is no need to
+    /// rewrite the package or to reimplement the format. Clearing m_save for the duration of the
+    /// call makes vanilla's own filter do the work, and it is put back immediately afterwards.
+    ///
+    /// That "immediately afterwards" is the whole risk of this patch, and why the restore is a
+    /// Finalizer rather than a Postfix: a Finalizer runs even when the original throws. A pin left
+    /// with m_save false would be dropped from the player's own save the next time the game wrote
+    /// it - losing pins is far worse than sharing them, so the restore must not be skippable.
+    ///
+    /// Reading other players' pins off a table is untouched; that is AddSharedMapData, a different
+    /// method with a different caller.
+    [HarmonyPatch(typeof(Minimap), nameof(Minimap.GetSharedMapData))]
+    internal static class Patch_Minimap_GetSharedMapData
+    {
+        private static readonly List<Minimap.PinData> Withheld = new List<Minimap.PinData>();
+
+        private static void Prefix(Minimap __instance)
+        {
+            Withheld.Clear();
+
+            Plugin.PinSharingMode mode = Plugin.PinSharing.Value;
+            if (mode == Plugin.PinSharingMode.Everything)
+                return;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
+            if (pins == null)
+                return;
+
+            // Only resolved for the mode that needs it - OwnPins walks the record against the map,
+            // and there is no reason to pay for that when every pin is being withheld anyway.
+            HashSet<Minimap.PinData> mine = mode == Plugin.PinSharingMode.HandPlacedOnly
+                ? PinRecord.OwnPins(__instance)
+                : null;
+
+            foreach (Minimap.PinData pin in pins)
+            {
+                if (pin == null || !pin.m_save)
+                    continue;                       // already not shared; nothing to restore later
+                if (mine != null && !mine.Contains(pin))
+                    continue;                       // hand-placed, and this mode shares those
+
+                pin.m_save = false;
+                Withheld.Add(pin);
+            }
+        }
+
+        private static void Finalizer()
+        {
+            foreach (Minimap.PinData pin in Withheld)
+            {
+                if (pin != null)
+                    pin.m_save = true;
+            }
+            Withheld.Clear();
+        }
+    }
+
     [HarmonyPatch(typeof(ZNetScene), "Awake")]
     internal static class Patch_ZNetScene_Awake
     {
@@ -17,6 +78,8 @@ namespace CarturMapPins
             // Records are per world per character now, so the previous world's must be dropped
             // before anything asks this world whether a thing is already pinned.
             PinRecord.Unload();
+            // Same reason, plus the tracked pins belong to a Minimap that is being replaced.
+            Trackers.Unload();
         }
     }
 

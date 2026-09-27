@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -1193,6 +1193,27 @@ namespace CarturMapPins
                     return true;
             }
             return false;
+        }
+
+        /// The pins on the map that this mod placed.
+        ///
+        /// Identified the same way everything else here identifies them - by matching a record's
+        /// position against the live pins - so there is one definition of "ours" and not a second
+        /// one that could disagree with RemoveAll or Forget.
+        public static HashSet<Minimap.PinData> OwnPins(Minimap map)
+        {
+            EnsureLoaded();
+            var found = new HashSet<Minimap.PinData>();
+            if (map == null)
+                return found;
+
+            foreach (Entry e in Entries)
+            {
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin != null)
+                    found.Add(pin);
+            }
+            return found;
         }
 
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -789,13 +789,21 @@ namespace CarturMapPins
                     // want; fall back to deriving it from the dropped item. Either way it isn't
                     // the component's m_name, because the deposits that matter are plain
                     // Destructibles with no m_name - which is why these once read "rock4_copper".
-                    return !string.IsNullOrEmpty(subtype) ? subtype : Labels.ForOre(Utils.GetPrefabName(go));
+                    // Token, not the bare name: "Copper" is a word this mod chose, so nothing
+                    // downstream could ever have translated it. Translations.Token hands back the
+                    // plain name unchanged for anything it has no word for, so the fallback below
+                    // - derived from the prefab - is unaffected and stays English.
+                    return !string.IsNullOrEmpty(subtype)
+                        ? Translations.Token(subtype)
+                        : Labels.ForOre(Utils.GetPrefabName(go));
 
                 case PinCategory.Leviathan:
-                    return "Leviathan";
+                    return Translations.Token(Translations.Leviathan);
 
                 case PinCategory.Prop:
-                    return !string.IsNullOrEmpty(subtype) ? subtype : Labels.ForLocation(Utils.GetPrefabName(go));
+                    return !string.IsNullOrEmpty(subtype)
+                        ? Translations.Token(subtype)
+                        : Labels.ForLocation(Utils.GetPrefabName(go));
 
                 case PinCategory.Trader:
                     Trader trader = go.GetComponent<Trader>();
@@ -811,7 +819,7 @@ namespace CarturMapPins
                     // The ruin's name when the chest is standing in one, so the pin reads
                     // "Dvergr Tower" rather than "chest" - see Subtypes.ChestSites.
                     if (!string.IsNullOrEmpty(subtype))
-                        return subtype;
+                        return Translations.Token(subtype);
                     Container container = go.GetComponent<Container>();
                     if (container != null && !string.IsNullOrEmpty(container.m_name))
                         return container.m_name;
@@ -830,7 +838,7 @@ namespace CarturMapPins
                     // The creature's own name - "Lord Reto", not "Lord Reto Spawner". You are
                     // walking to him, and there is only ever one of him.
                     if (!string.IsNullOrEmpty(subtype))
-                        return subtype;
+                        return Translations.Token(subtype);
                     goto case PinCategory.Spawner;
 
                 case PinCategory.Spawner:

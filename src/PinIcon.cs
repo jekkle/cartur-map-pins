@@ -2,7 +2,7 @@
 namespace CarturMapPins
 {
     /// The custom icon sheet, named. Bound as an enum rather than an int so the settings screen
-    /// renders a dropdown of recognisable names instead of a slider you drag from -1 to 152.
+    /// renders a dropdown of recognisable names instead of a slider you drag from -1 to 157.
     ///
     /// Values are the sprite index in Assets/pin_icons_numbered.png. They are what gets written
     /// to the config file and resolved to a sprite at runtime, so reordering order.txt silently
@@ -163,5 +163,10 @@ namespace CarturMapPins
         UtilLongshipOld = 150,
         UtilSailboatOld = 151,
         UtilChestOpen = 152,
+        UtilCart = 153,
+        UtilRaft = 154,
+        UtilKarve = 155,
+        CreatureWolf = 156,
+        CreatureHen = 157,
     }
 }

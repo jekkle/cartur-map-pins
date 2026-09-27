@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.6.0
+
+- **Boats, carts and tames get pins that follow them.** A pin that moves rather than marks a
+  spot: your boats, your carts, and any tame you have named or can ride. When something is too
+  far away for the game to have it loaded its pin stays where you last saw it, so the map still
+  says where you left the boat. Raft, Karve and Longship each get their own icon and every tame
+  is drawn as itself, all of them settings under Boat Icons and Tame Icons.
+- **Right-clicking one of this mod's icons now hides that kind of pin.** Every cell in the icon
+  grid is a copy of one vanilla pin button, and the copy kept vanilla's own right-click wiring -
+  so right-clicking any custom icon hid one fixed vanilla pin type instead, and the new icons
+  could not be filtered at all.
+- **Mushrooms pin when you turn mushrooms on.** The BerriesAndMushrooms switch says it covers
+  both and never did: mushrooms fell through to the Unrecognised switch, which is off by default
+  and means "the mod could not classify this". Reported as "Common Mushroom No Auto Pin".
+- **The five pickable switches are on the plain settings page.** They were all marked advanced,
+  so the one switch that turns mushroom pins on was invisible unless you had already found the
+  Advanced checkbox.
+- **Pin names can be translated.** The names this mod writes itself - Sunken Crypt, Frost Cave,
+  Copper - are now translatable, and a template file appears beside the config to translate from.
+  Anything read off the game's own components was always in your language already.
+- **A cartography table no longer has to publish this mod's pins.** New PinSharing setting:
+  share everything as before, share only the pins you placed by hand, or share no pins at all.
+  Reading other people's pins is unaffected, and your own map is never changed.
+
 ## 1.5.2
 
 - **A pin you placed by hand is no longer at risk.** The repair pass that moves a record back

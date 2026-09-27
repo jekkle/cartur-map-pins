@@ -71,7 +71,7 @@ pin; leave it off to avoid the duplicate.
 
 ## Icons
 
-The mod ships its own sheet of 153 icons, registered as **extra** pin types
+The mod ships its own sheet of 158 icons, registered as **extra** pin types
 appended after the vanilla ones — nothing vanilla is replaced, so `Boss`, `Death`,
 `Bed` and `Icon0`–`Icon4` all keep working and stay selectable.
 
@@ -202,3 +202,9 @@ After a change, the smoke test is still to launch and read `LogOutput.log` for:
 - Going *inside* a crypt still produces no pins (the interior height gate).
 
 Then on the map screen: the wheel scrolls the icon picker without zooming the map.
+
+---
+
+**[Discord](https://discord.gg/nd5RqpwNkz)** — bug reports, install help, and mod requests.
+Bug reports get their own thread so nothing is lost in a chat scroll, and requests are voted on.
+

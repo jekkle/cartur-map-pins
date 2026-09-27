@@ -70,7 +70,7 @@ fades, so you can see where the copper is without losing the shape of the map.
 
 ## Notable bits
 
-- **153 icons to pick from.** Every category and kind takes its own.
+- **158 icons to pick from.** Every category and kind takes its own.
 - **Emptied chests change icon.** Loot a chest and its pin switches to a looted
   marker. Refill it and it switches back.
 - **Mined-out ore pins remove themselves.** Deposits never respawn, so a pin on a
@@ -170,6 +170,9 @@ bar and drops the ones you've ticked off.
 ---
 
 *Free, and always will be. If it improved your game you can [tip me on Patreon](https://www.patreon.com/c/cartur).*
+
+**[Discord](https://discord.gg/nd5RqpwNkz)** — bug reports, install help, and mod requests.
+Bug reports get their own thread so nothing is lost in a chat scroll, and requests are voted on.
 
 **More from Cartur:**
 [HD Blood](https://thunderstore.io/c/valheim/p/Cartur/Carturs_HD_Blood/) ·

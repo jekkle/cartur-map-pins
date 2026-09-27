@@ -151,3 +151,8 @@ poi_maypole
 util_longship_old
 util_sailboat_old
 util_chest_open
+util_cart
+util_raft
+util_karve
+creature_wolf
+creature_hen

@@ -383,6 +383,15 @@ namespace CarturMapPins
             }
         }
 
+        /// Every table, so Translations can collect the names without a second list that would
+        /// drift the first time a table is added. A table missing from here is a name that stays
+        /// English, which is why this sits directly above the tables it lists.
+        public static readonly Entry[][] AllTables =
+        {
+            Dungeons, Camps, Props, ChestSites, Ores, Bosses, Traders, Spawners, Minibosses,
+            Pickables, Landmarks,
+        };
+
         /// Returns the subtype name for a location, or null when nothing matches.
         ///
         /// The generator name is checked first where present: those DG_* names are confirmed
