@@ -305,7 +305,7 @@ namespace CarturMapPins
             int dropped = before - Entries.Count;
             if (dropped > 0)
                 Save();
-            return dropped;
+            return dropped + CartTracker.ForgetMissingCurrentContext();
         }
 
         /// Ticks or unticks our pin of this category near a position, and says whether anything
@@ -480,7 +480,7 @@ namespace CarturMapPins
 
             if (changed > 0)
                 map.SaveMapData();
-            return changed;
+            return changed + CartTracker.ReiconCurrentContext();
         }
 
         /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
@@ -651,6 +651,7 @@ namespace CarturMapPins
 
             Entries.Clear();
             Save();
+            removed += CartTracker.ClearCurrentContext();
             return removed;
         }
 
@@ -1053,7 +1054,8 @@ namespace CarturMapPins
                  + $"{saved} saved pin(s), {orphanPins} with no record, {twinned} of those a twin of a recorded pin. "
                  + $"file {(string.IsNullOrEmpty(_path) ? "(none)" : Path.GetFileName(_path))}. "
                  + $"Ore: {oreTotal} record(s), {oreFar} beyond the 25m sweep, "
-                 + $"{oreBlocked} of the rest still have a live node within their spacing radius.";
+                 + $"{oreBlocked} of the rest still have a live node within their spacing radius. "
+                 + $"Cart tracking: {CartTracker.CountCurrentContext()} cart record(s).";
         }
 
         private static bool RecordedAt(Vector3 pos)
@@ -1064,7 +1066,7 @@ namespace CarturMapPins
                 if (d.x * d.x + d.z * d.z < 0.25f)
                     return true;
             }
-            return false;
+            return CartTracker.OwnsVisiblePinAt(pos);
         }
 
         /// A recorded pin this one is a second copy of.
