@@ -51,7 +51,7 @@ namespace CarturMapPins
                 : null;
         }
 
-        public static List<Image> Build(GameObject panel, GameObject template, int columns, Action<int> onClick, float top = 0f, float bottom = 0f)
+        public static List<Image> Build(GameObject panel, GameObject template, Action<int> onClick, float top = 0f, float bottom = 0f)
         {
             // Viewport clips the scrolling content.
             var viewport = new GameObject("Viewport");
@@ -95,14 +95,18 @@ namespace CarturMapPins
 
             var highlights = new List<Image>(CustomIcons.PickerCount);
 
-            Transform current = AddSection(content.transform, columns);
+            // As many columns as the panel's own width holds (its sizeDelta, set by the caller
+            // before this runs; both panels are fixed width since the resize handle went).
+            int fit = Mathf.Max(1, Mathf.FloorToInt(
+                (((RectTransform)panel.transform).sizeDelta.x - 16f + Spacing) / (CellSize + Spacing)));
+            Transform current = AddSection(content.transform, fit);
             for (int i = 0; i < CustomIcons.Count; i++)
                 highlights.Add(CreateButton(current, template, i, onClick));
 
             if (CustomIcons.LegacyCount > 0)
             {
                 AddHeading(content.transform, "PREVIOUS ICON SET");
-                Transform legacy = AddSection(content.transform, columns);
+                Transform legacy = AddSection(content.transform, fit);
                 for (int i = CustomIcons.Count; i < CustomIcons.PickerCount; i++)
                     highlights.Add(CreateButton(legacy, template, i, onClick));
             }
@@ -120,10 +124,14 @@ namespace CarturMapPins
             GridLayoutGroup grid = section.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(CellSize, CellSize);
             grid.spacing = new Vector2(Spacing, Spacing);
-            // Flexible rather than a fixed column count: how many fit per row follows the panel's
-            // width, so resizing the panel reflows the grid instead of leaving a column hanging
-            // off the edge. The column count the caller asks for still sets the default width.
-            grid.constraint = GridLayoutGroup.Constraint.Flexible;
+            // A fixed count, not Flexible. Flexible takes the count from this section's laid-out
+            // width, and on some setups that came out wider than the viewport that clips it: 7
+            // columns laid out in a 5-column window, 44 of 158 icons unreachable (Dukaine and
+            // Penitence, 2560x1440 at 100% GUI scale; fine for others at 4K). Why the width grows
+            // there was not measured. Flexible only existed for a panel resize handle that has
+            // since been removed, so the count is now fixed from the panel's own width instead.
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = columns;
 
             ContentSizeFitter fitter = section.AddComponent<ContentSizeFitter>();
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;

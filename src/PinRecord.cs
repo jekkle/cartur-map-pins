@@ -865,6 +865,17 @@ namespace CarturMapPins
                 if (pin == null || string.IsNullOrEmpty(pin.m_name))
                     continue;
 
+                // Root cause (read): this runs on the first tick of every session, and
+                // CleanSpawnerLabel appends " Spawner" to any name that does not already end in a
+                // place word. FindPinAt returns whatever saved pin sits within half a metre of the
+                // record, so a pin the player renamed ("Camp", a portal) was taken for the
+                // spawner's own and became "Camp Spawner". Written is exactly what this mod last put
+                // on the pin: if the pin no longer reads that, a person changed it and it stays
+                // theirs, the same test Relabel uses. Records from before Written existed have
+                // none and are still repaired, which is what this method is for.
+                if (!string.IsNullOrEmpty(e.Written) && pin.m_name != e.Written)
+                    continue;
+
                 string repaired = Labels.CleanSpawnerLabel(pin.m_name);
                 if (repaired == pin.m_name)
                     continue;
@@ -1067,6 +1078,10 @@ namespace CarturMapPins
             // so there is nothing to refresh in that case.
             if (pin.m_iconElement != null)
                 pin.m_iconElement.sprite = sprite;
+            // The looted-chest fade is painted by the UpdatePins postfix, which only runs when the
+            // map asks for it - without this a chest you just emptied shows the open icon at full
+            // opacity until the map next moves. See MinimapAccess.RequestPinUpdate.
+            MinimapAccess.RequestPinUpdate(map);
             return true;
         }
 

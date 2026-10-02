@@ -400,6 +400,14 @@ namespace CarturMapPins
             // ours are the only ones anybody can put back into the new language.
             Localization.OnLanguageChange += OnLanguageChanged;
 
+            // Root cause (read): the SettingChanged handler on ApplyPreset is subscribed in Awake,
+            // after Bind has already loaded the value from the file, and BepInEx raises that event
+            // only for changes made after the handler exists. A preset typed into the .cfg while
+            // the game was closed was therefore read, shown, and never applied - the switches stayed
+            // as they were and ApplyPreset stayed on Minimal. Run it once here, after every switch
+            // it writes to has been bound; it puts itself back to None when done.
+            Apply(ApplyPreset.Value);
+
             // A mod that throws on load takes every plugin after it down with it. Every target
             // resolves against the game installed today, so this catches nothing now - it is here
             // for the update that renames one of them, where the honest outcome is this mod not

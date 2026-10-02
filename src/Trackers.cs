@@ -371,8 +371,7 @@ namespace CarturMapPins
                 {
                     // save:false is the whole reason this is safe to do every session: the pin
                     // lives in memory only, so nothing here can ever grow somebody's save file.
-                    t.Pin = map.AddPin(t.Pos, IconFor(t), Labels.ForPin(t.Label),
-                                       save: false, isChecked: false);
+                    t.Pin = MinimapAccess.AddPinKeepFilter(map, t.Pos, IconFor(t), Labels.ForPin(t.Label), save: false);
                     moved = true;
                     continue;
                 }
@@ -385,8 +384,7 @@ namespace CarturMapPins
                 if (t.Pin.m_type != wanted)
                 {
                     RemovePin(t);
-                    t.Pin = map.AddPin(t.Pos, wanted, Labels.ForPin(t.Label),
-                                       save: false, isChecked: false);
+                    t.Pin = MinimapAccess.AddPinKeepFilter(map, t.Pos, wanted, Labels.ForPin(t.Label), save: false);
                     moved = true;
                     continue;
                 }

@@ -28,9 +28,6 @@ namespace CarturMapPins
         private const float PanelWidth = 263f;
         private const float PanelHeight = 273f;
 
-        /// Only still here to seed the grid's default: the sections lay out flexibly.
-        private const int Columns = 4;
-
         private static GameObject _panel;
         private static RectTransform _panelRect;
 
@@ -97,7 +94,7 @@ namespace CarturMapPins
             BuildSearchBar(map);
 
             _highlights.Clear();
-            _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
+            _highlights.AddRange(IconGrid.Build(_panel, IconGrid.FindTemplateButton(map),
                                                 index => Select(map, index), top: CaptionHeight));
 
             // Mark whatever is already selected, so the grid opens saying which icon a new pin

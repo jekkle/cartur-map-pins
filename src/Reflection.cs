@@ -14,6 +14,30 @@ namespace CarturMapPins
 
         private static bool _warned;
 
+        /// Root cause (read from Minimap.AddPin): vanilla ends AddPin with "if the new pin's type
+        /// is filtered out, ToggleIconFilter(type)", which switches the whole type back on. That is
+        /// right for a pin the player drops by hand, and wrong for one this mod places on its own:
+        /// right-click a mushroom icon to hide mushrooms and the next mushroom discovered re-shows
+        /// every mushroom pin on the map. This puts the filter back the way the player left it.
+        public static Minimap.PinData AddPinKeepFilter(Minimap map, UnityEngine.Vector3 pos,
+                                                       Minimap.PinType type, string name, bool save)
+        {
+            bool hidden = !CustomIcons.IsVisible(map, type);
+            Minimap.PinData pin = map.AddPin(pos, type, name, save, false);
+            if (hidden && CustomIcons.IsVisible(map, type))
+                CustomIcons.ToggleFilter(map, type);
+            return pin;
+        }
+
+        private static readonly FieldInfo PinUpdateRequiredField =
+            typeof(Minimap).GetField("m_pinUpdateRequired", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        /// Minimap.Update calls UpdatePins only while m_pinUpdateRequired is set (Minimap.cs:756,
+        /// read from the installed DLL), and UpdatePins is where vanilla resets every pin's colour
+        /// and where this mod paints the looted-chest half opacity back on. Editing a pin in place
+        /// touches neither, so the change waits for the next time the map happens to move.
+        public static void RequestPinUpdate(Minimap map) => PinUpdateRequiredField?.SetValue(map, true);
+
         public static List<Minimap.PinData> GetPins(Minimap map)
         {
             if (map == null)

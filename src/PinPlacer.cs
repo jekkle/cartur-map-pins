@@ -1244,7 +1244,7 @@ namespace CarturMapPins
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
             string written = Labels.ForPin(label);
-            Minimap.instance.AddPin(pos, pinType, written, save: true, isChecked: false);
+            MinimapAccess.AddPinKeepFilter(Minimap.instance, pos, pinType, written, save: true);
 
             // Both the source and the written text go into the record, so a later language change
             // can re-word this pin and still tell our own wording from a hand rename.

@@ -256,7 +256,13 @@ namespace CarturMapPins
                 return true;
             }
 
-            if (prefab.GetComponent<Beehive>() != null)
+            // The wild hive is not a Beehive component. That component is on the two player pieces
+            // only (piece_beehive, piece_birdnest), which are excluded per instance as player-built,
+            // so this category could never pin anything (ChuckM85, 1.7.0). The wild one is the
+            // ZNetScene prefab "Beehive", placed inside the abandoned-house locations (read from the
+            // game's bundles: a "Beehive" object with its own LODGroup in ~20 location bundles), and
+            // carries none of the components above - so it is matched by name, like the props.
+            if (prefab.GetComponent<Beehive>() != null || prefab.name == "Beehive")
             {
                 category = PinCategory.Beehive;
                 return true;

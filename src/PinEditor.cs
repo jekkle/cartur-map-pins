@@ -157,7 +157,7 @@ namespace CarturMapPins
 
             AddStyleControls(_panel.transform);
 
-            _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map), Columns,
+            _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map),
                                          Choose, HeaderHeight, FooterHeight + StyleHeight);
             _canvasCamera = IconGrid.CameraFor(_panel);
             _panel.SetActive(false);
