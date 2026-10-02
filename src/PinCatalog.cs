@@ -28,10 +28,10 @@ namespace CarturMapPins
     /// world, so they're grouped and toggled separately from everything else.
     public enum PickableGroup
     {
-        HighValue,   // surtling cores, Yggdrasil shoots, eggs
+        HighValue,   // surtling cores, eggs, wild barley and flax
         Berries,     // berry bushes
         Mushrooms,   // mushrooms, Jotun puffs, magecap - separate icon from berries
-        Crops,       // thistle, dandelion, seeds, barley, flax
+        Crops,       // thistle, dandelion, seeds, carrot, turnip, onion, farmed barley/flax
         Junk,        // branches, stones, flint - would carpet the map
         Other        // anything unrecognised; logged once so it can be classified later
     }
@@ -51,6 +51,15 @@ namespace CarturMapPins
         /// Ore type per prefab hash ("Copper", "Tin", ...) - drives both the label and the
         /// per-ore-type toggle, and keys dedupe so a copper pin can't suppress nearby tin.
         private static readonly Dictionary<int, string> OreTypes = new Dictionary<int, string>();
+
+        /// Shattered-deposit debris, prefab hash -> the ore it yields. Never a pin; read only by
+        /// the spawn hook, which registers these in OreRegistry so the mined-ore sweep can see
+        /// that the deposit is still there and being worked.
+        private static readonly Dictionary<int, string> OreFragments = new Dictionary<int, string>();
+
+        /// True when this prefab is the debris a deposit shatters into, with the ore it yields.
+        public static bool TryGetOreFragment(int prefabHash, out string oreType) =>
+            OreFragments.TryGetValue(prefabHash, out oreType);
 
         public static bool Built { get; private set; }
 #if DIAGNOSTICS
@@ -222,6 +231,21 @@ namespace CarturMapPins
             // Forest copper deposit (`rock4_copper`) is a plain Destructible with neither
             // component, while the prefabs that *do* carry MineRock are mostly destruction
             // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...).
+            // Debris from a shattered deposit is never pinned - that is what LooksLikeFragment
+            // is for - but it is still the node standing there. A Black Forest copper deposit is
+            // a Destructible that destroys ITSELF and spawns rock4_copper_frac, the MineRock5 the
+            // player then mines for the actual ore. The registry only held the original, so its
+            // reference went null the moment the rock broke, the mined-ore sweep saw nothing
+            // standing, and three sweeps later it deleted the pin while the player was still
+            // mining the pile. Recorded here as evidence, with no category, so it can never
+            // become a pin of its own.
+            if (LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string fragHow) &&
+                YieldsOre(prefab, out string fragVia, out string fragOre))
+            {
+                OreFragments[prefab.name.GetStableHashCode()] = fragOre;
+                OreQualifiedBy[prefab.name] = $"{fragVia} [{fragHow}] (evidence only, never pinned)";
+            }
+
             if (!LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string how) &&
                 YieldsOre(prefab, out string via, out string oreType))
             {
@@ -387,8 +411,24 @@ namespace CarturMapPins
 
         /// Grouped by what the pickable YIELDS rather than by its prefab name, so a renamed or
         /// modded bush still lands in the right bucket.
+        /// Which group a pickable belongs to.
+        ///
+        /// The Subtypes.Pickables table answers first, because it is a list somebody wrote down
+        /// and can read back. The substring rules below used to answer everything, and at scale
+        /// they were wrong more often than right: run over the game's 89 pickables, 44 fell
+        /// through to Other - every Ashlands core, every quest fragment, every treasure pile -
+        /// and the junk rule, which matches the letters "stone", swept up all seven Mork Halla
+        /// gemstones with the sticks.
+        ///
+        /// The rules stay as the fallback, which is what Other is honestly for: modded content,
+        /// and anything a game update adds before the table catches up. Both are logged, so a new
+        /// name can be added rather than sitting in Unrecognised forever.
         private static PickableGroup ClassifyPickable(GameObject prefab)
         {
+            PickableGroup? named = Subtypes.GroupFor(prefab.name);
+            if (named.HasValue)
+                return named.Value;
+
             string haystack = prefab.name.ToLowerInvariant();
 
             Pickable pickable = prefab.GetComponent<Pickable>();
@@ -406,9 +446,14 @@ namespace CarturMapPins
                 return PickableGroup.Mushrooms;
             if (ContainsAny(haystack, "raspberr", "blueberr", "cloudberr", "berry", "berries"))
                 return PickableGroup.Berries;
-            if (ContainsAny(haystack, "thistle", "dandelion", "seed", "barley", "flax", "carrot", "turnip", "onion"))
+            if (ContainsAny(haystack, "thistle", "dandelion", "seed", "carrot", "turnip", "onion"))
                 return PickableGroup.Crops;
-            if (ContainsAny(haystack, "branch", "wood", "stone", "flint", "feather", "resin"))
+
+            // "stone" is deliberately not in this list. It was, and it matched Bloodstone and
+            // every *_gemstone prefab, which is how the rarest pickables in the game came to be
+            // classified as junk. The three real ones are named instead.
+            if (ContainsAny(haystack, "branch", "wood", "pickable_stone", "stonerock",
+                            "placeable_stone", "flint", "feather", "resin"))
                 return PickableGroup.Junk;
 
             return PickableGroup.Other;

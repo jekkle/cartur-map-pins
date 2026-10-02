@@ -13,6 +13,16 @@ namespace CarturMapPins
             public string Subtype;
             public Vector3 Pos;
             public GameObject Go;
+
+            /// Which pickable group this belongs to, carried from the spawn hook.
+            ///
+            /// A queued pickable is not placed until the player walks within DiscoveryRadius of
+            /// it, which can be minutes later or never. The group switch was only read at the
+            /// moment of queueing, so turning Crops off left everything already queued to pin
+            /// anyway - five dandelions went onto the map after the switch was set to false,
+            /// which is how this was found. Meaningless for categories other than Pickable and
+            /// only ever read for that one.
+            public PickableGroup Group;
         }
 
         /// Anything at or above this height is inside a dungeon: Location.Awake instantiates
@@ -30,9 +40,13 @@ namespace CarturMapPins
         public static int QueueSize => PendingQueue.Count;
 #endif
 
-        public static void Enqueue(PinCategory category, Vector3 pos, GameObject go, string subtype = null)
+        public static void Enqueue(PinCategory category, Vector3 pos, GameObject go, string subtype,
+                                   PickableGroup group)
         {
-            PendingQueue.Add(new Pending { Category = category, Subtype = subtype, Pos = pos, Go = go });
+            PendingQueue.Add(new Pending
+            {
+                Category = category, Subtype = subtype, Pos = pos, Go = go, Group = group
+            });
         }
 
         public static void Clear() => PendingQueue.Clear();
@@ -91,6 +105,11 @@ namespace CarturMapPins
             SweepLootedChests(playerPos);
             SweepMinedOre(playerPos);
             SweepClearedDungeons(playerPos);
+
+            // After the sweeps, so a pin removed this tick is not repointed a moment before it
+            // goes. Costs one bool when no icon setting has moved.
+            IconRepoint.Tick();
+
             PinRecord.Flush();
 #if DIAGNOSTICS
             Patch_ZNetScene_AddInstance.ReportIfDue();
@@ -457,6 +476,18 @@ namespace CarturMapPins
         }
 #endif
 
+        /// True when this spot has been hoed.
+        ///
+        /// The game's own call, copied from Plant.UpdateHealth, which does exactly this to decide
+        /// whether a crop is unhappy: find the heightmap under the point, then ask it. Null when
+        /// the zone is not loaded, and then the honest answer is "not known to be cultivated" -
+        /// the queue only ever drains for objects that are loaded, so that case is a formality.
+        private static bool OnCultivatedGround(Vector3 pos)
+        {
+            Heightmap ground = Heightmap.FindHeightmap(pos);
+            return ground != null && ground.IsCultivated(pos);
+        }
+
         private static bool BuiltByPlayer(GameObject go)
         {
             ZNetView nview = go.GetComponent<ZNetView>();
@@ -509,6 +540,28 @@ namespace CarturMapPins
                 // (IL_0055). So a hive he just built looked wild there and got queued. By the time
                 // the queue drains - a tick later at the earliest - the creator is on the ZDO.
                 if (PinCatalog.PlayerBuildable(p.Category) && BuiltByPlayer(p.Go))
+                    continue;
+
+                // Asked again here, not just at queue time. TryPin re-reads the category switch
+                // and the per-kind switch but knows nothing about pickable groups, so this is the
+                // only place the group can be honoured for something already in the queue. Same
+                // reason the creator is re-read above: the queue outlives the state it was
+                // built from.
+                if (p.Category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(p.Group))
+                    continue;
+
+                // Your own field is not a discovery. Every sapling in the game grows into a
+                // pickable this mod pins - carrot, turnip, onion, oat, kale, poteitr, magecap,
+                // jotun puffs, both vineberries, barley and flax - so a real farm with Crops
+                // turned on pins your own base, once every five metres.
+                //
+                // Ground is the test because nothing else survives. Read off the DLL, Plant.Grow
+                // instantiates the grown prefab and destroys the sapling without ever writing a
+                // creator, so IsWild(zdo) reports a farmed crop as wild; and only barley and flax
+                // have a separate _Wild prefab, so the name cannot answer it for the rest. Where
+                // the plant stands can: cultivation is something a player does with a hoe, and no
+                // wild ground is ever cultivated.
+                if (p.Category == PinCategory.Pickable && OnCultivatedGround(p.Pos))
                     continue;
 
                 TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));

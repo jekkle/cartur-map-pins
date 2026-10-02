@@ -172,6 +172,20 @@ namespace CarturMapPins
             if (map == null || pins == null)
                 return;
 
+            // Folded in here rather than handled separately, because NotDrawn is already what
+            // both the icon fade and the label pass read. A pin the player has hidden is a pin
+            // this pass decided not to draw, and saying it once means the name cannot be left
+            // floating over a map with no icon under it.
+            PinHiding.Apply(pins);
+            if (PinHiding.Any)
+            {
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (pin != null && PinHiding.IsHidden(pin))
+                        NotDrawn.Add(pin);
+                }
+            }
+
             // The icon size has to come from a live icon, so it is taken from whatever is on
             // screen - but only the size. Nothing else below looks at the screen at all.
             //

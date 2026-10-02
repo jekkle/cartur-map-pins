@@ -17,10 +17,20 @@ namespace CarturMapPins
             public string Fragment;
             public string Name;
             public int DefaultIcon;
+
+            /// Which pickable group this belongs to, for the Pickables table only. Nullable
+            /// rather than defaulted, because the first value of PickableGroup is HighValue and a
+            /// forgotten group would quietly mean "rare and worth remembering" for every dungeon
+            /// and spawner in the other tables.
+            public PickableGroup? Group;
         }
 
         private static Entry E(string fragment, string name, int icon) =>
             new Entry { Fragment = fragment, Name = name, DefaultIcon = icon };
+
+        /// A pickable, which carries its group as well.
+        private static Entry EP(string fragment, string name, int icon, PickableGroup group) =>
+            new Entry { Fragment = fragment, Name = name, DefaultIcon = icon, Group = group };
 
         /// Fragments are matched against the location's prefab name AND, when it has one, its
         /// DungeonGenerator's name. The DG_* names are confirmed from the game's own asset
@@ -287,44 +297,99 @@ namespace CarturMapPins
         ///
         /// Anything unmatched falls back to its PickableGroup icon, which is why this table only
         /// needs the pickables the sheet actually has art for.
+        /// Pickables, and the group each one belongs to.
+        ///
+        /// The group used to come from substring rules run over the prefab name, which failed at
+        /// scale: 44 of the game's 89 pickables fell through to "Unrecognised", and the junk rule
+        /// matched the letters "stone", so every Mork Halla gemstone - Bloodstone, Draumyx and
+        /// the rest, the rarest things in the game - was filed with sticks and rocks. A table you
+        /// can read beats a rule you have to simulate, and this table already existed for the
+        /// names and icons; it only lacked this column.
+        ///
+        /// Fragments are still checked in order, which is what lets the two wild crops sit above
+        /// their farmed selves. Both entries share a Name, so DistinctOf gives them one switch
+        /// and one icon between them - the group is the only thing that differs.
         public static readonly Entry[] Pickables =
         {
-            E("raspberrybush", "Raspberry", 90),
-            E("blueberrybush", "Blueberry", 91),
-            E("cloudberrybush", "Cloudberry", 92),
-            E("lingonberrybush", "Lingonberry", 140),
-            E("vinegreen", "Vineberry", 141),
-            E("vineash", "Vineberry", 141),
+            EP("raspberrybush", "Raspberry", 90, PickableGroup.Berries),
+            EP("blueberrybush", "Blueberry", 91, PickableGroup.Berries),
+            EP("cloudberrybush", "Cloudberry", 92, PickableGroup.Berries),
+            EP("lingonberrybush", "Lingonberry", 140, PickableGroup.Berries),
+            EP("vinegreen", "Vineberry", 141, PickableGroup.Berries),
+            EP("vineash", "Vineberry", 141, PickableGroup.Berries),
 
-            E("mushroom_jotunpuffs", "Jotun Puffs", 98),   // before the bare "mushroom"
-            E("mushroom_magecap", "Magecap", 97),
-            E("mushroom_yellow", "Yellow Mushroom", 96),
-            E("smokepuff", "Smoke Puff", 142),
-            E("mushroom", "Mushroom", 95),
+            EP("mushroom_jotunpuffs", "Jotun Puffs", 98, PickableGroup.Mushrooms),  // before bare "mushroom"
+            EP("mushroom_magecap", "Magecap", 97, PickableGroup.Mushrooms),
+            EP("mushroom_yellow", "Yellow Mushroom", 96, PickableGroup.Mushrooms),
+            EP("smokepuff", "Smoke Puff", 142, PickableGroup.Mushrooms),
+            EP("mushroom", "Mushroom", 95, PickableGroup.Mushrooms),
 
-            E("dandelion", "Dandelion", 93),
-            E("thistle", "Thistle", 94),
-            E("fiddlehead", "Fiddlehead", 99),
-            E("carrot", "Carrot", 100),                    // also catches SeedCarrot
-            E("turnip", "Turnip", 101),
-            E("onion", "Onion", 102),
-            E("barley", "Barley", 103),
-            E("flax", "Flax", 104),
+            // Wild before farmed: a patch out in the Plains is worth walking back to, the field
+            // behind your house is not. Measured - carturpins_plants reports sapling_barley ->
+            // Pickable_Barley, so the plain prefab is what a farm grows and _Wild is world
+            // generation only.
+            EP("barley_wild", "Barley", 103, PickableGroup.HighValue),
+            EP("flax_wild", "Flax", 104, PickableGroup.HighValue),
 
-            E("pickable_flint", "Flint", 108),
-            E("pickable_branch", "Branch", 107),
-            E("surtlingcorestand", "Surtling Core", 118),
-            E("moltencorestand", "Molten Core", 143),
-            E("blackcorestand", "Black Core", 144),
-            E("mountaincavecrystal", "Cave Crystal", 117),
-            E("royaljelly", "Royal Jelly", 105),
-            E("pickable_obsidian", "Obsidian", 116),
-            E("pickable_tin", "Tin Nugget", 111),
-            E("bogironore", "Bog Iron", 112),
-            E("pickable_tar", "Tar", 13),
-            E("meteorite", "Meteorite", 115),
-            E("dragonegg", "Dragon Egg", 8),
-            E("voltureegg", "Volture Egg", 12),
+            EP("dandelion", "Dandelion", 93, PickableGroup.Crops),
+            EP("thistle", "Thistle", 94, PickableGroup.Crops),
+            EP("fiddlehead", "Fiddlehead", 99, PickableGroup.Crops),
+            EP("carrot", "Carrot", 100, PickableGroup.Crops),           // also catches SeedCarrot
+            EP("turnip", "Turnip", 101, PickableGroup.Crops),
+            EP("onion", "Onion", 102, PickableGroup.Crops),
+            EP("barley", "Barley", 103, PickableGroup.Crops),
+            EP("flax", "Flax", 104, PickableGroup.Crops),
+
+            EP("pickable_flint", "Flint", 108, PickableGroup.Junk),
+            EP("pickable_branch", "Branch", 107, PickableGroup.Junk),
+
+            // Fixed to one spot, finite, and worth a second trip - which is the whole test for
+            // this group. The commoner ones among them (tin, obsidian, bog iron) are here for the
+            // same reason and can be switched off one at a time under Pickable Kinds, which is
+            // what those per-kind switches are for.
+            EP("surtlingcorestand", "Surtling Core", 118, PickableGroup.HighValue),
+            EP("moltencorestand", "Molten Core", 143, PickableGroup.HighValue),
+            EP("blackcorestand", "Black Core", 144, PickableGroup.HighValue),
+            EP("mountaincavecrystal", "Cave Crystal", 117, PickableGroup.HighValue),
+            EP("royaljelly", "Royal Jelly", 105, PickableGroup.HighValue),
+            EP("pickable_obsidian", "Obsidian", 116, PickableGroup.HighValue),
+            EP("pickable_tin", "Tin Nugget", 111, PickableGroup.HighValue),
+            EP("bogironore", "Bog Iron", 112, PickableGroup.HighValue),
+            EP("pickable_tar", "Tar", 13, PickableGroup.HighValue),
+            EP("meteorite", "Meteorite", 115, PickableGroup.HighValue),
+            EP("dragonegg", "Dragon Egg", 8, PickableGroup.HighValue),
+            EP("voltureegg", "Volture Egg", 12, PickableGroup.HighValue),
+
+            // Everything below had no entry at all, which is why it sat in Unrecognised - off by
+            // default and described as "didn't match a known group", holding some of the rarest
+            // things in the game. Icons are REUSED from the existing sheet, not new art: a star
+            // for the gemstones, the giant sword for the Dyrnwyn pieces, the coin pile for
+            // treasure, the crystal for frostcore.
+            //
+            // One entry each rather than one "Ancient Gemstone" covering all seven, because
+            // dedupe is per subtype - a shared one would let the first gemstone found suppress a
+            // different gemstone five metres away.
+            EP("morkhalla_eye1", "Draumyx", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye2", "Grimvarn", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye3", "Solryth", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye4", "Veydris", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye5", "Iolite", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye6", "Jade", 85, PickableGroup.HighValue),
+            EP("morkhalla_eye7", "Bloodstone", 85, PickableGroup.HighValue),
+
+            EP("swordpiece1", "Dyrnwyn Hilt", 52, PickableGroup.HighValue),
+            EP("swordpiece2", "Dyrnwyn Blade", 52, PickableGroup.HighValue),
+            EP("swordpiece3", "Dyrnwyn Tip", 52, PickableGroup.HighValue),
+
+            EP("frostcore", "Frostcore", 117, PickableGroup.HighValue),
+            EP("dolmentreasure", "Dolmen Treasure", 88, PickableGroup.HighValue),
+            EP("dvergrminetreasure", "Coin Pile", 88, PickableGroup.HighValue),
+
+            // Farm food that was falling through to Unrecognised while its own seeds landed in
+            // Crops - the same plant in two groups. "seedkale" first, or "kale" would swallow it.
+            EP("seedkale", "Kale Seeds", 99, PickableGroup.Crops),
+            EP("kale", "Kale", 99, PickableGroup.Crops),
+            EP("poteitr", "Poteitr", 101, PickableGroup.Crops),
         };
 
         /// Surface landmarks: locations with no interior, no dungeon generator and no runestone,
@@ -403,6 +468,23 @@ namespace CarturMapPins
             if (byGenerator != null)
                 return byGenerator;
             return MatchOne(table, prefabName);
+        }
+
+        /// The group the Pickables table gives this prefab, or null when it names nothing that
+        /// matches - modded content, or something a game update added that nobody has classified
+        /// yet. Same ordered fragment match as everything else here.
+        public static PickableGroup? GroupFor(string prefabName)
+        {
+            if (string.IsNullOrEmpty(prefabName))
+                return null;
+
+            string needle = prefabName.ToLowerInvariant();
+            foreach (Entry e in Pickables)
+            {
+                if (e.Group.HasValue && needle.Contains(e.Fragment))
+                    return e.Group;
+            }
+            return null;
         }
 
         private static string MatchOne(Entry[] table, string name)

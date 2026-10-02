@@ -483,6 +483,139 @@ namespace CarturMapPins
             return changed;
         }
 
+        /// What the mod last worked out each kind's icon should be. The baseline an icon change
+        /// is measured against: without it there is no way to tell a pin still carrying the old
+        /// default - which should follow the change - from one somebody picked by hand, which
+        /// should not. SettingChanged fires after the write, so the old value is already gone by
+        /// the time anyone could ask for it.
+        private static readonly Dictionary<string, Minimap.PinType> LastWanted =
+            new Dictionary<string, Minimap.PinType>(StringComparer.Ordinal);
+
+        /// Records what every kind's icon currently resolves to, changing nothing.
+        ///
+        /// Run once when the map first comes up, so the first real icon change has something to
+        /// compare against. Without it the first change would see every pin as hand-picked.
+        public static void PrimeIconBaseline()
+        {
+            EnsureLoaded();
+            if (Minimap.instance == null || !CustomIcons.Ready)
+                return;
+
+            foreach (Entry e in Entries)
+            {
+                if (!Resolve(e.Key, out PinCategory category, out string subtype,
+                             out Plugin.CategorySettings settings))
+                    continue;
+
+                LastWanted[e.Key] = PinPlacer.IconFor(category, subtype, settings);
+            }
+        }
+
+        /// Moves pins onto their kind's new icon after an icon setting changed.
+        ///
+        /// Only the ones still carrying what the mod itself last gave them. A pin whose icon was
+        /// chosen by hand through the map's own picker is left alone and counted into
+        /// `handPicked`, so the caller can ask about those and only those - there is no sense
+        /// interrupting somebody to confirm a change nobody could disagree with.
+        ///
+        /// Kinds whose icon did not change are skipped outright, so this stays cheap when one
+        /// setting moved out of two hundred.
+        public static int RepointChanged(out int handPicked)
+        {
+            handPicked = 0;
+            EnsureLoaded();
+
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            int changed = 0;
+
+            foreach (Entry e in Entries)
+            {
+                if (!Resolve(e.Key, out PinCategory category, out string subtype,
+                             out Plugin.CategorySettings settings))
+                    continue;
+
+                Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
+
+                bool known = LastWanted.TryGetValue(e.Key, out Minimap.PinType before);
+                LastWanted[e.Key] = wanted;
+
+                if (!known || before == wanted)
+                    continue;       // this kind's icon did not move
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_type == wanted)
+                    continue;
+
+                if (pin.m_type != before)
+                {
+                    handPicked++;   // somebody chose this one; it is not ours to take
+                    continue;
+                }
+
+                if (Repoint(map, pin, wanted))
+                    changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
+        /// Forces every recorded pin onto its kind's current icon, including the ones somebody
+        /// chose by hand. Only ever called after the player has been asked and said yes.
+        public static int RepointHandPicked()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            int changed = 0;
+            foreach (Entry e in Entries)
+            {
+                if (!Resolve(e.Key, out PinCategory category, out string subtype,
+                             out Plugin.CategorySettings settings))
+                    continue;
+
+                Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_type == wanted)
+                    continue;
+
+                if (Repoint(map, pin, wanted))
+                    changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
+        /// Splits a record key - "Ore" or "Ore:Copper" - back into the things IconFor needs.
+        private static bool Resolve(string recordKey, out PinCategory category, out string subtype,
+                                    out Plugin.CategorySettings settings)
+        {
+            category = default;
+            subtype = null;
+            settings = null;
+
+            if (string.IsNullOrEmpty(recordKey))
+                return false;
+
+            int colon = recordKey.IndexOf(':');
+            string name = colon > 0 ? recordKey.Substring(0, colon) : recordKey;
+            subtype = colon > 0 ? recordKey.Substring(colon + 1) : null;
+
+            if (!Enum.TryParse(name, out category))
+                return false;
+
+            settings = Plugin.SettingsFor(category);
+            return settings != null;
+        }
+
         /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
         /// because the caller removes entries as it goes.
         public static List<Vector3> PositionsOf(PinCategory category)
@@ -503,6 +636,55 @@ namespace CarturMapPins
         /// The mined-ore sweep needs both. Its radius covers whatever else is standing nearby and
         /// not only the ore it is asking about, so a position alone lets a live tin node vouch for
         /// a mined-out copper pin, and lets the copper pin's removal take the tin pin with it.
+        /// Every recorded pin as position -> the language-independent text that says what it is.
+        ///
+        /// The key ("Ore:Copper") and the source - the label before Localize ran - joined and
+        /// lower-cased, with the colon opened out so "copper ore" reads as two words like anything
+        /// else. Both halves are internal English, which is the whole point: the hide list matches
+        /// these instead of the drawn name, so it keeps working when the game language changes.
+        /// The name each recorded pin was last written with, for the hide list to offer.
+        ///
+        /// Read from the record rather than only from Minimap.m_pins, because the record is the
+        /// one source that is definitely complete: it is a file on disk holding every pin this
+        /// mod placed, whereas the live list is reached by reflection and holds whatever the map
+        /// happens to have loaded. A list of names that is missing the name you want is worse
+        /// than no list.
+        ///
+        /// Written first, Source second. Written is the exact text last put on the pin, which is
+        /// what the player reads; Source is the untranslated token behind it, which is all there
+        /// is for a pin written before the label was resolved.
+        public static List<string> AllLabels()
+        {
+            EnsureLoaded();
+            var result = new List<string>(Entries.Count);
+
+            foreach (Entry e in Entries)
+            {
+                string label = !string.IsNullOrEmpty(e.Written) ? e.Written : e.Source;
+                if (!string.IsNullOrEmpty(label))
+                    result.Add(label);
+            }
+
+            return result;
+        }
+
+        public static List<KeyValuePair<Vector3, string>> AllIdentities()
+        {
+            EnsureLoaded();
+            var result = new List<KeyValuePair<Vector3, string>>(Entries.Count);
+
+            foreach (Entry e in Entries)
+            {
+                string identity = (e.Key ?? string.Empty).Replace(':', ' ');
+                if (!string.IsNullOrEmpty(e.Source))
+                    identity += " " + e.Source;
+
+                result.Add(new KeyValuePair<Vector3, string>(e.Pos, identity.ToLowerInvariant()));
+            }
+
+            return result;
+        }
+
         public static List<KeyValuePair<Vector3, string>> RecordsOf(PinCategory category)
         {
             EnsureLoaded();

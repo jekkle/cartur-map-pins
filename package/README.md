@@ -181,4 +181,5 @@ Bug reports get their own thread so nothing is lost in a chat scroll, and reques
 [Follow Command](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Follow_Command/) ·
 [Flooring](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Flooring/) ·
 [UI HUD](https://thunderstore.io/c/valheim/p/Cartur/Carturs_UI_HUD/) ·
-[Waste Management](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Waste_Management/)
+[Waste Management](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Waste_Management/) ·
+[Feeding Trough](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Feeding_Trough/)

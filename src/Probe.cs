@@ -536,6 +536,85 @@ namespace CarturMapPins
             DumpCategory(args, null);
             DumpLabels(args, null);
             DumpSpawners(args);
+            DumpPlants(args);
+        }
+
+        /// What a planted sapling turns into - the one thing blocking a "wild only" rule for
+        /// barley and flax.
+        ///
+        /// Barley and flax each exist as two prefabs, plain and _Wild, and both are pinned. To
+        /// keep a player's own field off the map the mod has to tell them apart, and the obvious
+        /// test does not work: read off the DLL, Plant.Grow instantiates one of m_grownPrefabs,
+        /// sets its scale and destroys the sapling - it never writes a creator onto the grown
+        /// object's ZDO. So IsWild(zdo), which is what the bee hive and chest rules use, reports
+        /// a farmed crop as wild and would pass everything through.
+        ///
+        /// That leaves the prefab as the only discriminator, and whether the _Wild suffix
+        /// actually carries it is prefab data - not in assembly_valheim, not readable offline.
+        /// This reads it off the live prefab list.
+        ///
+        /// Every Plant is listed, not just the two asked about: the same question decides the
+        /// Crops group for carrot, turnip, onion and kale, and listing what is there beats
+        /// typing out names that a game update can move.
+        public static void DumpPlants(Terminal.ConsoleEventArgs args)
+        {
+            ZNetScene scene = ZNetScene.instance;
+            if (scene == null || scene.m_prefabs == null)
+            {
+                Emit(args, "ZNetScene not ready.");
+                return;
+            }
+
+            int found = 0;
+            Emit(args, "=== planted crops: sapling -> what it grows into ===");
+
+            foreach (GameObject prefab in scene.m_prefabs)
+            {
+                if (prefab == null)
+                    continue;
+
+                Plant plant = prefab.GetComponent<Plant>();
+                if (plant == null)
+                    continue;
+
+                found++;
+                var grown = new StringBuilder();
+                if (plant.m_grownPrefabs == null || plant.m_grownPrefabs.Length == 0)
+                {
+                    grown.Append("<none>");
+                }
+                else
+                {
+                    foreach (GameObject g in plant.m_grownPrefabs)
+                    {
+                        if (grown.Length > 0)
+                            grown.Append(", ");
+                        grown.Append(PinTag(g));
+                    }
+                }
+
+                Emit(args, $"    {prefab.name,-26} -> {grown}");
+            }
+
+            if (found == 0)
+                Emit(args, "    no Plant prefabs in the scene list.");
+        }
+
+        /// A prefab with what the catalog would do to it, so the answer above reads without
+        /// having to cross-reference carturpins_catalog by hand.
+        private static string PinTag(GameObject prefab)
+        {
+            if (prefab == null)
+                return "<null>";
+
+            int hash = prefab.name.GetStableHashCode();
+            if (!PinCatalog.TryGet(hash, out PinCategory category))
+                return $"{prefab.name} [not pinned]";
+
+            string group = category == PinCategory.Pickable
+                ? "/" + PinCatalog.GroupOf(hash)
+                : "";
+            return $"{prefab.name} [PINNED {category}{group}]";
         }
 
         private static void Emit(Terminal.ConsoleEventArgs args, string line)

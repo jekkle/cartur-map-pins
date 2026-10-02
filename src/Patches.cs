@@ -135,7 +135,15 @@ namespace CarturMapPins
 
             int hash = zdo.GetPrefab();
             if (!PinCatalog.TryGet(hash, out PinCategory category))
-                return;   // the fast path: one int lookup for the overwhelming majority of calls
+            {
+                // A second int lookup, and only for things the first one already rejected. It
+                // buys the one case the sweep could not otherwise see: a deposit that shatters
+                // destroys itself and leaves its _frac pieces behind, which are not pinnable but
+                // ARE the deposit. Without this the copper pin went the moment the rock broke.
+                if (PinCatalog.TryGetOreFragment(hash, out string fragmentOre))
+                    OreRegistry.Add(nview.gameObject, fragmentOre);
+                return;   // the fast path for the overwhelming majority of calls
+            }
 
             Tally(ref _matched);
 
@@ -145,7 +153,14 @@ namespace CarturMapPins
             if (category == PinCategory.BossAltar)
                 return;
 
-            if (category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(PinCatalog.GroupOf(hash)))
+            // Resolved once and carried into the queue. The switch is read again when the pin is
+            // actually placed, because a queued pickable waits for the player to walk up to it and
+            // the switch can be turned off in between.
+            PickableGroup group = category == PinCategory.Pickable
+                ? PinCatalog.GroupOf(hash)
+                : PickableGroup.Other;
+
+            if (category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(group))
             {
                 Tally(ref _skippedGroup);
                 return;
@@ -192,10 +207,97 @@ namespace CarturMapPins
             Tally(ref _enqueued);
             // The subtype carries through so the pin gets its own icon and dedupes only against
             // its own kind - copper against copper, a wolf den against other wolf dens.
-            PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinPlacer.SubtypeFor(category, hash, go));
+            PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinPlacer.SubtypeFor(category, hash, go), group);
         }
 
         private static bool IsWild(ZDO zdo) => zdo.GetLong(ZDOVars.s_creator, 0L) == 0L;
+    }
+
+    /// Drops the pin on a pickable that has been picked and will never come back.
+    ///
+    /// Berries, mushrooms and crops regrow, so their pins are right to keep. A surtling core
+    /// stand, a Dyrnwyn fragment, a treasure pile does not: once taken, the pin marks an empty
+    /// patch of ground forever, which is the same complaint the mined-ore sweep exists to answer.
+    ///
+    /// The game says which is which and the mod does not have to guess. Read from
+    /// Pickable.SetPicked, both branches that write the respawn time are gated on
+    /// m_respawnTimeMinutes being greater than zero, so zero or less means it never comes back.
+    ///
+    /// SetPicked rather than RPC_Pick or Interact: it is public, it is the single place m_picked
+    /// is written, and RPC_SetPicked is a four-instruction forwarder to it - so this one hook
+    /// covers the player who picked it and everyone who hears about it. Awake does NOT call it,
+    /// which is what keeps a world load from running this hundreds of times; the cost is that
+    /// pins left by an older version are not swept up, and carturpins_forget_missing already
+    /// exists for those.
+    [HarmonyPatch(typeof(Pickable), nameof(Pickable.SetPicked))]
+    internal static class Patch_Pickable_SetPicked
+    {
+        /// Deliberately tight. The record keeps the pin's position, which can sit up to a dedupe
+        /// radius - five metres - from the thing that was scanned, and several core stands can
+        /// share a chamber. Matching only what is essentially underfoot means a cluster keeps its
+        /// pin until the one the pin actually sits on is taken. That leaves a pin standing a
+        /// little too long; the other way round removes a pin that still marks something, and
+        /// nothing re-places it until the zone reloads.
+        private const float Underfoot = 2f;
+
+        private static void Postfix(Pickable __instance, bool picked)
+        {
+            if (!picked || __instance == null || __instance.m_respawnTimeMinutes > 0f)
+                return;
+
+            if (Minimap.instance == null || PinRecord.Count == 0)
+                return;
+
+            GameObject go = __instance.gameObject;
+            Vector3 pos = go.transform.position;
+            int hash = Utils.GetPrefabName(go).GetStableHashCode();
+
+            // Its own kind only, so a core stand cannot take the pin off the chest beside it.
+            string subtype = PinPlacer.SubtypeFor(PinCategory.Pickable, hash, go);
+
+            if (PinRecord.Forget(PinCategory.Pickable, pos, Underfoot, subtype))
+                Plugin.Log.LogInfo($"{subtype ?? "Pickable"} pin at {pos.x:F0},{pos.z:F0} removed - picked, and it does not respawn.");
+        }
+    }
+
+    /// Drops the pin on a loose item once somebody picks it up.
+    ///
+    /// Coins, amber, pearls, rubies and the rest of the dungeon floor loot are PickableItem, not
+    /// Pickable - a separate MonoBehaviour that shares no base class with it, which is why the
+    /// patch above never saw them and their pins stayed on the map forever.
+    ///
+    /// No respawn test here, and that is not an omission. Read off the DLL, PickableItem has no
+    /// respawn field at all - not m_respawnTimeMinutes, nothing - and RPC_Pick ends with
+    /// m_nview.Destroy(). One pick and the object is gone for good, so the pin is always wrong
+    /// afterwards. Pickable, which does respawn, keeps its check.
+    ///
+    /// Interact rather than RPC_Pick: RPC_Pick returns immediately unless m_nview.IsOwner(), so on
+    /// a client picking something the server owns it would never run locally and the pin would
+    /// stay on the map of the one person who just took the item. Interact runs on whoever pressed
+    /// the key, which is exactly whose map needs correcting. It returns false only when the
+    /// ZNetView is invalid, and true once the pick has been sent.
+    [HarmonyPatch(typeof(PickableItem), nameof(PickableItem.Interact))]
+    internal static class Patch_PickableItem_Interact
+    {
+        private static void Postfix(PickableItem __instance, bool __result)
+        {
+            if (!__result || __instance == null)
+                return;
+
+            if (Minimap.instance == null || PinRecord.Count == 0)
+                return;
+
+            GameObject go = __instance.gameObject;
+            Vector3 pos = go.transform.position;
+            int hash = Utils.GetPrefabName(go).GetStableHashCode();
+            string subtype = PinPlacer.SubtypeFor(PinCategory.Pickable, hash, go);
+
+            // Same tight radius and the same reason as the Pickable patch next door: the record
+            // holds the pin's position, which can sit a dedupe radius from the thing that was
+            // scanned, and a pile of loot is several objects close together.
+            if (PinRecord.Forget(PinCategory.Pickable, pos, 2f, subtype))
+                Plugin.Log.LogInfo($"{subtype ?? "Item"} pin at {pos.x:F0},{pos.z:F0} removed - picked up.");
+        }
     }
 
     /// Marks a bed as home when it becomes your spawn point.

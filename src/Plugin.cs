@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.6.0";
+        public const string PluginVersion = "1.7.0";
 
         internal static ManualLogSource Log;
 
@@ -117,138 +117,7 @@ namespace CarturMapPins
             // entry, replacing any value it could not parse with the default. This reads what the
             // player actually had while that is still what is on disk.
             LegacyIconNames.Capture(Config.ConfigFilePath);
-
-            DiscoveryRadius = Config.Bind("General", "DiscoveryRadius", 60f,
-                "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
-            ScanInterval = Config.Bind("General", "ScanIntervalSeconds", 0.33f,
-                new ConfigDescription("How often to check pending objects and loaded locations against your position.",
-                    null, Attr(advanced: true)));
-#if DIAGNOSTICS
-            AutoProbe = Config.Bind("Diagnostics", "AutoProbeOnSpawn", false,
-                "Writes the full diagnostics dump to BepInEx/config/carturpins_dump.txt a few seconds after you load in - every location, the catalog, map labels, spawners, every prefab. OFF by default now that the answers are in the repo: it costs a hitch on every load and rewrites a 800KB file nobody is reading. Turn it on when a game update has moved something, or run carturpins_dumpall once instead.");
-#endif
-
-            MapPickerEnabled = Config.Bind("CustomIcons", "MapPicker", true,
-                "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
-            // Renamed from MapPickerX/Y, which measured from the bottom LEFT corner. The panel
-            // moved to the right, so an old config's 20 would now mean 20 pixels from the right
-            // edge and bury the picker under vanilla's pin buttons. New names, so every existing
-            // config takes the new defaults and the stale lines sit there harmlessly.
-            MapPickerRight = Config.Bind("CustomIcons", "MapPickerRight", 108f,
-                new ConfigDescription("How far in from the right edge of the map screen the picker sits. The default puts it against vanilla's column of pin buttons without overlapping them.",
-                    null, Attr(advanced: true)));
-            MapPickerBottom = Config.Bind("CustomIcons", "MapPickerBottom", 74f,
-                new ConfigDescription("How far up from the bottom of the map screen the picker sits. The default clears the Visible to other players box below it.",
-                    null, Attr(advanced: true)));
-
-            PinSharing = Config.Bind("General", "PinSharing", PinSharingMode.Everything,
-                new ConfigDescription("What a cartography table publishes from your map. Everything: vanilla behaviour. HandPlacedOnly: your own pins are shared but the ones this mod placed for you are not - so a few hundred ore and pickable pins do not land on everyone else's map. Nothing: the table still shares your explored ground, but none of your pins. Reading other people's pins off a table is unaffected either way, and your own map is never changed.",
-                    null, Attr(order: 7)));
-
-            // Pins that follow the thing rather than mark the spot. Separate section because
-            // these behave differently from every other pin in the mod: they move, they are not
-            // saved into the map, and they are not deduped by position.
-            TrackBoats = Config.Bind("Tracking", "Boats", true,
-                new ConfigDescription("Put a pin on your boats and keep it on them as they move. When a boat is too far away for the game to have it loaded, its pin stays where you last saw it.",
-                    null, Attr(order: 6)));
-            TrackCarts = Config.Bind("Tracking", "Carts", true,
-                new ConfigDescription("The same for carts.", null, Attr(order: 5)));
-            TrackTames = Config.Bind("Tracking", "Tames", true,
-                new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle). Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
-                    null, Attr(order: 4)));
-            CartIcon = Config.Bind("Tracking", "CartIcon", PinIcon.UtilCart,
-                new ConfigDescription("Icon for tracked carts.", null, IconAttr(order: 3)));
-
-            // One entry per boat and per tame, generated from the same tables the tracker matches
-            // against, so the menu can never fall behind what the mod recognises. Not run through
-            // AdoptLegacy like the subtype icons are: these keys are new, so there is no 1.2.2
-            // value to adopt and pretending otherwise would only confuse the next reader.
-            foreach (Trackers.IconKind kind in Trackers.BoatKinds)
-                BindTrackedIcon("Boat Icons", kind);
-            foreach (Trackers.IconKind kind in Trackers.TameKinds)
-                BindTrackedIcon("Tame Icons", kind);
-
-            TrackForgetRadius = Config.Bind("Tracking", "ForgetRadius", 32f,
-                new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",
-                    null, Attr(advanced: true)));
-
-            CustomIconsEnabled = Config.Bind("CustomIcons", "Enabled", true,
-                "Use the bundled icon sheet, adding its icons as extra pin types alongside the vanilla ones (nothing vanilla is replaced). If this is off, or the sheet fails to load, every category falls back to its vanilla PinType.");
-
-            // IconIndex values refer to Assets/pin_icons_numbered.png. PinType is the vanilla
-            // fallback used when custom icons are off.
-            Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
-                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section and their own icons in Ore Icons.",
-                iconIndex: 119);  // generic ore chunk; per-type icons override this
-            Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
-                "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).",
-                iconIndex: 39);   // stairs down
-            Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
-                "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
-                iconIndex: 42);   // village
-            Bind(PinCategory.BossAltar, true, Minimap.PinType.Boss, 5f,
-                "Boss summoning altars, with a different icon per boss. Vanilla marks these itself, but its marker carries no name and isn't saved - so ours replaces it rather than stacking on top, and vanilla's is left alone for any altar you haven't found yet.",
-                iconIndex: 79);   // offering bowl; per-boss icons override this
-            Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
-                "Wild beehives. Player-built hives are never pinned.",
-                iconIndex: 78);   // beehive
-            Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
-                "Runestones and Vegvisirs. Vanilla never pins these.",
-                iconIndex: 58);   // vegvisir
-            Bind(PinCategory.LoreStone, false, Minimap.PinType.Icon2, 5f,
-                "Lore runestones - the eleven story stones scattered across the biomes (Boars, Meadows, Draugr, Black Forest...). Separate from the boss stones above. OFF by default: they are read-once curiosities, and pinning all of them clutters a map you actually navigate with.",
-                iconIndex: 57);   // runestone
-            Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
-                "Loot chests found in the world. Player-built containers are never pinned.",
-                iconIndex: 72);   // chest
-            Bind(PinCategory.Spawner, false, Minimap.PinType.Icon3, 15f,
-                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. OFF by default - the catalog covers 103 spawner prefabs, including chicken, bat, fish and leech, so a fresh world would carpet the map. Individual creatures have their own icons in Spawner Types.",
-                iconIndex: 9);    // summoning circle; per-creature icons override this
-            Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
-                "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.",
-                iconIndex: 50);   // leviathan
-            Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
-                "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
-                iconIndex: 88);   // coins; per-trader icons override this
-            Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
-                "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
-                iconIndex: 85);   // star
-            // Pickable had no binding at all, which meant SettingsFor(Pickable) returned null and
-            // TryPin dropped every pickable on the floor - the whole Pickables section, the
-            // classifier and the group icons were wired to nothing. Bound into the existing
-            // "Pickables" section rather than a new "Pickable" one, so the category's own knobs
-            // sit with the group toggles instead of in a near-identically named section.
-            Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
-                "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
-                iconIndex: 45);   // stone circle; per-kind icons override it
-            Bind(PinCategory.Home, true, Minimap.PinType.Bed, 5f,
-                "Marks a bed as home when you claim it as your spawn. Vanilla marks only your current spawn and moves that one marker when you sleep somewhere else, so an outpost you slept in last week leaves nothing behind - these pins stay.",
-                iconIndex: 70);   // house with a bed in it
-            Bind(PinCategory.Miniboss, true, Minimap.PinType.Boss, 5f,
-                "Named minibosses - Lord Reto in the Ashlands, and Hildir's three. Single hand-placed creatures you fight once, so they are on even though the Spawner category they would otherwise sit in is off.",
-                iconIndex: 130);  // Lord Reto; per-miniboss icons override this
-            Bind(PinCategory.Prop, true, Minimap.PinType.Icon2, 5f,
-                "One-off world objects that carry no component saying what they are, so the mod knows them by name - currently the maypole standing in an abandoned Meadows village. Anything you built yourself is never pinned.",
-                iconIndex: 149);  // maypole; per-prop icons override this
-            Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
-                "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
-                iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
-
-            // "Ore Types" is where 1.2.2 kept these switches, so it keeps them.
-            // Ore switches come from the catalog's own token table rather than from Subtypes,
-            // so an ore type the detector recognises always has a switch - including one a mod
-            // adds that the icon table has never heard of.
-            foreach ((string _, string type) in PinCatalog.OreTokens)
-                BindKindToggle(PinCategory.Ore, "Ore Types", type, $"Pin {type} deposits.");
-
-            TickLootedDungeons = Config.Bind("Dungeon", "TickWhenLooted", true,
-                "Tick a dungeon's pin off once nothing inside is worth coming back for - every chest empty and every mud pile mined. The game tracks no such thing itself: dungeon spawners respawn on a timer, so what you took is the only lasting record of having been through. Unticks again if a chest refills.");
-
-            ReplaceBedMarker = Config.Bind("Home", "ReplaceBedMarker", true,
-                "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
-
-            ShrinkCrowdedPins = Config.Bind("General", "ShrinkCrowdedPins", true,
-                "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
+            Sections.Capture(Config.ConfigFilePath);
 
             // Written as an action rather than a state: choosing one applies it and the setting
             // drops back to None. Anything else would claim a preset is still in force while you
@@ -257,75 +126,79 @@ namespace CarturMapPins
             // Ordered to the top of General: ConfigurationManager sorts a section by Order
             // descending, and the two settings that DO something belong above the ones that
             // merely describe a preference.
-            ApplyPreset = Config.Bind("General", "ApplyPreset", Preset.None,
+            ApplyPreset = Config.Bind(Sections.Of("General", "ApplyPreset"), "ApplyPreset", Preset.None,
                 new ConfigDescription("Set every switch at once. Minimal pins the few things worth walking back to; Everything turns on all of it, chickens and abandoned houses included; Defaults restores what a fresh install uses. Returns to None once applied - it is a button, not a state.",
                     null, Attr(order: 100)));
             ApplyPreset.SettingChanged += (_, __) => Apply(ApplyPreset.Value);
 
-            // Written as a dropdown rather than a tick box, and with the frightening option spelled
-            // out in full, because this throws away work: a tick box sits one stray click from
-            // deleting a map somebody filled in over fifty hours. Choosing a named option is
-            // deliberate in a way that ticking a box is not.
-            ResetPins = Config.Bind("General", "ResetPins", PinReset.No,
-                new ConfigDescription("Start this world's pins over. Removes every pin this mod placed and forgets them, so each one is pinned again as you rediscover it. Pins you placed by hand are untouched, and so are any colours or sizes you set. Returns to No once it has run - it is a button, not a state.",
-                    null, Attr(order: 99)));
-            ResetPins.SettingChanged += (_, __) => Reset(ResetPins.Value);
+            ShrinkCrowdedPins = Config.Bind(Sections.Of("General", "ShrinkCrowdedPins"), "ShrinkCrowdedPins", true,
+                "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
 
-            ZoomedOutPinScale = Config.Bind("General", "ZoomedOutPinScale", 0.6f,
+            ZoomedOutPinScale = Config.Bind(Sections.Of("General", "ZoomedOutPinScale"), "ZoomedOutPinScale", 0.6f,
                 "How big a pin is drawn when the map is zoomed all the way out, as a fraction of its normal size. Pins are full size zoomed in and shrink steadily towards this as you zoom out, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.");
 
-            HidePinsBeyond = Config.Bind("General", "HidePinsBeyond", 0f,
+            HidePinsBeyond = Config.Bind(Sections.Of("General", "HidePinsBeyond"), "HidePinsBeyond", 0f,
                 "Stop drawing pins further than this many metres from your character. 0 draws all of them, which is the default - the large map is usually wanted whole. Set it to a few thousand to keep the map to the part of the world you are actually in. Nothing is deleted: the pins come straight back when you raise it or walk towards them.");
 
-            MergeRepeatedPins = Config.Bind("General", "MergeRepeatedPins", true,
+            MergeRepeatedPins = Config.Bind(Sections.Of("General", "MergeRepeatedPins"), "MergeRepeatedPins", true,
                 "Where several pins with the same name sit on the same patch of screen, draw one of them. A tin field is a dozen separate deposits and so a dozen identical pins, which at map scale is one white blob you can neither count nor click - one icon says as much and leaves the map readable. Pins of different kinds sitting together are all still drawn, and zooming in separates the rest as it always did. Nothing is deleted: every pin is still on the map, still saved, still searchable.");
 
-            HideLabelsFromZoom = Config.Bind("General", "HideLabelsFromZoom", 20f,
+            HideLabelsFromZoom = Config.Bind(Sections.Of("General", "HideLabelsFromZoom"), "HideLabelsFromZoom", 20f,
                 "Stop drawing pin names once the map is zoomed out past this percentage. 0 is fully zoomed in, 100 is the whole world; 100 never hides a name. The game has a setting of its own for this and it does nothing - m_showNamesZoom is 2 where the furthest the map zooms is 1, so its test is true at every zoom and no name is ever hidden by it.");
 
-            ShrinkPinsFromZoom = Config.Bind("General", "ShrinkPinsFromZoom", 15f,
+            ShrinkPinsFromZoom = Config.Bind(Sections.Of("General", "ShrinkPinsFromZoom"), "ShrinkPinsFromZoom", 15f,
                 "How far out the map has to be zoomed before pins start shrinking, as a percentage. 0 is fully zoomed in and 100 is the whole world. Below this pins are full size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.");
 
-            ShowPinLabels = Config.Bind("General", "ShowPinLabels", true,
+            ShowPinLabels = Config.Bind(Sections.Of("General", "ShowPinLabels"), "ShowPinLabels", true,
                 "Draw the name under each pin. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. The pin under your cursor always shows its name, so nothing becomes unidentifiable.");
 
-            HideCollidingLabels = Config.Bind("General", "HideCollidingLabels", true,
+            HideCollidingLabels = Config.Bind(Sections.Of("General", "HideCollidingLabels"), "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
 
-            TintOreByType = Config.Bind("Ore", "TintByType", true,
+            // Hiding rather than deleting, and it is the only control here that reaches pins
+            // that are already on the map. Turning a category off stops new pins and leaves the
+            // old ones; this puts them away and brings them back, with nothing lost either way.
+            HiddenPins = Config.Bind(Sections.Of("General", "HiddenPins"), "HiddenPins", "",
+                new ConfigDescription(
+                    "Pin names to hide, separated by commas. The pins stay on your map and in your save - they are simply not drawn - so removing a name here brings them straight back. Open the list to pick from what is actually on your map. Every word you type has to match, so \"copper\" and \"copper ore\" both hide copper, and \"core\" hides all three kinds of core.",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 6, CustomDrawer = HideListDrawer.Draw }));
+
+            // Parsed once here and once per edit. The draw pass runs over every pin every time
+            // the map moves, and splitting a string in there is a frame-rate bug.
+            PinHiding.Reparse(HiddenPins.Value);
+            HiddenPins.SettingChanged += (_, __) => PinHiding.Reparse(HiddenPins.Value);
+
+            PinSharing = Config.Bind(Sections.Of("General", "PinSharing"), "PinSharing", PinSharingMode.Everything,
+                new ConfigDescription("What a cartography table publishes from your map. Everything: vanilla behaviour. HandPlacedOnly: your own pins are shared but the ones this mod placed for you are not - so a few hundred ore and pickable pins do not land on everyone else's map. Nothing: the table still shares your explored ground, but none of your pins. Reading other people's pins off a table is unaffected either way, and your own map is never changed.",
+                    null, Attr(order: 7)));
+
+            // IconIndex values refer to Assets/pin_icons_numbered.png. PinType is the vanilla
+            // fallback used when custom icons are off.
+            Bind(PinCategory.Ore, true, Minimap.PinType.Icon3, 15f,
+                "Ore deposits and mineable nodes. Individual ore types have their own toggles in the Ore Types section and their own icons in Ore Icons.",
+                iconIndex: 119);  // generic ore chunk; per-type icons override this
+            TintOreByType = Config.Bind(Sections.Of("Ore", "TintByType"), "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
-            ForgetMinedOre = Config.Bind("Ore", "ForgetMined", true,
+            ForgetMinedOre = Config.Bind(Sections.Of("Ore", "ForgetMined"), "ForgetMined", true,
                 "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
 
-            LootedChestIcon = AdoptLegacy(Config.Bind("Chest", "LootedIcon", PinIcon.UtilChestOpen,
-                new ConfigDescription(
-                    "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
-                    null, IconAttr(order: 1))));
+            // "Ore Types" is where 1.2.2 kept these switches, so it keeps them.
+            // Ore switches come from the catalog's own token table rather than from Subtypes,
+            // so an ore type the detector recognises always has a switch - including one a mod
+            // adds that the icon table has never heard of.
+            foreach ((string _, string type) in PinCatalog.OreTokens)
+                BindKindToggle(PinCategory.Ore, Sections.Of("Ore Types"), type, $"Pin {type} deposits.");
 
-            // A switch and an icon for every kind the mod can tell apart. Both are generated from
-            // the tables that do the matching, so the menu and the matcher cannot drift.
-            // "Dungeon Types" and "Camp Types" held the icons in 1.2.2 and still do.
-            BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons, iconSection: "Dungeon Types");
-            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
-            {
-                BindKindToggle(TickPseudoCategory, "Dungeon Tick", e.Name,
-                    $"Tick a {e.Name} off once everything inside it has been taken.");
-            }
-            BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps, iconSection: "Camp Types");
-            BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
-            BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
-            BindKinds(PinCategory.Spawner, "Spawner", Subtypes.Spawners);
-            BindKinds(PinCategory.Miniboss, "Miniboss", Subtypes.Minibosses);
-            BindKinds(PinCategory.Pickable, "Pickable", Subtypes.Pickables);
-            BindKinds(PinCategory.Landmark, "Landmark", Subtypes.Landmarks);
-            BindKinds(PinCategory.Prop, "Prop", Subtypes.Props);
-            // Ruins that never get a pin of their own - their chest carries the name and icon, so
-            // switching one off means those ruins stop being pinned at all.
-            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
+
             // Ore icons only: the switches above came from the catalog.
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Ores))
-                BindSubtypeIcon("Ore Icons", e);
+                BindSubtypeIcon(Sections.Of("Ore Icons"), e);
+
+            Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
+                "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
+                iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
 
             // Not advanced, deliberately. Every other category's Enabled switch is on the plain
             // page, and these five were the exception - so the one switch that turns mushroom
@@ -333,19 +206,19 @@ namespace CarturMapPins
             // separate people asked for "a way to toggle pickables", and one filed it as a bug
             // ("Common Mushroom No Auto Pin"), which is what a setting nobody can find looks like
             // from outside. The defaults are unchanged; only where they are drawn has changed.
-            _pickHighValue = Config.Bind("Pickables", "HighValue", true,
-                new ConfigDescription("Surtling cores, Yggdrasil shoots, eggs. Rare and worth remembering.",
+            _pickHighValue = Config.Bind(Sections.Of("Pickables", "HighValue"), "HighValue", true,
+                new ConfigDescription("Surtling cores, Yggdrasil shoots, eggs, and wild barley and flax. Rare and worth remembering.",
                     null, Attr(order: 5)));
-            _pickBerries = Config.Bind("Pickables", "BerriesAndMushrooms", false,
+            _pickBerries = Config.Bind(Sections.Of("Pickables", "BerriesAndMushrooms"), "BerriesAndMushrooms", false,
                 new ConfigDescription("Raspberry/blueberry/cloudberry bushes and mushrooms.",
                     null, Attr(order: 4)));
-            _pickCrops = Config.Bind("Pickables", "CropsAndHerbs", false,
-                new ConfigDescription("Thistle, dandelion, seeds, barley, flax.",
+            _pickCrops = Config.Bind(Sections.Of("Pickables", "CropsAndHerbs"), "CropsAndHerbs", false,
+                new ConfigDescription("Thistle, dandelion, seeds, carrot, turnip, onion, and barley and flax you planted yourself.",
                     null, Attr(order: 3)));
-            _pickJunk = Config.Bind("Pickables", "BranchesStonesFlint", false,
+            _pickJunk = Config.Bind(Sections.Of("Pickables", "BranchesStonesFlint"), "BranchesStonesFlint", false,
                 new ConfigDescription("Not recommended: these blanket every biome and would carpet the map and bloat your save file.",
                     null, Attr(order: 2)));
-            _pickOther = Config.Bind("Pickables", "Unrecognised", false,
+            _pickOther = Config.Bind(Sections.Of("Pickables", "Unrecognised"), "Unrecognised", false,
                 new ConfigDescription("Any pickable that didn't match a known group (including modded ones). Check the log to see what these are.",
                     null, Attr(order: 1)));
 
@@ -357,6 +230,158 @@ namespace CarturMapPins
             BindGroupIcon(PickableGroup.HighValue, 118);  // surtling core
             BindGroupIcon(PickableGroup.Junk, 107);       // branch
             BindGroupIcon(PickableGroup.Other, 84);       // question mark
+
+            BindKinds(PinCategory.Pickable, "Pickable", Subtypes.Pickables);
+            Bind(PinCategory.Dungeon, true, Minimap.PinType.Icon4, 5f,
+                "Dungeon and cave entrances (Burial Chambers, Sunken Crypts, Frost Caves, Troll Caves, Infested Mines).",
+                iconIndex: 39);   // stairs down
+            TickLootedDungeons = Config.Bind(Sections.Of("Dungeon", "TickWhenLooted"), "TickWhenLooted", true,
+                "Tick a dungeon's pin off once nothing inside is worth coming back for - every chest empty and every mud pile mined. The game tracks no such thing itself: dungeon spawners respawn on a timer, so what you took is the only lasting record of having been through. Unticks again if a chest refills.");
+
+            // A switch and an icon for every kind the mod can tell apart. Both are generated from
+            // the tables that do the matching, so the menu and the matcher cannot drift.
+            // "Dungeon Types" and "Camp Types" held the icons in 1.2.2 and still do.
+            BindKinds(PinCategory.Dungeon, "Dungeon", Subtypes.Dungeons, iconSection: Sections.Of("Dungeon Types"));
+            foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Dungeons))
+            {
+                BindKindToggle(TickPseudoCategory, Sections.Of("Dungeon Tick"), e.Name,
+                    $"Tick a {e.Name} off once everything inside it has been taken.");
+            }
+            Bind(PinCategory.Camp, true, Minimap.PinType.Icon3, 20f,
+                "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
+                iconIndex: 42);   // village
+            BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps, iconSection: Sections.Of("Camp Types"));
+            Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
+                "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
+                iconIndex: 45);   // stone circle; per-kind icons override it
+            BindKinds(PinCategory.Landmark, "Landmark", Subtypes.Landmarks);
+            Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,
+                "Runestones and Vegvisirs. Vanilla never pins these.",
+                iconIndex: 58);   // vegvisir
+            Bind(PinCategory.LoreStone, false, Minimap.PinType.Icon2, 5f,
+                "Lore runestones - the eleven story stones scattered across the biomes (Boars, Meadows, Draugr, Black Forest...). Separate from the boss stones above. OFF by default: they are read-once curiosities, and pinning all of them clutters a map you actually navigate with.",
+                iconIndex: 57);   // runestone
+            Bind(PinCategory.Leviathan, true, Minimap.PinType.Icon3, 30f,
+                "Leviathans. Note they submerge once mined, so a saved pin will outlive the creature.",
+                iconIndex: 50);   // leviathan
+            Bind(PinCategory.Prop, true, Minimap.PinType.Icon2, 5f,
+                "One-off world objects that carry no component saying what they are, so the mod knows them by name - currently the maypole standing in an abandoned Meadows village. Anything you built yourself is never pinned.",
+                iconIndex: 149);  // maypole; per-prop icons override this
+            BindKinds(PinCategory.Prop, "Prop", Subtypes.Props);
+            // Ruins that never get a pin of their own - their chest carries the name and icon, so
+            // switching one off means those ruins stop being pinned at all.
+            Bind(PinCategory.Spawner, false, Minimap.PinType.Icon3, 15f,
+                "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. OFF by default - the catalog covers 103 spawner prefabs, including chicken, bat, fish and leech, so a fresh world would carpet the map. Individual creatures have their own icons in Spawner Types.",
+                iconIndex: 9);    // summoning circle; per-creature icons override this
+            BindKinds(PinCategory.Spawner, "Spawner", Subtypes.Spawners);
+            Bind(PinCategory.Miniboss, true, Minimap.PinType.Boss, 5f,
+                "Named minibosses - Lord Reto in the Ashlands, and Hildir's three. Single hand-placed creatures you fight once, so they are on even though the Spawner category they would otherwise sit in is off.",
+                iconIndex: 130);  // Lord Reto; per-miniboss icons override this
+            BindKinds(PinCategory.Miniboss, "Miniboss", Subtypes.Minibosses);
+            Bind(PinCategory.BossAltar, true, Minimap.PinType.Boss, 5f,
+                "Boss summoning altars, with a different icon per boss. Vanilla marks these itself, but its marker carries no name and isn't saved - so ours replaces it rather than stacking on top, and vanilla's is left alone for any altar you haven't found yet.",
+                iconIndex: 79);   // offering bowl; per-boss icons override this
+            BindKinds(PinCategory.BossAltar, "Boss", Subtypes.Bosses);
+            Bind(PinCategory.Chest, true, Minimap.PinType.Icon2, 5f,
+                "Loot chests found in the world. Player-built containers are never pinned.",
+                iconIndex: 72);   // chest
+            LootedChestIcon = AdoptLegacy(Config.Bind(Sections.Of("Chest", "LootedIcon"), "LootedIcon", PinIcon.UtilChestOpen,
+                new ConfigDescription(
+                    "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
+                    null, IconAttr(order: 1))));
+
+            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
+            Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
+                "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
+                iconIndex: 88);   // coins; per-trader icons override this
+            BindKinds(PinCategory.Trader, "Trader", Subtypes.Traders);
+            Bind(PinCategory.Beehive, true, Minimap.PinType.Icon3, 5f,
+                "Wild beehives. Player-built hives are never pinned.",
+                iconIndex: 78);   // beehive
+            Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
+                "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
+                iconIndex: 85);   // star
+            // Pickable had no binding at all, which meant SettingsFor(Pickable) returned null and
+            // TryPin dropped every pickable on the floor - the whole Pickables section, the
+            // classifier and the group icons were wired to nothing. Bound into the existing
+            // "Pickables" section rather than a new "Pickable" one, so the category's own knobs
+            // sit with the group toggles instead of in a near-identically named section.
+            Bind(PinCategory.Home, true, Minimap.PinType.Bed, 5f,
+                "Marks a bed as home when you claim it as your spawn. Vanilla marks only your current spawn and moves that one marker when you sleep somewhere else, so an outpost you slept in last week leaves nothing behind - these pins stay.",
+                iconIndex: 70);   // house with a bed in it
+            ReplaceBedMarker = Config.Bind(Sections.Of("Home", "ReplaceBedMarker"), "ReplaceBedMarker", true,
+                "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
+
+            DiscoveryRadius = Config.Bind(Sections.Of("General", "DiscoveryRadius"), "DiscoveryRadius", 60f,
+                "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
+            ScanInterval = Config.Bind(Sections.Of("General", "ScanIntervalSeconds"), "ScanIntervalSeconds", 0.33f,
+                new ConfigDescription("How often to check pending objects and loaded locations against your position.",
+                    null, Attr(advanced: true)));
+            MapPickerEnabled = Config.Bind(Sections.Of("CustomIcons", "MapPicker"), "MapPicker", true,
+                "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
+            // Renamed from MapPickerX/Y, which measured from the bottom LEFT corner. The panel
+            // moved to the right, so an old config's 20 would now mean 20 pixels from the right
+            // edge and bury the picker under vanilla's pin buttons. New names, so every existing
+            // config takes the new defaults and the stale lines sit there harmlessly.
+            MapPickerRight = Config.Bind(Sections.Of("CustomIcons", "MapPickerRight"), "MapPickerRight", 108f,
+                new ConfigDescription("How far in from the right edge of the map screen the picker sits. The default puts it against vanilla's column of pin buttons without overlapping them.",
+                    null, Attr(advanced: true)));
+            MapPickerBottom = Config.Bind(Sections.Of("CustomIcons", "MapPickerBottom"), "MapPickerBottom", 74f,
+                new ConfigDescription("How far up from the bottom of the map screen the picker sits. The default clears the Visible to other players box below it.",
+                    null, Attr(advanced: true)));
+
+            CustomIconsEnabled = Config.Bind(Sections.Of("CustomIcons", "Enabled"), "Enabled", true,
+                "Use the bundled icon sheet, adding its icons as extra pin types alongside the vanilla ones (nothing vanilla is replaced). If this is off, or the sheet fails to load, every category falls back to its vanilla PinType.");
+
+#if DIAGNOSTICS
+            AutoProbe = Config.Bind(Sections.Of("Diagnostics", "AutoProbeOnSpawn"), "AutoProbeOnSpawn", false,
+                "Writes the full diagnostics dump to BepInEx/config/carturpins_dump.txt a few seconds after you load in - every location, the catalog, map labels, spawners, every prefab. OFF by default now that the answers are in the repo: it costs a hitch on every load and rewrites a 800KB file nobody is reading. Turn it on when a game update has moved something, or run carturpins_dumpall once instead.");
+#endif
+
+            // Pins that follow the thing rather than mark the spot. Separate section because
+            // these behave differently from every other pin in the mod: they move, they are not
+            // saved into the map, and they are not deduped by position.
+            TrackBoats = Config.Bind(Sections.Of("Tracking", "Boats"), "Boats", true,
+                new ConfigDescription("Put a pin on your boats and keep it on them as they move. When a boat is too far away for the game to have it loaded, its pin stays where you last saw it.",
+                    null, Attr(order: 6)));
+            TrackCarts = Config.Bind(Sections.Of("Tracking", "Carts"), "Carts", true,
+                new ConfigDescription("The same for carts.", null, Attr(order: 5)));
+            TrackTames = Config.Bind(Sections.Of("Tracking", "Tames"), "Tames", true,
+                new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle). Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
+                    null, Attr(order: 4)));
+            CartIcon = Config.Bind(Sections.Of("Tracking", "CartIcon"), "CartIcon", PinIcon.UtilCart,
+                new ConfigDescription("Icon for tracked carts.", null, IconAttr(order: 3)));
+
+            // One entry per boat and per tame, generated from the same tables the tracker matches
+            // against, so the menu can never fall behind what the mod recognises. Not run through
+            // AdoptLegacy like the subtype icons are: these keys are new, so there is no 1.2.2
+            // value to adopt and pretending otherwise would only confuse the next reader.
+            foreach (Trackers.IconKind kind in Trackers.BoatKinds)
+                BindTrackedIcon(Sections.Of("Boat Icons"), kind);
+            foreach (Trackers.IconKind kind in Trackers.TameKinds)
+                BindTrackedIcon(Sections.Of("Tame Icons"), kind);
+
+            TrackForgetRadius = Config.Bind(Sections.Of("Tracking", "ForgetRadius"), "ForgetRadius", 32f,
+                new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",
+                    null, Attr(advanced: true)));
+
+            // Written as a dropdown rather than a tick box, and with the frightening option spelled
+            // out in full, because this throws away work: a tick box sits one stray click from
+            // deleting a map somebody filled in over fifty hours. Choosing a named option is
+            // deliberate in a way that ticking a box is not.
+            ResetPins = Config.Bind(Sections.Of("General", "ResetPins"), "ResetPins", PinReset.No,
+                new ConfigDescription("Start this world's pins over. Removes every pin this mod placed and forgets them, so each one is pinned again as you rediscover it. Pins you placed by hand are untouched, and so are any colours or sizes you set. Returns to No once it has run - it is a button, not a state.",
+                    null, Attr(order: 99)));
+            ResetPins.SettingChanged += (_, __) => Reset(ResetPins.Value);
+
+            // After every Bind, before anything reads a value. The section names changed in this
+            // version, and BepInEx keys a setting by (section, key) - so without this every
+            // switch, icon and offset anybody had set would have come back as its default, and
+            // the old lines would sit orphaned further up the same file. Silent, unless it
+            // actually moved something.
+            int carried = Sections.Adopt(Config);
+            if (carried > 0)
+                Logger.LogInfo($"Settings: carried {carried} value(s) over from the old section names.");
 
             // Only notes where records live. Which file is this one depends on the world and the
             // character, and at plugin load there is neither - it resolves on first use.
@@ -538,7 +563,10 @@ namespace CarturMapPins
 
         private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex, string sectionName = null)
         {
-            string section = sectionName ?? category.ToString();
+            string section = Sections.Of(sectionName ?? category.ToString());
+            // Every icon entry is watched, so a change to any of them carries the pins already
+            // on the map with it. Registered at the one place each is bound, so a category or
+            // subtype added later is covered without anybody remembering to come back here.
             Settings[category] = new CategorySettings
             {
                 Enabled = Config.Bind(section, "Enabled", enabled,
@@ -559,6 +587,8 @@ namespace CarturMapPins
                     new ConfigDescription("Don't place a second pin of this kind within this many metres.",
                         null, Attr(advanced: true, order: 0))),
             };
+
+            IconRepoint.Watch(Settings[category].IconIndex);
         }
 
         private static readonly Dictionary<PickableGroup, ConfigEntry<PinIcon>> PickableIcons =
@@ -580,8 +610,8 @@ namespace CarturMapPins
         {
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(table))
             {
-                BindKindToggle(category, switchSection ?? name + " Kinds", e.Name, $"Pin {e.Name}.");
-                BindSubtypeIcon(iconSection ?? name + " Icons", e);
+                BindKindToggle(category, switchSection ?? Sections.Of(name + " Kinds"), e.Name, $"Pin {e.Name}.");
+                BindSubtypeIcon(iconSection ?? Sections.Of(name + " Icons"), e);
             }
         }
 
@@ -630,10 +660,10 @@ namespace CarturMapPins
         {
             if (SubtypeIcons.ContainsKey(entry.Name))
                 return;
-            SubtypeIcons[entry.Name] = AdoptLegacy(Config.Bind(section, entry.Name, (PinIcon)entry.DefaultIcon,
+            IconRepoint.Watch(SubtypeIcons[entry.Name] = AdoptLegacy(Config.Bind(section, entry.Name, (PinIcon)entry.DefaultIcon,
                 new ConfigDescription(
                     $"Icon for {entry.Name}. Default falls back to the category's own icon.",
-                    null, IconAttr(order: 1, advanced: true))));
+                    null, IconAttr(order: 1, advanced: true)))));
         }
 
         /// A dungeon/camp subtype's icon, falling back to the category's setting when the
@@ -655,6 +685,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<bool> HideCollidingLabels;
+        public static ConfigEntry<string> HiddenPins;
         public static ConfigEntry<bool> ShowPinLabels;
         public static ConfigEntry<float> HideLabelsFromZoom;
         public static ConfigEntry<float> ShrinkPinsFromZoom;
@@ -666,10 +697,10 @@ namespace CarturMapPins
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
-            PickableIcons[group] = AdoptLegacy(Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
+            IconRepoint.Watch(PickableIcons[group] = AdoptLegacy(Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
                 new ConfigDescription(
                     $"Icon for {group} pickables. Default falls back to the Pickable category's own icon.",
-                    null, IconAttr(order: 1, advanced: true))));
+                    null, IconAttr(order: 1, advanced: true)))));
         }
 
         /// A pickable's icon comes from its group, falling back to the category's own setting.
@@ -831,6 +862,10 @@ namespace CarturMapPins
             new Terminal.ConsoleCommand("carturpins_labels",
                 "Diagnostics: every catalogued prefab and the map label it would get, e.g. `carturpins_labels Chest`. No argument dumps all categories.",
                 args => Probe.DumpLabels(args, args.Args.Length > 1 ? args.Args[1] : null));
+
+            new Terminal.ConsoleCommand("carturpins_plants",
+                "Diagnostics: every plantable sapling and which prefab it grows into, with what the catalog would do to that prefab. Answers whether a farmed crop is a different prefab from the wild one.",
+                args => Probe.DumpPlants(args));
 
             new Terminal.ConsoleCommand("carturpins_catalog",
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",

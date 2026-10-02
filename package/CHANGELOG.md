@@ -1,5 +1,50 @@
 # Changelog
 
+## 1.7.0
+
+- **Turning a group off now stops pins that were already queued.** A pickable is not pinned
+  when it loads - it waits in a queue until you walk within discovery range, which can be
+  minutes. The group switch was only read when it joined the queue, so turning Crops off left
+  everything already queued to pin anyway. Five dandelions went onto the map after the switch
+  was set to false, which is how this was found.
+- **A copper deposit keeps its pin while you are still mining it.** A Black Forest copper
+  deposit destroys itself the moment it breaks and leaves a fractured pile behind - and that
+  pile is what you actually mine the ore out of. The mod only knew about the original, so nine
+  seconds after the first hit it decided the deposit was gone and removed the pin. The debris
+  now counts as the deposit still standing.
+- **A hide list, with the names picked from your own map.** Type or tick the pins you do not
+  want to see. They stay on the map and in your save - they are simply not drawn - so taking a
+  name back out brings them all straight back. This is the only control here that reaches pins
+  that are already placed: turning a category off has only ever stopped new ones.
+  Matching is on what a pin *is*, not what it says, so "copper" and "copper ore" both find
+  copper and none of it breaks when you change the game's language.
+- **Changing an icon now carries the pins already on the map.** They used to keep the old
+  artwork until you found out that `carturpins_reicon` exists and typed it into a console that
+  needs a launch argument to open. Pins still on the previous icon follow the change silently;
+  if any carry an icon you picked by hand, you are asked about those and only those.
+- **Your own farm is not pinned.** Every sapling in the game grows into something this mod
+  pins - carrot, turnip, onion, oat, kale, poteitr, magecap, jotun puffs, both vineberries,
+  barley and flax - so a real farm with Crops turned on pinned your own base, once every five
+  metres. Anything standing on cultivated ground is now left alone. Cultivation is something
+  you do with a hoe, so no wild patch is ever mistaken for a field.
+- **Wild barley and flax are High Value; the ones you planted are Crops.** A patch out in the
+  Plains is worth walking back to. The field behind your house is not.
+- **Picked things that never come back lose their pin.** A surtling core stand, a Dyrnwyn
+  fragment, a coin pile, amber, pearls - once taken, the pin marked an empty patch of ground
+  forever. Berries, mushrooms and crops keep their pins, because those regrow. The game itself
+  says which is which and the mod now asks it.
+- **Half the game's pickables were filed as "Unrecognised", and the gemstones as junk.** Groups
+  were decided by matching letters in a prefab name, and at scale it was wrong more often than
+  right: 44 of the 89 pickables fell through to a group that is off by default and means "could
+  not classify this", and the junk rule matched the letters *stone*, so Bloodstone and all seven
+  Mork Halla gemstones sat with the sticks and rocks. Groups now come from the same table that
+  holds the names and icons. High Value went from 7 entries to 28.
+- **The settings are in a findable order.** Forty-two sections sorted alphabetically meant the
+  first thing you saw was Beehive, the master switches sat fourteenth, and Tracking's boat icons
+  were thirty-five sections from Tracking itself. Sections are now numbered and grouped, and
+  the mod binds them in that order so it reads correctly whether or not Configuration Manager
+  is set to sort by name. **Every existing setting is carried over** - nothing is reset.
+
 ## 1.6.0
 
 - **Boats, carts and tames get pins that follow them.** A pin that moves rather than marks a
