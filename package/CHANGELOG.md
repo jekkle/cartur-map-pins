@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.1
+
+- **Wild beehives get pinned again.** The mod recognised hives by a part only player-built hives
+  carry, and built hives are skipped on purpose, so the wild ones in abandoned houses never pinned.
+- **A pin group you hid stays hidden.** The game switches a hidden pin type back on whenever a pin
+  of that type is added. Right for pins you place by hand, wrong for the ones this mod places - a
+  newly found mushroom re-showed every mushroom pin. The mod now puts your filter back.
+- **Every icon in the picker is reachable.** On some screens (2560x1440) the grid laid out 7
+  columns in a 5-column window and 44 icons were cut off. It is now a fixed 5 columns.
+- **ApplyPreset set in the config file works.** A preset set while the game was closed was read
+  but never applied. It is now applied at load. Presets change what gets pinned from then on;
+  pins already on the map stay.
+- **A looted chest fades straight away**, instead of waiting for the map to move.
+- **Renamed pins keep their name.** Spawner pins were relabelled at the start of every session
+  without checking for a rename, so " Spawner" got added to pins you had named - portals
+  included. Pins it already renamed need renaming once more.
+
 ## 1.7.0
 
 - **Turning a group off now stops pins that were already queued.** A pickable is not pinned
