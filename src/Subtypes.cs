@@ -138,6 +138,16 @@ namespace CarturMapPins
             E("mistlands_guardtower", "Dvergr Tower", 37),
         };
 
+        /// Chests the game buries: TreasureChest_meadows_buried and TreasureChest_memorial_buried,
+        /// read from the ZNetScene dump (docs/prefab-reference.txt). Matched against the chest's
+        /// own prefab name, not a location - a buried chest sits out in the open. Its own kind, so
+        /// it has its own switch and its own icon (the sheet's UtilBuriedX), which also makes it
+        /// hideable on its own with a right-click (DeadByte42, crpgnut).
+        public static readonly Entry[] BuriedChests =
+        {
+            E("_buried", "Buried Chest", 73),
+        };
+
         /// Keyed by the ore type PinCatalog.OreTokens already resolves ("Copper", "Tin"), not by
         /// a prefab name - so unlike the tables above these are never run through Match, the
         /// Fragment is just the key repeated. Sulfur has no icon of its own in the sheet and
@@ -453,7 +463,7 @@ namespace CarturMapPins
         /// English, which is why this sits directly above the tables it lists.
         public static readonly Entry[][] AllTables =
         {
-            Dungeons, Camps, Props, ChestSites, Ores, Bosses, Traders, Spawners, Minibosses,
+            Dungeons, Camps, Props, ChestSites, BuriedChests, Ores, Bosses, Traders, Spawners, Minibosses,
             Pickables, Landmarks,
         };
 

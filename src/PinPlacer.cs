@@ -1083,7 +1083,8 @@ namespace CarturMapPins
                     // itself is never pinned - there are hundreds of them - so this is the only
                     // marker it gets, and a marker that says "Dvergr Tower" beats one that says
                     // "chest" on a map with forty chests on it.
-                    return Subtypes.Match(Subtypes.ChestSites, EnclosingLocationName(go));
+                    return Subtypes.Match(Subtypes.BuriedChests, Utils.GetPrefabName(go))
+                           ?? Subtypes.Match(Subtypes.ChestSites, EnclosingLocationName(go));
 
                 case PinCategory.Miniboss:
                     return Subtypes.Match(Subtypes.Minibosses, SpawnedCreaturePrefabName(go));

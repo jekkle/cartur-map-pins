@@ -291,6 +291,7 @@ namespace CarturMapPins
                     null, IconAttr(order: 1))));
 
             BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
+            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.BuriedChests);
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
                 "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
                 iconIndex: 88);   // coins; per-trader icons override this
