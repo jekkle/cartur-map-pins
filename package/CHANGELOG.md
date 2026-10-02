@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.8.0
+
+- **F8 pauses auto-pinning.** Press it in game to stop and resume placing new pins (shown top
+  left) without touching any category switch. Pins already on the map stay, and looted chests and
+  mined ore are still tidied up. The key is `General / AutoPinningKey`; the switch itself is
+  `General / AutoPinning`.
+- **Buried chests are their own kind,** with their own dig-here X icon. Switch them off under
+  `Chest Site Kinds / Buried Chest`, or right-click their icon in the grid to hide just those.
+  Buried chests already on your map move to the new icon the next time you walk past.
+- **Turning off `CustomIcons / MapPicker` hides the icon grid straight away**, and the search bar
+  with it. It used to need a restart.
+- **The icon grid fits its window at the source.** The grid's scroll area was 100 pixels wider
+  than the window, which is what laid out 7 columns where 5 fit. 1.7.1 worked around it; this
+  removes the cause.
+
 ## 1.7.1
 
 - **Wild beehives get pinned again.** The mod recognised hives by a part only player-built hives
