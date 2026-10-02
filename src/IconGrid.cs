@@ -72,6 +72,10 @@ namespace CarturMapPins
             contentRt.anchorMin = new Vector2(0f, 1f);
             contentRt.anchorMax = new Vector2(1f, 1f);
             contentRt.pivot = new Vector2(0f, 1f);
+            // A RectTransform added in code starts at sizeDelta (100, 100), and with stretched X
+            // anchors that 100 is added to the viewport's width: content was 247 + 100 = 347 wide,
+            // which is exactly the 7 columns reported in a 5-column window (read from code).
+            contentRt.sizeDelta = new Vector2(0f, contentRt.sizeDelta.y);
 
             VerticalLayoutGroup column = content.AddComponent<VerticalLayoutGroup>();
             column.childForceExpandHeight = false;
@@ -125,11 +129,10 @@ namespace CarturMapPins
             grid.cellSize = new Vector2(CellSize, CellSize);
             grid.spacing = new Vector2(Spacing, Spacing);
             // A fixed count, not Flexible. Flexible takes the count from this section's laid-out
-            // width, and on some setups that came out wider than the viewport that clips it: 7
-            // columns laid out in a 5-column window, 44 of 158 icons unreachable (Dukaine and
-            // Penitence, 2560x1440 at 100% GUI scale; fine for others at 4K). Why the width grows
-            // there was not measured. Flexible only existed for a panel resize handle that has
-            // since been removed, so the count is now fixed from the panel's own width instead.
+            // width, which inherited the content's extra 100 (see Build) - 7 columns in a
+            // 5-column window, 44 of 158 icons unreachable (Dukaine, Penitence). The width is
+            // fixed at the source now; the count stays fixed too, since Flexible only existed for
+            // a panel resize handle that has since been removed.
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = columns;
 

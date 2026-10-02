@@ -19,6 +19,8 @@ namespace CarturMapPins
         /// right for a pin the player drops by hand, and wrong for one this mod places on its own:
         /// right-click a mushroom icon to hide mushrooms and the next mushroom discovered re-shows
         /// every mushroom pin on the map. This puts the filter back the way the player left it.
+        /// Known cost: ToggleIconFilter plays the gamepad select buzz, so a controller buzzes twice
+        /// when a pin of a hidden type is placed - only avoidable by reimplementing the filter.
         public static Minimap.PinData AddPinKeepFilter(Minimap map, UnityEngine.Vector3 pos,
                                                        Minimap.PinType type, string name, bool save)
         {
