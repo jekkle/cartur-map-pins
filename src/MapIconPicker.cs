@@ -46,6 +46,21 @@ namespace CarturMapPins
         /// otherwise both act on one wheel tick.
         public static bool PointerOverPanel() => IconGrid.PointerOver(_panel, _panelRect, _canvasCamera);
 
+        /// MapPicker switched in game. Build reads the setting once, when the map is first made, so
+        /// without this turning it off did nothing until a restart (KARAKUL47 asked how to hide it).
+        public static void SetVisible(bool visible)
+        {
+            if (_panel == null)
+            {
+                if (visible)
+                    Build(Minimap.instance);
+                return;
+            }
+            _panel.SetActive(visible);
+            if (_searchBar != null)
+                _searchBar.SetActive(visible);
+        }
+
         public static void Build(Minimap map)
         {
             if (_panel != null || map == null)
