@@ -34,6 +34,9 @@ namespace CarturMapPins
         /// True while our own popup is up, so a second change cannot stack another one on it.
         private static bool _asking;
 
+        /// Per world: the baseline is primed again against the next world's records.
+        public static void Reset() => _primed = false;
+
         public static void Watch(ConfigEntry<PinIcon> entry)
         {
             if (entry != null)

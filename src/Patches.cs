@@ -78,6 +78,7 @@ namespace CarturMapPins
             // Records are per world per character now, so the previous world's must be dropped
             // before anything asks this world whether a thing is already pinned.
             PinRecord.Unload();
+            IconRepoint.Reset();
             // Same reason, plus the tracked pins belong to a Minimap that is being replaced.
             Trackers.Unload();
         }
@@ -551,7 +552,12 @@ namespace CarturMapPins
 
         /// The countdown UpdateLocationPins throttles itself with. Read to tell a refill frame from
         /// the hundreds of frames in between - see the Postfix.
-        private static readonly FieldInfo LocationsTimer = AccessTools.Field(typeof(Minimap), "m_updateLocationsTimer");
+        /// A FieldRef rather than FieldInfo.GetValue, which boxed a float every frame. Null when
+        /// the field is gone, so the gate drops out as the Postfix says it will.
+        private static readonly AccessTools.FieldRef<Minimap, float> LocationsTimer =
+            AccessTools.Field(typeof(Minimap), "m_updateLocationsTimer") != null
+                ? AccessTools.FieldRefAccess<Minimap, float>("m_updateLocationsTimer")
+                : null;
 
         private static float _lastTimer;
 
@@ -619,8 +625,9 @@ namespace CarturMapPins
             // Reading the rise rather than testing for 5 keeps this working if a game update
             // changes the interval. If the field is ever renamed the gate simply drops out and
             // this runs per frame again - correct, just not cheap.
-            if (LocationsTimer?.GetValue(__instance) is float timer)
+            if (LocationsTimer != null)
             {
+                float timer = LocationsTimer(__instance);
                 bool refilled = timer > _lastTimer;
                 _lastTimer = timer;
                 if (!refilled)

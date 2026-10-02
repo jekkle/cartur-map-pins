@@ -87,7 +87,10 @@ namespace CarturMapPins
                 if (pin == null)
                     continue;
 
-                if (Matches(IdentityOf(pin)))
+                // Also the drawn name: a recorded pin the player renamed by hand has an identity
+                // that no longer says what they now call it, and the hide list is typed by name.
+                if (Matches(IdentityOf(pin)) ||
+                    (!string.IsNullOrEmpty(pin.m_name) && Matches(pin.m_name.ToLowerInvariant())))
                     HiddenPins.Add(pin);
             }
         }

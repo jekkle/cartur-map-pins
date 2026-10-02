@@ -54,11 +54,15 @@ namespace CarturMapPins
         private static long KeyFor(Vector3 pos) =>
             ((long)Mathf.RoundToInt(pos.x) << 32) ^ (uint)Mathf.RoundToInt(pos.z);
 
-        public static Style For(Vector3 pos) =>
-            Styles.TryGetValue(KeyFor(pos), out Style style) ? style : Default;
+        public static Style For(Vector3 pos)
+        {
+            Resolve();
+            return Styles.TryGetValue(KeyFor(pos), out Style style) ? style : Default;
+        }
 
         public static void Set(Vector3 pos, Style style)
         {
+            Resolve();
             long key = KeyFor(pos);
             if (style.IsDefault)
             {
@@ -74,17 +78,68 @@ namespace CarturMapPins
             Save();
         }
 
+        private static string _configDir;
+        private static string _loadedKey;
+
         public static void Load(string configDir)
         {
-            _path = Path.Combine(configDir, "com.jekkle.valheim.carturmappins.styles.txt");
+            _configDir = configDir;
+            _path = null;
+            _loadedKey = null;
             Styles.Clear();
+        }
 
-            if (!File.Exists(_path))
+        /// One styles file per world and character, named the way the pin record is. Styles are
+        /// keyed by x,z, so a single file shared by every world put one world's colours on
+        /// whatever pin sat at the same coordinates in another. The key does not exist at plugin
+        /// load, so the file is picked the first time it is asked for in a world.
+        ///
+        /// The old single file is copied into the first world and character that has no file of
+        /// its own, once (a marker beside it says it has been claimed), and left where it is.
+        private static void Resolve()
+        {
+            string key = PinRecord.WorldKey;
+            if (key == null || key == _loadedKey || string.IsNullOrEmpty(_configDir))
+                return;
+
+            _loadedKey = key;
+            Styles.Clear();
+            _path = Path.Combine(_configDir, $"com.jekkle.valheim.carturmappins.{key}.styles.txt");
+
+            string read = _path;
+            string shared = Path.Combine(_configDir, "com.jekkle.valheim.carturmappins.styles.txt");
+            bool migrating = false;
+            if (!File.Exists(_path) && File.Exists(shared) && !File.Exists(shared + ".claimed"))
+            {
+                read = shared;
+                migrating = true;
+            }
+
+            ReadFile(read);
+
+            if (migrating)
+            {
+                try
+                {
+                    File.WriteAllText(shared + ".claimed", "Handed to " + Path.GetFileName(_path) + "." + Environment.NewLine);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogWarning($"Could not mark the old pin styles as claimed: {e.Message}");
+                }
+                _dirty = true;
+                Save();
+            }
+        }
+
+        private static void ReadFile(string path)
+        {
+            if (!File.Exists(path))
                 return;
 
             try
             {
-                foreach (string line in File.ReadAllLines(_path))
+                foreach (string line in File.ReadAllLines(path))
                 {
                     // x|z|colour|size|alpha
                     string[] parts = line.Split('|');

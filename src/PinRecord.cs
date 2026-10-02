@@ -42,6 +42,15 @@ namespace CarturMapPins
         private static string _path;
         private static string _configDir;
         private static bool _loaded;
+        private static string _key;
+
+        /// Set when the record file exists but could not be read. Saving then would overwrite a
+        /// file we never managed to read with whatever little is in memory, so Save does nothing.
+        private static bool _readFailed;
+
+        /// "<world>-<uid>.<character>": what makes this record, and anything else kept per world
+        /// and character, unique. Null until both are known.
+        internal static string WorldKey { get { EnsureLoaded(); return _loaded ? _key : null; } }
 
         public static int Count { get { EnsureLoaded(); return Entries.Count; } }
 
@@ -62,9 +71,17 @@ namespace CarturMapPins
         {
             Entries.Clear();
             _path = null;
+            _key = null;
             _loaded = false;
+            _readFailed = false;
             _dirty = false;
+            // Per world: the baseline belongs to the records just dropped.
+            LastWanted.Clear();
         }
+
+        /// Records the icon a kind was just given at placement, so a later icon change has a
+        /// baseline for kinds first pinned after the map came up.
+        internal static void NoteWanted(string key, Minimap.PinType icon) => LastWanted[key] = icon;
 
         /// One record file per world per character.
         ///
@@ -92,6 +109,7 @@ namespace CarturMapPins
                 return;
 
             string key = $"{Sanitize(world.m_name)}-{world.m_uid}.{Sanitize(profile.m_filename)}";
+            _key = key;
             _path = Path.Combine(_configDir, $"com.jekkle.valheim.carturmappins.{key}.pins.txt");
             _loaded = true;
             Entries.Clear();
@@ -180,7 +198,8 @@ namespace CarturMapPins
             }
             catch (Exception e)
             {
-                Plugin.Log.LogWarning($"Could not read pin record, starting empty: {e.Message}");
+                _readFailed = true;
+                Plugin.Log.LogWarning($"Could not read pin record, starting empty and not saving over it: {e.Message}");
             }
         }
 
@@ -531,6 +550,12 @@ namespace CarturMapPins
 
             int changed = 0;
 
+            // LastWanted is read from a snapshot and only written after the loop. Writing it on a
+            // key's first entry made every later entry with that key see before == wanted and
+            // skip, so an icon change repointed only the first pin of each kind.
+            Dictionary<string, Minimap.PinType> snapshot = new Dictionary<string, Minimap.PinType>(LastWanted);
+            Dictionary<string, Minimap.PinType> updated = new Dictionary<string, Minimap.PinType>();
+
             foreach (Entry e in Entries)
             {
                 if (!Resolve(e.Key, out PinCategory category, out string subtype,
@@ -539,8 +564,8 @@ namespace CarturMapPins
 
                 Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
 
-                bool known = LastWanted.TryGetValue(e.Key, out Minimap.PinType before);
-                LastWanted[e.Key] = wanted;
+                bool known = snapshot.TryGetValue(e.Key, out Minimap.PinType before);
+                updated[e.Key] = wanted;
 
                 if (!known || before == wanted)
                     continue;       // this kind's icon did not move
@@ -558,6 +583,9 @@ namespace CarturMapPins
                 if (Repoint(map, pin, wanted))
                     changed++;
             }
+
+            foreach (KeyValuePair<string, Minimap.PinType> kv in updated)
+                LastWanted[kv.Key] = kv.Value;
 
             if (changed > 0)
                 map.SaveMapData();
@@ -678,6 +706,10 @@ namespace CarturMapPins
                 string identity = (e.Key ?? string.Empty).Replace(':', ' ');
                 if (!string.IsNullOrEmpty(e.Source))
                     identity += " " + e.Source;
+                // Written is what Suggestions() offers (localized outside English), so a name
+                // picked from the list has to be findable in the identity it hides against.
+                if (!string.IsNullOrEmpty(e.Written))
+                    identity += " " + e.Written;
 
                 result.Add(new KeyValuePair<Vector3, string>(e.Pos, identity.ToLowerInvariant()));
             }
@@ -742,13 +774,12 @@ namespace CarturMapPins
                 if (d.x * d.x + d.z * d.z > sqr)
                     continue;
 
-                // No pin here means this record is not this world's. One record file serves every
-                // world, so a copper deposit recorded in another save sits in the list wherever
-                // you are - and dropping it would leave that world's pin unrecorded and liable to
-                // be pinned a second time. Nothing to remove, so nothing is removed.
+                // No pin here means the record is stale: the pin was deleted or moved by hand, or
+                // the map was reset. (Records are per world and character, so it is not another
+                // world's.) Nothing to remove, so nothing is removed.
                 // Skipped, not given up on. Returning here meant the first record in radius with
                 // no pin ended the search, so a single stale entry hid every good one behind it.
-                Minimap.PinData pin = FindPinAt(map, Entries[i].Pos);
+                Minimap.PinData pin = FindPinAt(map, Entries[i].Pos, Entries[i].Key);
                 if (pin == null)
                     continue;
 
@@ -822,7 +853,7 @@ namespace CarturMapPins
             {
                 foreach (Entry e in Entries)
                 {
-                    Minimap.PinData pin = FindPinAt(map, e.Pos);
+                    Minimap.PinData pin = FindPinAt(map, e.Pos, e.Key);
                     if (pin != null)
                     {
                         map.RemovePin(pin);
@@ -1376,6 +1407,10 @@ namespace CarturMapPins
             if (settings == null)
                 return false;
 
+            // A chest whose container was emptied wears the looted icon; it is still ours.
+            if (category == PinCategory.Chest && type == PinPlacer.LootedChestType())
+                return true;
+
             return type == PinPlacer.IconFor(category, subtype, settings) || type == settings.ResolvedPinType;
         }
 
@@ -1406,14 +1441,18 @@ namespace CarturMapPins
 
             foreach (Entry e in Entries)
             {
-                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                Minimap.PinData pin = FindPinAt(map, e.Pos, e.Key);
                 if (pin != null)
                     found.Add(pin);
             }
             return found;
         }
 
-        private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos)
+        /// Any saved pin within half a metre. With `ownKey`, only one carrying the icon that
+        /// record's kind could have given it - the callers that delete or claim a pin pass it, so
+        /// a hand-placed pin of another icon standing on a record is not taken for ours. (Callers
+        /// that repoint icons leave it off: a pin on a stale icon is exactly what they look for.)
+        private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos, string ownKey = null)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
             if (pins == null)
@@ -1422,6 +1461,8 @@ namespace CarturMapPins
             foreach (Minimap.PinData pin in pins)
             {
                 if (!pin.m_save)
+                    continue;
+                if (ownKey != null && !OursByIcon(ownKey, pin.m_type))
                     continue;
                 Vector3 d = pin.m_pos - pos;
                 if (d.x * d.x + d.z * d.z < 0.25f)
@@ -1491,7 +1532,7 @@ namespace CarturMapPins
 
         private static void Save()
         {
-            if (string.IsNullOrEmpty(_path))
+            if (string.IsNullOrEmpty(_path) || _readFailed)
                 return;
 
             try
@@ -1502,7 +1543,14 @@ namespace CarturMapPins
                     lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3}|{4}|{5}",
                         e.Key, e.Pos.x, e.Pos.y, e.Pos.z, Field(e.Source), Field(e.Written)));
                 }
-                File.WriteAllLines(_path, lines.ToArray());
+                // Written beside and swapped in, so a crash mid-write leaves the old file whole
+                // instead of a truncated one.
+                string temp = _path + ".tmp";
+                File.WriteAllLines(temp, lines.ToArray());
+                if (File.Exists(_path))
+                    File.Replace(temp, _path, null);
+                else
+                    File.Move(temp, _path);
             }
             catch (Exception e)
             {

@@ -209,7 +209,7 @@ namespace CarturMapPins
             // ("Common Mushroom No Auto Pin"), which is what a setting nobody can find looks like
             // from outside. The defaults are unchanged; only where they are drawn has changed.
             _pickHighValue = Config.Bind(Sections.Of("Pickables", "HighValue"), "HighValue", true,
-                new ConfigDescription("Surtling cores, Yggdrasil shoots, eggs, and wild barley and flax. Rare and worth remembering.",
+                new ConfigDescription("Surtling, molten and black cores, cave crystals, royal jelly, obsidian, tin, bog iron, tar, meteorites, dragon and Volture eggs, and wild barley and flax. Rare and worth remembering.",
                     null, Attr(order: 5)));
             _pickBerries = Config.Bind(Sections.Of("Pickables", "BerriesAndMushrooms"), "BerriesAndMushrooms", false,
                 new ConfigDescription("Raspberry/blueberry/cloudberry bushes and mushrooms.",
@@ -327,7 +327,7 @@ namespace CarturMapPins
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind(Sections.Of("General", "ScanIntervalSeconds"), "ScanIntervalSeconds", 0.33f,
                 new ConfigDescription("How often to check pending objects and loaded locations against your position.",
-                    null, Attr(advanced: true)));
+                    new AcceptableValueRange<float>(0.1f, 5f), Attr(advanced: true)));
             MapPickerEnabled = Config.Bind(Sections.Of("CustomIcons", "MapPicker"), "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
             MapPickerEnabled.SettingChanged += (_, __) => MapIconPicker.SetVisible(MapPickerEnabled.Value);
@@ -375,7 +375,7 @@ namespace CarturMapPins
 
             TrackForgetRadius = Config.Bind(Sections.Of("Tracking", "ForgetRadius"), "ForgetRadius", 32f,
                 new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",
-                    null, Attr(advanced: true)));
+                    new AcceptableValueRange<float>(10f, 500f), Attr(advanced: true)));
 
             // Written as a dropdown rather than a tick box, and with the frightening option spelled
             // out in full, because this throws away work: a tick box sits one stray click from
@@ -717,7 +717,7 @@ namespace CarturMapPins
 
         private void BindGroupIcon(PickableGroup group, int iconIndex)
         {
-            IconRepoint.Watch(PickableIcons[group] = AdoptLegacy(Config.Bind("Pickables", $"{group}Icon", (PinIcon)iconIndex,
+            IconRepoint.Watch(PickableIcons[group] = AdoptLegacy(Config.Bind(Sections.Of("Pickables"), $"{group}Icon", (PinIcon)iconIndex,
                 new ConfigDescription(
                     $"Icon for {group} pickables. Default falls back to the Pickable category's own icon.",
                     null, IconAttr(order: 1, advanced: true)))));

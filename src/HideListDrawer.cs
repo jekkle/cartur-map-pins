@@ -27,6 +27,11 @@ namespace CarturMapPins
         private static string _search = string.Empty;
         private static Vector2 _scroll;
 
+        /// Suggestions() walks the whole record and the live pin list, and OnGUI runs several
+        /// times a frame. Built when the drawer opens or the list text changes, not per event.
+        private static List<KeyValuePair<string, int>> _suggestions;
+        private static string _suggestionsFor;
+
         public static void Draw(ConfigEntryBase entry)
         {
             string key = entry.Definition.Section + "/" + entry.Definition.Key;
@@ -43,6 +48,7 @@ namespace CarturMapPins
             if (GUILayout.Button(open ? "Close  ▲" : "Pins…  ▼", GUILayout.Width(90)))
             {
                 if (open) Expanded.Remove(key); else Expanded.Add(key);
+                _suggestions = null;
             }
             GUILayout.EndHorizontal();
 
@@ -52,7 +58,12 @@ namespace CarturMapPins
                 return;
             }
 
-            List<KeyValuePair<string, int>> all = PinHiding.Suggestions();
+            if (_suggestions == null || _suggestionsFor != current)
+            {
+                _suggestions = PinHiding.Suggestions();
+                _suggestionsFor = current;
+            }
+            List<KeyValuePair<string, int>> all = _suggestions;
             if (all.Count == 0)
             {
                 GUILayout.Label("No pins on the map yet - open this once you are in a world.");
@@ -106,6 +117,7 @@ namespace CarturMapPins
         /// this pin is not something the Show button could undo.
         private static bool Contains(string raw, string name)
         {
+            name = NoCommas(name);
             if (string.IsNullOrEmpty(raw))
                 return false;
 
@@ -118,9 +130,14 @@ namespace CarturMapPins
             return false;
         }
 
+        /// The list is comma-separated, so a name with a comma in it would be read back as two
+        /// terms. Dropped from the name rather than changing the separator, which would break
+        /// every existing config. The words still all appear in the pin's identity.
+        private static string NoCommas(string name) => name.Replace(",", string.Empty);
+
         private static string Add(string raw, string name)
         {
-            name = name.Trim();
+            name = NoCommas(name).Trim();
             if (string.IsNullOrEmpty(raw))
                 return name;
             return raw.TrimEnd().TrimEnd(',') + ", " + name;
@@ -128,6 +145,7 @@ namespace CarturMapPins
 
         private static string Remove(string raw, string name)
         {
+            name = NoCommas(name);
             if (string.IsNullOrEmpty(raw))
                 return string.Empty;
 

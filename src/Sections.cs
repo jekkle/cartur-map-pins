@@ -186,8 +186,9 @@ namespace CarturMapPins
         /// choice beats a stale line further up the same file.
         ///
         /// SetSerializedValue rather than an assignment: it takes the raw string and runs the
-        /// same converters binding would have, so a legacy icon name is translated by
-        /// LegacyIconNames on the way in exactly as if it had been read normally.
+        /// same converters binding would have. There is no converter for the 1.2.2 icon names -
+        /// those are handled by LegacyIconNames.Adopt at bind time, under the section they were
+        /// bound in - so a value that does not parse here is logged below and left at default.
         public static int Adopt(ConfigFile config)
         {
             if (Raw.Count == 0 || config == null)

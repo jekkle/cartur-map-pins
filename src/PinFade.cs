@@ -131,4 +131,44 @@ namespace CarturMapPins
             PinFade.Step(MinimapAccess.GetPins(__instance), Time.deltaTime);
         }
     }
+
+    /// Vanilla's GetClosestPin skips a pin whose marker is inactive, but this mod never
+    /// deactivates a marker: hidden, merged and out-of-range pins are only faded (Image disabled,
+    /// alpha 0), so the marker stays active and the pin still took the click, the hover and the
+    /// delete. Those clicks landed on something the player could not see. When vanilla's answer is
+    /// a pin this mod is not drawing, pick the nearest one it is drawing instead. The loop is
+    /// vanilla's own, read from the installed assembly, with that one extra test.
+    [HarmonyPatch(typeof(Minimap), "GetClosestPin")]
+    internal static class Patch_Minimap_GetClosestPin
+    {
+        private static void Postfix(Minimap __instance, Vector3 pos, float radius, bool mustBeVisible,
+                                    ref Minimap.PinData __result)
+        {
+            if (!mustBeVisible || __result == null || !Crowding.OutOfSight(__result))
+                return;
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
+            Minimap.PinData best = null;
+            float bestDistance = float.MaxValue;
+            if (pins != null)
+            {
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (pin == null || !pin.m_save || Crowding.OutOfSight(pin))
+                        continue;
+                    if (!pin.m_uiElement || !pin.m_uiElement.gameObject.activeInHierarchy)
+                        continue;
+
+                    float distance = Utils.DistanceXZ(pos, pin.m_pos);
+                    if (distance < radius && distance < bestDistance)
+                    {
+                        best = pin;
+                        bestDistance = distance;
+                    }
+                }
+            }
+
+            __result = best;
+        }
+    }
 }

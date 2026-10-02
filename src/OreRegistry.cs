@@ -33,10 +33,20 @@ namespace CarturMapPins
         public static int Count => Seen.Count;
 #endif
 
+        /// Pruning otherwise only happens inside NodeNear/AlivePositions, so a session that walks
+        /// a lot while nothing asks keeps every node it ever saw, and Add's scan below grows with
+        /// it. Pruned here when the list has doubled since the last prune.
+        private static int _pruneAt = 256;
+
         public static void Add(GameObject go, string type)
         {
             if (go == null)
                 return;
+            if (Seen.Count >= _pruneAt)
+            {
+                Seen.RemoveAll(n => n.Go == null);
+                _pruneAt = System.Math.Max(256, Seen.Count * 2);
+            }
             for (int i = 0; i < Seen.Count; i++)
             {
                 if (Seen[i].Go == go)

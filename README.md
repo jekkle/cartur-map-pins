@@ -169,7 +169,7 @@ Fully quit and relaunch Valheim afterwards — BepInEx only scans plugins at sta
 - `carturpins_zoom` — dumps the zoom and sizing numbers behind pin scaling, plus
   a sample of pins as drawn. Run it once zoomed in and once zoomed out.
 
-A further six `carturpins_*` dump commands exist behind the `DIAGNOSTICS` compile
+A further seven `carturpins_*` dump commands exist behind the `DIAGNOSTICS` compile
 flag and are not in a release build.
 
 Pins the mod places are tracked in a side-car file next to the config, **one file

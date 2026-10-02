@@ -49,7 +49,13 @@ namespace CarturMapPins
             });
         }
 
-        public static void Clear() => PendingQueue.Clear();
+        // Also forgets that this session's saved pins were relabelled: that is per world, and a
+        // second world entered without restarting the game was never migrated.
+        public static void Clear()
+        {
+            PendingQueue.Clear();
+            _relabelled = false;
+        }
 
         public static void Tick(float dt)
         {
@@ -105,6 +111,13 @@ namespace CarturMapPins
             {
                 DrainQueue(playerPos);
                 SweepLocations(playerPos);
+            }
+            else
+            {
+                // Entries stay so resuming catches up, but ones whose object has unloaded can
+                // never pin anything; DrainQueue is what normally drops them, and it is not
+                // running, so the queue grew without bound while paused.
+                PendingQueue.RemoveAll(p => p.Go == null);
             }
             SweepLootedChests(playerPos);
             SweepMinedOre(playerPos);
@@ -240,13 +253,21 @@ namespace CarturMapPins
                     continue;
 
                 bool empty = inventory.NrOfItems() == 0;
-                Minimap.PinType wanted = empty ? lootedType : normalType;
 
                 // A chest wearing a ruin's icon is a place marker, not a chest tracker: flipping it
                 // to the open-chest glyph the moment you emptied it would throw away the only
                 // thing on the map saying a Dvergr tower is there.
-                if (PinRecord.SubtypeNear(PinCategory.Chest, pos, 3f) != null)
+                // Only ChestSites subtypes: a Buried Chest also has a subtype but is an ordinary
+                // chest in the open, and skipping it meant buried chests never flipped to looted.
+                string site = PinRecord.SubtypeNear(PinCategory.Chest, pos, 3f);
+                if (site != null && System.Array.Exists(Subtypes.ChestSites, e => e.Name == site))
                     continue;
+
+                // A chest with a kind of its own (Buried Chest) goes back to that kind's icon when
+                // it is not empty, not to the plain chest: restoring normalType stripped the X off
+                // every unlooted buried chest a couple of seconds after it was pinned.
+                Minimap.PinType unlooted = site != null ? IconFor(PinCategory.Chest, site, chestSettings) : normalType;
+                Minimap.PinType wanted = empty ? lootedType : unlooted;
 
                 // Our record is the authority on whether a pin here is ours, not the icon it
                 // currently carries. Matching on icon alone stranded any chest pin sitting on a
@@ -261,7 +282,7 @@ namespace CarturMapPins
                         continue;
                     if (DistanceXZ(pin.m_pos, pos) > 3f)
                         continue;
-                    bool ours = pin.m_type == normalType || pin.m_type == lootedType ||
+                    bool ours = pin.m_type == normalType || pin.m_type == lootedType || pin.m_type == unlooted ||
                                 (recorded && CustomIcons.IsCustom(pin.m_type));
                     if (!ours)
                         continue;
@@ -1239,21 +1260,31 @@ namespace CarturMapPins
             // wrong one of the two made a record that nothing could ever act on again: the mined
             // ore sweep found no pin at the recorded spot, gave up, and the pin stayed on the map
             // forever with nothing in the log to say why.
+            //
+            // Only adopted when its name is empty or exactly what we would have written. The match
+            // is on icon and position, so a pin the player placed by hand with the same icon would
+            // otherwise become "ours" and later be deleted by the mined-ore sweep, Forget or a
+            // reset. Anything else counts as already pinned, but is not taken into the record.
+            string written = Labels.ForPin(label);
             Minimap.PinData existing = ExistsOnMap(pos, pinType, settings.DedupeRadius.Value);
             if (existing != null)
             {
-                PinRecord.Add(key, existing.m_pos);
+                if (string.IsNullOrEmpty(existing.m_name) || existing.m_name == written)
+                {
+                    PinRecord.Add(key, existing.m_pos);
+                    PinRecord.NoteWanted(key, pinType);
+                }
                 return true;
             }
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
-            string written = Labels.ForPin(label);
             MinimapAccess.AddPinKeepFilter(Minimap.instance, pos, pinType, written, save: true);
 
             // Both the source and the written text go into the record, so a later language change
             // can re-word this pin and still tell our own wording from a hand rename.
             PinRecord.Add(key, pos, label, written);
+            PinRecord.NoteWanted(key, pinType);
             Plugin.Log.LogInfo($"Pinned {key} '{label}' at {pos.x:F0},{pos.z:F0}");
             return true;
         }

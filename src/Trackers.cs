@@ -18,8 +18,9 @@ namespace CarturMapPins
     ///
     /// Read off the installed assembly_valheim rather than guessed:
     ///  - Ship keeps a private static List&lt;Ship&gt; s_currentShips of every loaded boat.
-    ///  - Vagon keeps a private static List&lt;Vagon&gt; m_instances, and its m_name is public and
-    ///    already a "$piece_cart" token.
+    ///  - Vagon keeps a private static List&lt;Vagon&gt; m_instances, and its m_name is public. The
+    ///    field initializer is the plain text "Wagon", not a token; whether the prefab overrides
+    ///    it with "$piece_cart" was not read, so ScanCarts treats "Wagon" as unset.
     ///  - Tameable has no static list, so tames come from Character.GetAllCharacters(), which is
     ///    public and is what the mod's own safe-radius check already walks.
     ///  - Tameable.IsTamed(), GetText() (the player-given name, from ZDOVars.s_tamedName) and the
@@ -204,6 +205,16 @@ namespace CarturMapPins
             }
         }
 
+        /// Boats and carts are built pieces, and a piece's ZDO carries its builder's player id in
+        /// ZDOVars.s_creator, so "your boat" is the one whose creator is you. Without this every
+        /// loaded boat and cart in range - other players', or a world's - got a pin.
+        private static bool IsMine(ZNetView nview)
+        {
+            Player player = Player.m_localPlayer;
+            return player != null && nview != null && nview.IsValid() &&
+                   nview.GetZDO().GetLong(ZDOVars.s_creator, 0L) == player.GetPlayerID();
+        }
+
         private static void ScanShips()
         {
             if (!Plugin.TrackBoats.Value)
@@ -221,7 +232,7 @@ namespace CarturMapPins
             foreach (IMonoUpdater updater in Ship.Instances)
             {
                 var ship = updater as Ship;
-                if (ship == null)
+                if (ship == null || !IsMine(ship.GetComponent<ZNetView>()))
                     continue;
                 // The boat's own piece name - "$ship_karve" - so it reads in the player's language
                 // and says which boat it is. Ships are built pieces, so this is always present.
@@ -243,11 +254,11 @@ namespace CarturMapPins
 
             foreach (Vagon cart in carts)
             {
-                if (cart == null)
+                if (cart == null || !IsMine(cart.GetComponent<ZNetView>()))
                     continue;
                 Note(Kind.Cart, Plugin.CartIcon.Value, cart.GetComponent<ZNetView>(), cart.transform,
                      cart.transform.position,
-                     !string.IsNullOrEmpty(cart.m_name) ? cart.m_name : "$piece_cart");
+                     !string.IsNullOrEmpty(cart.m_name) && cart.m_name != "Wagon" ? cart.m_name : "$piece_cart");
             }
         }
 
@@ -389,7 +400,12 @@ namespace CarturMapPins
                     continue;
                 }
 
-                if (t.Pin.m_pos != t.Pos)
+                // Compared on the ground plane and with a metre of slack. A boat bobbing or a tame
+                // shuffling changes m_pos every frame, which set the update flag every frame and
+                // made the map rebuild all its pins every frame; height means nothing on a 2D map.
+                float dx = t.Pin.m_pos.x - t.Pos.x;
+                float dz = t.Pin.m_pos.z - t.Pos.z;
+                if (dx * dx + dz * dz > 1f)
                 {
                     t.Pin.m_pos = t.Pos;
                     moved = true;
