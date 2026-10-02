@@ -100,8 +100,12 @@ namespace CarturMapPins
 
             Vector3 playerPos = player.transform.position;
 
-            DrainQueue(playerPos);
-            SweepLocations(playerPos);
+            // Paused: place nothing new. The queue waits, and the sweeps below still tidy up.
+            if (Plugin.AutoPinning.Value)
+            {
+                DrainQueue(playerPos);
+                SweepLocations(playerPos);
+            }
             SweepLootedChests(playerPos);
             SweepMinedOre(playerPos);
             SweepClearedDungeons(playerPos);

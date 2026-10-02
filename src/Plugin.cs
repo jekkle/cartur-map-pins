@@ -16,6 +16,8 @@ namespace CarturMapPins
         internal static ManualLogSource Log;
 
         public static ConfigEntry<float> DiscoveryRadius;
+        public static ConfigEntry<bool> AutoPinning;
+        public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> AutoPinningKey;
         public static ConfigEntry<float> ScanInterval;
 #if DIAGNOSTICS
         public static ConfigEntry<bool> AutoProbe;
@@ -313,6 +315,14 @@ namespace CarturMapPins
             ReplaceBedMarker = Config.Bind(Sections.Of("Home", "ReplaceBedMarker"), "ReplaceBedMarker", true,
                 "Give vanilla's own spawn-point marker the same house icon. Without this, your current bed carries both markers - ours and vanilla's bed glyph - stacked on the same spot.");
 
+            // Asked for (Kill3R246): a key to pause auto-pinning in game, like AutoPin's F8. A
+            // setting rather than a session flag, so the pause survives a restart and shows in the
+            // config manager. F8 has no binding in ZInput (read from the installed DLL).
+            AutoPinning = Config.Bind(Sections.Of("General", "AutoPinning"), "AutoPinning", true,
+                "Place pins automatically. Off pauses it without touching any category switch: nothing new is pinned, pins already on the map stay, and looted chests and mined ore are still tidied up.");
+            AutoPinningKey = Config.Bind(Sections.Of("General", "AutoPinningKey"), "AutoPinningKey",
+                new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.F8),
+                "Key that switches AutoPinning on and off in game.");
             DiscoveryRadius = Config.Bind(Sections.Of("General", "DiscoveryRadius"), "DiscoveryRadius", 60f,
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind(Sections.Of("General", "ScanIntervalSeconds"), "ScanIntervalSeconds", 0.33f,
@@ -745,6 +755,14 @@ namespace CarturMapPins
 
         private void Update()
         {
+            // Not while typing anywhere - the same questions vanilla's own keys ask.
+            if (AutoPinningKey.Value.IsDown() && !Minimap.InTextInput() && !Console.IsVisible()
+                && !TextInput.IsVisible() && !(Chat.instance != null && Chat.instance.HasFocus()))
+            {
+                AutoPinning.Value = !AutoPinning.Value;
+                Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft,
+                    AutoPinning.Value ? "Auto pins on" : "Auto pins paused");
+            }
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
             Trackers.Tick(UnityEngine.Time.deltaTime);
         }
