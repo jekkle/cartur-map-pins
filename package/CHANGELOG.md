@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.1
+
+- Changing a category's icon moves every pin of that kind, not just new ones.
+- Looted buried chests switch to the open-chest icon, and unlooted ones keep the dig-here X.
+- Pins you placed by hand are never taken over by auto-pinning.
+- Migrations and styles are kept per world.
+- The hide list works whatever language the game is in.
+- Hidden pins no longer catch clicks on the map.
+- Only your own boats and carts are pinned.
+- A tracked pin is only redrawn when it actually moves.
+- Pins are saved atomically, so a crash mid-save can no longer corrupt the file.
+- Number settings have sensible ranges in the config manager.
+
 ## 1.8.0
 
 - **F8 pauses auto-pinning.** Press it in game to stop and resume placing new pins (shown top
