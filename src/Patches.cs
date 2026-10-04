@@ -547,41 +547,7 @@ namespace CarturMapPins
         /// offering bowl, so this is generous rather than exact.
         private const float SamePlace = 12f;
 
-        /// Clears a death pin once its grave has been emptied.
-    ///
-    /// GiveBoost is the exact moment: TombStone.UpdateDespawn calls it inside
-    /// "if (!m_container.IsInUse() && m_container.GetInventory().NrOfItems() <= 0)", immediately
-    /// before m_nview.Destroy(), and it has no other call site. Patching UpdateDespawn instead
-    /// would mean restating that condition here, which is the kind of copy that goes quietly wrong
-    /// when the game changes one half of it.
-    ///
-    /// Only fires on the client that owns the grave, because the branch it sits in is already
-    /// inside "if (m_nview.IsOwner())". That is the same client whose map holds the pin in all but
-    /// an odd multiplayer case, since the pin is saved locally and the grave is yours.
-    [HarmonyPatch(typeof(TombStone), "GiveBoost")]
-    internal static class Patch_TombStone_GiveBoost
-    {
-        /// Harmony throws on a target it cannot find, which would take every other patch down with
-        /// it if a game update renamed this private method. Prepare is how a patch declines
-        /// instead.
-        private static bool Prepare()
-        {
-            if (AccessTools.Method(typeof(TombStone), "GiveBoost") != null)
-                return true;
-
-            Plugin.Log.LogWarning("TombStone.GiveBoost not found - death pins will not clear themselves. Everything else still works.");
-            return false;
-        }
-
-        /// A Prefix, because the grave is destroyed moments later and its position is wanted now.
-        private static void Prefix(TombStone __instance)
-        {
-            if (__instance != null)
-                PinPlacer.ClearDeathPin(__instance.transform.position);
-        }
-    }
-
-    /// Categories where vanilla marks the same place we do: boss altars (see above) and traders.
+        /// Categories where vanilla marks the same place we do: boss altars (see above) and traders.
         /// ZoneSystem.GetLocationIcons hands back every placed location flagged m_iconPlaced, so
         /// Haldor, Hildir and the Bog Witch each get an unnamed vanilla marker under our named,
         /// saved one - two icons on one spot, which the crowding pass counts as two things and
@@ -654,6 +620,40 @@ namespace CarturMapPins
             // nothing is leaked.
             foreach (Vector3 key in drop)
                 __instance.RemovePin(pins[key]);
+        }
+    }
+
+    /// Clears a death pin once its grave has been emptied.
+    ///
+    /// GiveBoost is the exact moment: TombStone.UpdateDespawn calls it inside
+    /// "if (!m_container.IsInUse() && m_container.GetInventory().NrOfItems() <= 0)", immediately
+    /// before m_nview.Destroy(), and it has no other call site. Patching UpdateDespawn instead
+    /// would mean restating that condition here, which is the kind of copy that goes quietly wrong
+    /// when the game changes one half of it.
+    ///
+    /// Only fires on the client that owns the grave, because the branch it sits in is already
+    /// inside "if (m_nview.IsOwner())". That is the same client whose map holds the pin in all but
+    /// an odd multiplayer case, since the pin is saved locally and the grave is yours.
+    [HarmonyPatch(typeof(TombStone), "GiveBoost")]
+    internal static class Patch_TombStone_GiveBoost
+    {
+        /// Harmony throws on a target it cannot find, which would take every other patch down with
+        /// it if a game update renamed this private method. Prepare is how a patch declines
+        /// instead.
+        private static bool Prepare()
+        {
+            if (AccessTools.Method(typeof(TombStone), "GiveBoost") != null)
+                return true;
+
+            Plugin.Log.LogWarning("TombStone.GiveBoost not found - death pins will not clear themselves. Everything else still works.");
+            return false;
+        }
+
+        /// A Prefix, because the grave is destroyed moments later and its position is wanted now.
+        private static void Prefix(TombStone __instance)
+        {
+            if (__instance != null)
+                PinPlacer.ClearDeathPin(__instance.transform.position);
         }
     }
 }
