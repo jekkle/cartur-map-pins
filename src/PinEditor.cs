@@ -60,9 +60,6 @@ namespace CarturMapPins
                 return;
 
             _target = pin;
-            _pending = CustomIcons.IsCustom(pin.m_type)
-                ? (int)pin.m_type - CustomIcons.FirstCustomType
-                : -1;
 
             if (_nameInput != null)
                 _nameInput.text = pin.m_name ?? string.Empty;
