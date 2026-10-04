@@ -8,26 +8,22 @@ using HarmonyLib;
 
 namespace CarturMapPins
 {
-    /// Makes the names this mod invents translatable.
+    /// Makes the names this mod invents translatable. Requested by three users.
     ///
-    /// Most pin labels were already language-correct and always have been: traders, chests, wisps,
-    /// beehives, runestones, pickables and spawned creatures are read off the component's own
-    /// m_name, which is a "$token" the game resolves into the player's language on the way to the
-    /// map. Those needed nothing.
+    /// Most pin labels are already language-correct: traders, chests, wisps, beehives, runestones,
+    /// pickables and spawned creatures are read off the component's own m_name, a "$token" the
+    /// game resolves into the player's language on the way to the map.
     ///
     /// What did not translate is the text this mod writes itself - the Subtypes tables. "Sunken
-    /// Crypt", "Frost Cave", "Infested Citadel", "Copper" are names the mod chose; the game has no
-    /// token for most of them, so no language setting could ever have moved them. Three people
-    /// asked for this and it is the same request each time.
+    /// Crypt", "Frost Cave", "Infested Citadel", "Copper" are names the mod chose, and the game
+    /// has no token for most of them.
     ///
-    /// The fix is to stop passing those names around as finished text and start passing them as
-    /// tokens the mod owns, with English registered as the default. Everything downstream already
-    /// runs labels through Labels.Localize, so once a token is registered the whole chain works
-    /// unchanged - including PinRecord.Relabel, which re-words existing pins when the language
-    /// changes.
+    /// So those names are passed around as tokens the mod owns, with English registered as the
+    /// default. Everything downstream already runs labels through Labels.Localize, so once a token
+    /// is registered the whole chain works unchanged - including PinRecord.Relabel, which
+    /// re-words existing pins when the language changes.
     ///
-    /// Read off assembly_guiutils.dll rather than assumed, because three details decide the shape
-    /// of this file:
+    /// Read off assembly_guiutils.dll, because three details decide the shape of this file:
     ///  1. Localization.AddWord(key, value) is private, and is exactly
     ///     "m_translations.Remove(key); m_translations.Add(key, value)". The key carries no "$" -
     ///     the dollar is stripped by FindNextWord before Translate sees the word.
@@ -52,15 +48,14 @@ namespace CarturMapPins
         private static readonly Dictionary<string, string> English =
             new Dictionary<string, string>(StringComparer.Ordinal);
 
-        /// Names that reached Token() before Register ran, or that are not in any table. Kept so
-        /// the warning is logged once per name rather than once per pin.
+        /// Names that reached Token() before Register ran, or that are in no table. Kept so the
+        /// warning is logged once per name rather than once per pin.
         private static readonly HashSet<string> Unregistered = new HashSet<string>(StringComparer.Ordinal);
 
         private static bool _built;
 
-        /// "Sunken Crypt" -> "sunken_crypt". Derived rather than written down: the tables already
-        /// hold 161 entries and a hand-maintained second column would drift out of step with them
-        /// the first time a name was edited.
+        /// "Sunken Crypt" -> "sunken_crypt". Derived rather than written down: the tables hold 161
+        /// entries and a hand-maintained second column would drift the first time a name was edited.
         public static string Key(string name)
         {
             if (string.IsNullOrEmpty(name))
@@ -85,11 +80,9 @@ namespace CarturMapPins
             return sb.ToString().TrimEnd('_');
         }
 
-        /// The token for a mod-authored name, or the name itself when there is no registered word
-        /// for it.
-        ///
-        /// Falling back to the plain name matters: an unregistered token would be drawn as
-        /// "[carturpins_something]" on somebody's map, which is worse than the English it replaced.
+        /// The token for a mod-authored name, or the name itself when no word is registered for it.
+        /// An unregistered token would be drawn as "[carturpins_something]" on the map, which is
+        /// worse than plain English.
         public static string Token(string name)
         {
             if (string.IsNullOrEmpty(name))
@@ -104,7 +97,7 @@ namespace CarturMapPins
             return name;
         }
 
-        /// Collects every name the mod can put on a pin. Called once; the tables are static.
+        /// Collects every name the mod can put on a pin.
         private static void Build()
         {
             if (_built)
@@ -121,8 +114,8 @@ namespace CarturMapPins
                 }
             }
 
-            // Written straight into ResolveLabel rather than coming from a table, so it would
-            // otherwise be the one auto-pin name with no way to translate it.
+            // Written straight into ResolveLabel, not from a table, so it would otherwise be the one
+            // auto-pin name with no way to translate it.
             English[Prefix + Key(Leviathan)] = Leviathan;
         }
 
@@ -130,9 +123,9 @@ namespace CarturMapPins
 
         /// Registers English, then lets a translation file for the active language override it.
         ///
-        /// Safe to call repeatedly - AddWord replaces rather than appends, and it is called again
-        /// on every language change because Localization reloads its table when the language is
-        /// switched, which drops anything a mod added.
+        /// Safe to call repeatedly - AddWord replaces rather than appends. It runs again on every
+        /// language change because Localization reloads its table then, dropping anything a mod
+        /// added.
         public static void Register()
         {
             if (Plugin.Log == null || AddWordMethod == null)
@@ -158,9 +151,9 @@ namespace CarturMapPins
                 AddWordMethod.Invoke(Localization.instance, args);
             }
 
-            // Anything localized before this point - a label written on the main menu, or the
-            // previous language's version of the same token - is still sitting in the cache and
-            // would be handed back unchanged. EvictAll is public on LRUCache.
+            // Anything localized before this point (a label written on the main menu, or the previous
+            // language's version of the same token) would be handed back unchanged from the cache.
+            // EvictAll is public on LRUCache.
             (CacheField?.GetValue(Localization.instance) as LRUCache<string>)?.EvictAll();
 
             Plugin.Log.LogInfo(translated > 0
@@ -171,11 +164,11 @@ namespace CarturMapPins
         private static string FileName(string language) => $"carturpins_names_{language}.txt";
 
         /// A translation file sits next to the config: one "key=text" per line, "#" for comments,
-        /// UTF-8. Deliberately not JSON - a translator should be able to edit it in Notepad, and
-        /// a missing comma should not cost them the whole file.
+        /// UTF-8. Deliberately not JSON - a translator can edit it in Notepad, and a missing comma
+        /// does not cost them the whole file.
         ///
-        /// A key that is absent, blank, or unknown simply keeps its English, so a partial
-        /// translation is a useful translation rather than a broken one.
+        /// A key that is absent, blank, or unknown keeps its English, so a partial translation
+        /// still works.
         private static Dictionary<string, string> LoadOverrides(string language)
         {
             string directory = Paths.ConfigPath;
@@ -214,8 +207,8 @@ namespace CarturMapPins
         /// The English list, written once so a translator has the keys to work from - copy it to
         /// carturpins_names_<language>.txt and translate the right-hand side.
         ///
-        /// Never overwritten: it is the one file in this scheme somebody might have edited in
-        /// place before realising it is the template.
+        /// Never overwritten: somebody might have edited it in place before realising it is the
+        /// template.
         private static void WriteTemplate(string directory)
         {
             string path = Path.Combine(directory, "carturpins_names_english_template.txt");
@@ -251,12 +244,12 @@ namespace CarturMapPins
     /// Puts the mod's words back whenever the game rebuilds its own.
     ///
     /// Localization.SetupLanguage repopulates m_translations from the game's CSVs, so every word
-    /// added through AddWord is gone the moment it runs - and it runs at startup as well as on a
-    /// language change. Patching it is what makes registration order stop mattering: this mod's
-    /// Awake can run before or after the language is set up and the words land either way.
+    /// added through AddWord is gone the moment it runs, at startup as well as on a language
+    /// change. Patching it makes registration order irrelevant: this mod's Awake can run before
+    /// or after the language is set up and the words land either way.
     ///
-    /// OnLanguageChange alone was not enough for the same reason - it announces a change, and the
-    /// first setup is not a change.
+    /// OnLanguageChange alone is not enough: it announces a change, and the first setup is not
+    /// a change.
     [HarmonyPatch(typeof(Localization), nameof(Localization.SetupLanguage))]
     internal static class Patch_Localization_SetupLanguage
     {

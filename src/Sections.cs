@@ -7,27 +7,25 @@ namespace CarturMapPins
     /// across when that name changes.
     ///
     /// Configuration Manager sorts sections alphabetically and offers no way to say otherwise, so
-    /// the only lever on order is the name itself. Unnumbered, the first thing anybody saw was
-    /// "Beehive", "General" sat fourteenth between "Dungeon Types" and "Home", and the three parts
-    /// of Tracking were at positions 2, 36 and 37. Numbering is therefore load-bearing, not
-    /// decoration. Two digits and a zero, because "10" sorts before "2" otherwise.
+    /// the only lever on order is the name itself. Unnumbered, "Beehive" came first and "General"
+    /// sat fourteenth. Numbering is load-bearing, not decoration. Two digits and a zero, because
+    /// "10" sorts before "2" otherwise.
     ///
-    /// Sections are renamed and regrouped; NO key is renamed and no two sections are merged. That
-    /// is deliberate and the reason is already written in this codebase: a section and key pair
-    /// carries one type of value, and "Ore Types/Copper" is a bool while "Ore Icons/Copper" is an
-    /// icon. Merging those would have read somebody's saved icon as a true/false, failed, and
-    /// silently reset it. So the switches and the icons stay apart and are named to sort together
-    /// instead.
+    /// Sections are renamed and regrouped; NO key is renamed and no two sections are merged. A
+    /// section and key pair carries one type of value, and "Ore Types/Copper" is a bool while
+    /// "Ore Icons/Copper" is an icon. Merging those would read somebody's saved icon as a
+    /// true/false, fail, and silently reset it. So the switches and the icons stay apart and are
+    /// named to sort together instead.
     ///
-    /// The migration is what stops the rename wiping everybody's settings. BepInEx keys a setting
-    /// by (section, key): rename the section and it binds a fresh entry at its default and leaves
+    /// The migration stops the rename wiping everybody's settings. BepInEx keys a setting by
+    /// (section, key): rename the section and it binds a fresh entry at its default and leaves
     /// the old line orphaned in the file. Read the file before any binding, then fill in from the
     /// old name anything the new name has no value for.
     internal static class Sections
     {
-        /// Logical name - what the code calls a section - to what it is called on screen. A few
-        /// entries are keyed "Section/Key" because General has been split across five pages and
-        /// those keys each go somewhere different; the bare "General" entry catches the rest.
+        /// Logical name (what the code calls a section) to what it is called on screen. A few
+        /// entries are keyed "Section/Key" because General is split across five pages and those
+        /// keys each go somewhere different; the bare "General" entry catches the rest.
         private static readonly Dictionary<string, string> Display =
             new Dictionary<string, string>(System.StringComparer.Ordinal)
         {
@@ -38,9 +36,9 @@ namespace CarturMapPins
             { "General/ResetPins",           "13. Danger Zone" },
             { "General",                     "02. Map Display" },
 
-            // Each of these gets its own page rather than sharing "11. Advanced" with General.
-            // Not cosmetic: the migration maps a display name back to ONE old section, so three
-            // sources feeding one page would have silently dropped two of them.
+            // Each gets its own page rather than sharing "11. Advanced" with General: the
+            // migration maps a display name back to ONE old section, so three sources feeding one
+            // page would silently drop two of them.
             { "CustomIcons",  "11a. Custom Icons" },
             { "Diagnostics",  "11b. Diagnostics" },
 
@@ -97,9 +95,8 @@ namespace CarturMapPins
         };
 
         /// Display name back to the logical name it came from, for the migration. Built from the
-        /// table above so the two cannot drift; several display names share one source, which is
-        /// fine - General split five ways, and a key missing from the old section simply is not
-        /// adopted.
+        /// table above so the two cannot drift. Several display names may share one source
+        /// (General is split five ways); a key missing from the old section is simply not adopted.
         private static readonly Dictionary<string, string> Origin =
             new Dictionary<string, string>(System.StringComparer.Ordinal);
 
@@ -114,11 +111,9 @@ namespace CarturMapPins
                 int slash = kv.Key.IndexOf('/');
                 string logical = slash > 0 ? kv.Key.Substring(0, slash) : kv.Key;
 
-                // Many display names may come from one old section - General alone splits five
-                // ways - but one display name must never come from two, because this map is how
-                // the migration finds the old values and it can only hold one answer. Checked
-                // rather than trusted: the version of this table that was written first quietly
-                // pointed three old sections at one page, and two of them would have reset.
+                // One display name must never come from two old sections: this map is how the
+                // migration finds the old values and it can only hold one answer. Checked rather
+                // than trusted, since a clash would silently reset one section's settings.
                 if (Origin.TryGetValue(kv.Value, out string already))
                 {
                     if (already != logical)
@@ -172,8 +167,8 @@ namespace CarturMapPins
             }
             catch (System.Exception e)
             {
-                // Losing the migration costs people their settings once. Taking the whole mod
-                // down with it costs them the mod, so this is reported and survived.
+                // Losing the migration costs people their settings once; throwing would take the
+                // whole mod down, so report and survive.
                 Plugin.Log.LogWarning($"Could not read the old config for migration: {e.Message}");
             }
         }
@@ -182,13 +177,13 @@ namespace CarturMapPins
         /// the old name.
         ///
         /// Run once, after everything is bound. A setting that already has a value under the new
-        /// name is left alone - that is somebody who has used this version, and their current
+        /// name is left alone: that is somebody who has used this version, and their current
         /// choice beats a stale line further up the same file.
         ///
         /// SetSerializedValue rather than an assignment: it takes the raw string and runs the
-        /// same converters binding would have. There is no converter for the 1.2.2 icon names -
-        /// those are handled by LegacyIconNames.Adopt at bind time, under the section they were
-        /// bound in - so a value that does not parse here is logged below and left at default.
+        /// same converters binding would have. The 1.2.2 icon names have no converter here (they
+        /// are handled by LegacyIconNames.Adopt at bind time, under the section they were bound
+        /// in), so a value that does not parse is logged below and left at default.
         public static int Adopt(ConfigFile config)
         {
             if (Raw.Count == 0 || config == null)

@@ -17,11 +17,9 @@ namespace CarturMapPins
             /// Which pickable group this belongs to, carried from the spawn hook.
             ///
             /// A queued pickable is not placed until the player walks within DiscoveryRadius of
-            /// it, which can be minutes later or never. The group switch was only read at the
-            /// moment of queueing, so turning Crops off left everything already queued to pin
-            /// anyway - five dandelions went onto the map after the switch was set to false,
-            /// which is how this was found. Meaningless for categories other than Pickable and
-            /// only ever read for that one.
+            /// it, which can be minutes later or never, so the group switch has to be read again
+            /// at drain time or turning Crops off would leave everything already queued to pin.
+            /// Only meaningful for Pickable.
             public PickableGroup Group;
         }
 
@@ -49,8 +47,8 @@ namespace CarturMapPins
             });
         }
 
-        // Also forgets that this session's saved pins were relabelled: that is per world, and a
-        // second world entered without restarting the game was never migrated.
+        // Also resets the relabel flag: it is per world, and a second world entered without
+        // restarting the game must be migrated too.
         public static void Clear()
         {
             PendingQueue.Clear();
@@ -76,9 +74,8 @@ namespace CarturMapPins
                 if (fixedUp > 0)
                     Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
 
-                // Logged even when it changes nothing: "no line in the log" would otherwise be
-                // indistinguishable from "the migration never ran", which is exactly the question
-                // you need answered when checking whether an upgrade repaired someone's map.
+                // Logged even when it changes nothing, so "no line in the log" cannot be mistaken
+                // for "the migration never ran" when checking whether an upgrade repaired a map.
                 int repointed = PinRecord.MigrateIcons();
                 Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
 
@@ -86,15 +83,15 @@ namespace CarturMapPins
                 if (named > 0)
                     Plugin.Log.LogInfo($"Resolved the name on {named} pin(s) that still read as a $token.");
 
-                // After LocalizeNames, which is the one-off repair of pins left holding a raw
-                // "$token"; this is the ongoing one - pins written correctly in a language the
-                // player has since changed away from.
                 // Before anything else that looks a pin up by its record: the others all use the
                 // same half-metre match and are just as blind to a record that has drifted.
                 int repaired = PinRecord.RepairPositions();
                 if (repaired > 0)
                     Plugin.Log.LogInfo($"Moved {repaired} record(s) onto the pin they describe.");
 
+                // After LocalizeNames, which is the one-off repair of pins left holding a raw
+                // "$token"; this is the ongoing one - pins written correctly in a language the
+                // player has since changed away from.
                 int reworded = PinRecord.Relabel();
                 if (reworded > 0)
                     Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
@@ -114,9 +111,9 @@ namespace CarturMapPins
             }
             else
             {
-                // Entries stay so resuming catches up, but ones whose object has unloaded can
-                // never pin anything; DrainQueue is what normally drops them, and it is not
-                // running, so the queue grew without bound while paused.
+                // Entries stay so resuming catches up, but ones whose object has unloaded can never
+                // pin anything. DrainQueue normally drops them and is not running, so without this
+                // the queue grows without bound while paused.
                 PendingQueue.RemoveAll(p => p.Go == null);
             }
             SweepLootedChests(playerPos);
@@ -138,13 +135,6 @@ namespace CarturMapPins
 
         private static float _chestSweepAt = -1f;
 
-        /// Repoints a chest pin to the "looted" icon once its container is empty, and back again
-        /// if it gets refilled.
-        ///
-        /// Runs on its own slower timer than the main tick: it has to enumerate live Containers,
-        /// which is far too expensive to do a few times a second. PinData.m_type is what persists
-        /// in the save (the sprite is re-derived from it on load), so writing the type is enough
-        /// to make this stick across relogs.
         /// Removes the death pin standing on an emptied tombstone.
         ///
         /// Vanilla adds one and never takes it away: Player.OnDeath does
@@ -156,8 +146,7 @@ namespace CarturMapPins
         /// Nearest match only, and only within the radius the grave itself can occupy: several
         /// deaths on one spot are several pins, and emptying one grave should clear one pin.
         ///
-        /// Returns true when a pin was removed, so the caller can say so once rather than each
-        /// time it looks.
+        /// Returns true when a pin was removed.
         internal static bool ClearDeathPin(Vector3 pos)
         {
             Minimap map = Minimap.instance;
@@ -214,6 +203,13 @@ namespace CarturMapPins
             return looted == normal ? Minimap.PinType.None : looted;
         }
 
+        /// Repoints a chest pin to the "looted" icon once its container is empty, and back again
+        /// if it gets refilled.
+        ///
+        /// Runs on its own slower timer than the main tick: it has to enumerate live Containers,
+        /// which is far too expensive to do a few times a second. PinData.m_type is what persists
+        /// in the save (the sprite is re-derived from it on load), so writing the type is enough
+        /// to make this stick across relogs.
         private static void SweepLootedChests(Vector3 playerPos)
         {
             Plugin.CategorySettings chestSettings = Plugin.SettingsFor(PinCategory.Chest);
@@ -255,24 +251,22 @@ namespace CarturMapPins
                 bool empty = inventory.NrOfItems() == 0;
 
                 // A chest wearing a ruin's icon is a place marker, not a chest tracker: flipping it
-                // to the open-chest glyph the moment you emptied it would throw away the only
-                // thing on the map saying a Dvergr tower is there.
-                // Only ChestSites subtypes: a Buried Chest also has a subtype but is an ordinary
-                // chest in the open, and skipping it meant buried chests never flipped to looted.
+                // to the open-chest glyph once emptied would throw away the only thing on the map
+                // saying a Dvergr tower is there. Only ChestSites subtypes: a Buried Chest also has
+                // a subtype but is an ordinary chest in the open and must still flip to looted.
                 string site = PinRecord.SubtypeNear(PinCategory.Chest, pos, 3f);
                 if (site != null && System.Array.Exists(Subtypes.ChestSites, e => e.Name == site))
                     continue;
 
                 // A chest with a kind of its own (Buried Chest) goes back to that kind's icon when
-                // it is not empty, not to the plain chest: restoring normalType stripped the X off
-                // every unlooted buried chest a couple of seconds after it was pinned.
+                // it is not empty, not to the plain chest, or the X comes off every unlooted buried
+                // chest a couple of seconds after it is pinned.
                 Minimap.PinType unlooted = site != null ? IconFor(PinCategory.Chest, site, chestSettings) : normalType;
                 Minimap.PinType wanted = empty ? lootedType : unlooted;
 
                 // Our record is the authority on whether a pin here is ours, not the icon it
-                // currently carries. Matching on icon alone stranded any chest pin sitting on a
-                // value neither of the current two - a chest left on a previous version's looted
-                // icon became invisible to this sweep and could never be corrected.
+                // carries. Matching on icon alone would strand a chest pin left on a previous
+                // version's looted icon: invisible to this sweep and never corrected.
                 bool recorded = PinRecord.HasCategoryNear(PinCategory.Chest, pos, 3f);
 
                 Minimap.PinData match = null;
@@ -294,8 +288,8 @@ namespace CarturMapPins
                     continue;
 
                 // Edited in place rather than removed and re-added. PinData carries sixteen fields
-                // and AddPin takes five, so re-adding quietly reset the rest - and this runs every
-                // couple of seconds for every chest you walk past. See PinRecord.Repoint.
+                // and AddPin takes five, so re-adding would quietly reset the rest, and this runs
+                // every couple of seconds for every chest you walk past. See PinRecord.Repoint.
                 if (!PinRecord.Repoint(Minimap.instance, match, wanted))
                     continue;
                 Plugin.Log.LogInfo($"Chest pin at {pos.x:F0},{pos.z:F0} -> {(empty ? "looted" : "restocked")}");
@@ -390,27 +384,24 @@ namespace CarturMapPins
         ///
         /// Ore never respawns, so a pin on a mined-out node is worse than no pin at all: it is a
         /// walk across the map to an empty hole. This is the one place the mod removes a pin
-        /// without being asked, which is why it is guarded three ways.
+        /// without being asked, which is why it is guarded four ways.
         ///
-        /// First, only ore pins we recorded - a pin somebody placed by hand is never ours to take.
-        /// Second, only where ZoneSystem says the zone is loaded: an unloaded node and a mined one
-        /// look identical from here, both being a null reference, and forgetting a pin because the
-        /// player walked away would be unforgivable. Third, only when nothing we have seen is
-        /// still standing within the dedupe radius.
-        ///
-        /// And fifth - fourth in the list below, but the one that was missing - the question is
-        /// asked about one ore, not about ore in general. Both the radius that keeps a pin alive
-        /// and the radius that removes it are the category's dedupe radius, 15 metres, while
-        /// dedupe itself only ever merges a pin with its own kind. So a copper deposit and a tin
-        /// deposit ten metres apart are two pins inside each other's radius: a live tin node used
-        /// to vouch for mined-out copper forever, and removing the copper pin took whichever of
-        /// the two records came first in the file. Mine one deposit, lose its neighbour's pin.
-        ///
-        /// And fourth, only after three sweeps in a row say so, within 25 metres. A loaded zone
-        /// does not mean a populated one: ZNetScene creates its objects over many frames, so a
-        /// node can be missing for a second or two simply because the game has not got to it yet.
-        /// Anything within 25 metres has certainly been created after nine seconds of looking, and
-        /// a miss that comes and goes resets the count rather than deleting anything.
+        /// 1. Only ore pins we recorded - a pin somebody placed by hand is never ours to take.
+        /// 2. Only where ZoneSystem says the zone is loaded: an unloaded node and a mined one look
+        ///    identical from here, both being a null reference, and forgetting a pin because the
+        ///    player walked away must never happen.
+        /// 3. Only when nothing we have seen is still standing within the dedupe radius, and the
+        ///    question is asked about one ore, not ore in general. The radius that keeps a pin
+        ///    alive and the one that removes it are both the category's dedupe radius, 15 metres,
+        ///    while dedupe only merges a pin with its own kind. So a copper and a tin deposit ten
+        ///    metres apart sit inside each other's radius: without the same-ore test a live tin
+        ///    node vouches for mined-out copper forever, and removing the copper pin takes
+        ///    whichever of the two records comes first in the file.
+        /// 4. Only after three sweeps in a row say so, within 25 metres. A loaded zone does not
+        ///    mean a populated one: ZNetScene creates its objects over many frames, so a node can
+        ///    be missing for a second or two because the game has not got to it yet. Anything
+        ///    within 25 metres has certainly been created after nine seconds of looking, and a
+        ///    miss that comes and goes resets the count rather than deleting anything.
         private static void SweepMinedOre(Vector3 playerPos)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(PinCategory.Ore);
@@ -470,9 +461,9 @@ namespace CarturMapPins
         /// Deliberately not dependent on the game console, which needs a `-console` launch
         /// argument that isn't set up here.
         ///
-        /// Uses an absolute realtimeSinceStartup deadline rather than subtracting deltaTime:
-        /// this is only called from the throttled tick (~3Hz), so accumulating per-frame deltas
-        /// here counted roughly 0.05s per real second and pushed a 12s delay out to ~4 minutes.
+        /// Uses an absolute realtimeSinceStartup deadline rather than subtracting deltaTime: this
+        /// is only called from the throttled tick (~3Hz), so per-frame deltas add up to roughly
+        /// 0.05s per real second and pushed a 12s delay out to about 4 minutes.
  #if DIAGNOSTICS
         private static bool _autoProbeDone;
         private static float _autoProbeAt = -1f;
@@ -505,8 +496,8 @@ namespace CarturMapPins
         ///
         /// The game's own call, copied from Plant.UpdateHealth, which does exactly this to decide
         /// whether a crop is unhappy: find the heightmap under the point, then ask it. Null when
-        /// the zone is not loaded, and then the honest answer is "not known to be cultivated" -
-        /// the queue only ever drains for objects that are loaded, so that case is a formality.
+        /// the zone is not loaded, and then the answer is "not known to be cultivated" - the queue
+        /// only drains for loaded objects, so that case is a formality.
         private static bool OnCultivatedGround(Vector3 pos)
         {
             Heightmap ground = Heightmap.FindHeightmap(pos);
@@ -562,16 +553,15 @@ namespace CarturMapPins
                 // A piece the local player places reaches the spawn hook with a blank creator:
                 // Player.PlacePiece calls Object.Instantiate (IL_000e), which runs ZNetView.Awake
                 // and ZNetScene.AddInstance with it, and only calls Piece.SetCreator afterwards
-                // (IL_0055). So a hive he just built looked wild there and got queued. By the time
+                // (IL_0055). So a hive just built looks wild there and gets queued. By the time
                 // the queue drains - a tick later at the earliest - the creator is on the ZDO.
                 if (PinCatalog.PlayerBuildable(p.Category) && BuiltByPlayer(p.Go))
                     continue;
 
-                // Asked again here, not just at queue time. TryPin re-reads the category switch
-                // and the per-kind switch but knows nothing about pickable groups, so this is the
-                // only place the group can be honoured for something already in the queue. Same
-                // reason the creator is re-read above: the queue outlives the state it was
-                // built from.
+                // Asked again here, not just at queue time. TryPin re-reads the category switch and
+                // the per-kind switch but knows nothing about pickable groups, so this is the only
+                // place the group can be honoured for something already queued. Same reason the
+                // creator is re-read above: the queue outlives the state it was built from.
                 if (p.Category == PinCategory.Pickable && !Plugin.PickableGroupEnabled(p.Group))
                     continue;
 
@@ -631,17 +621,17 @@ namespace CarturMapPins
             }
         }
 
-        /// Classified from the location's own data, with no hardcoded prefab names.
+        /// Built once from ZoneSystem.m_locations, and not cached until that list is there, so an
+        /// early call cannot freeze in an empty answer.
+        private static HashSet<string> _alwaysMarked;
+
         /// True when the world generator itself puts a permanent marker on this location, so ours
         /// would be a duplicate. m_iconPlaced is deliberately not included: vanilla's marker for a
         /// trader or Hildir's camp is unnamed and unsaved, which is exactly what this mod replaces.
         ///
         /// ZoneSystem.GetLocation is private, so this reads the public m_locations list the dump
-        /// already uses, once - the sweep asks this of every location it classifies, and a linear
-        /// scan of 232 definitions per call is the kind of thing that shows up as a frame-rate bug.
-        /// Not cached until the list is there, so an early call can't freeze in an empty answer.
-        private static HashSet<string> _alwaysMarked;
-
+        /// already uses. The sweep asks this of every location it classifies, and a linear scan of
+        /// 232 definitions per call would show up as a frame-rate bug.
         private static bool MarkedByVanilla(string prefabName)
         {
             if (string.IsNullOrEmpty(prefabName))
@@ -665,10 +655,12 @@ namespace CarturMapPins
             return _alwaysMarked.Contains(prefabName);
         }
 
+        /// Classified from the location's own data, with no hardcoded prefab names.
+        ///
         /// internal so the location dump can ask the real classifier what it would do with each of
-        /// the 232 definitions rather than reimplementing the same ladder beside it, which would
-        /// drift the moment either side changed. Everything it reads - the child components,
-        /// m_hasInterior, m_generator, the prefab name - is on the prefab as well as the instance.
+        /// the 232 definitions rather than reimplementing the same ladder, which would drift the
+        /// moment either side changed. Everything it reads - the child components, m_hasInterior,
+        /// m_generator, the prefab name - is on the prefab as well as the instance.
         internal static bool TryClassifyLocation(Location loc, out PinCategory category, out string label, out string subtype)
         {
             subtype = null;
@@ -678,10 +670,9 @@ namespace CarturMapPins
             // icon on the same spot. Asked of ZoneSystem rather than tested by name, because the
             // flag is the reason and the name is only today's example of it.
             //
-            // Its guardian stones carry a vegvisir that reaches the runestone branch below. Two
-            // attempts to disqualify that stone by looking for a BossStone on it and then above it
-            // both missed, and the hierarchy is not something this needs to know: the location is
-            // already marked, so nothing about what stands inside it matters.
+            // Its guardian stones carry a vegvisir that would reach the runestone branch below.
+            // The location is already marked, so nothing about what stands inside it matters and
+            // the hierarchy need not be inspected.
             if (MarkedByVanilla(Utils.GetPrefabName(loc.gameObject)))
             {
                 category = default;
@@ -724,15 +715,13 @@ namespace CarturMapPins
                 return true;
             }
 
-            // A camp used to mean "has a generator, has no interior", and in this build exactly one
-            // location in 232 fits that: Hildir's fortress. A Fuling village (GoblinCamp2, quantity
-            // 200) and a Greydwarf camp (Greydwarf_camp1, 300) are plain surface locations with no
-            // generator at all, so the test that named the category never matched the things the
-            // category was written for. A Fuling village carries nothing else the mod pins either -
-            // no spawner, no container - so it was invisible on the map.
+            // "Has a generator, has no interior" fits exactly one location in 232 in this build:
+            // Hildir's fortress. A Fuling village (GoblinCamp2, quantity 200) and a Greydwarf camp
+            // (Greydwarf_camp1, 300) are plain surface locations with no generator at all, and a
+            // Fuling village carries nothing else the mod pins - no spawner, no container.
             //
-            // The name table answers first now. The generator stays as the fallback for the ones
-            // that do still have one, and for camps added by other mods.
+            // So the name table answers first. The generator stays as the fallback for the ones
+            // that do have one, and for camps added by other mods.
             subtype = Subtypes.Match(Subtypes.Camps, prefabName, generatorName);
             if (subtype != null || loc.m_generator != null)
             {
@@ -742,27 +731,23 @@ namespace CarturMapPins
                 return true;
             }
 
-            // A vegvisir sitting inside a location, checked here rather than above the two branches
-            // it used to outrank. A vegvisir is a prop: it turns up inside Charred Ruins, stone
-            // henges, swamp ruins and Morgen Holes, and asking about it first made a Morgen Hole -
-            // a dungeon with an interior - pin as a runestone. A location's own shape is the
-            // stronger claim.
+            // A vegvisir sitting inside a location, checked after the interior and camp branches
+            // because a vegvisir is a prop: it turns up inside Charred Ruins, stone henges, swamp
+            // ruins and Morgen Holes, and a Morgen Hole (a dungeon with an interior) must not pin
+            // as a runestone. A location's own shape is the stronger claim.
             //
             // It still outranks the landmark table below, deliberately: Landmark is off by
             // default, so deferring to it would mean a stone henge with a vegvisir in it pins
-            // nothing at all on a fresh install. The stone is the part worth walking back to.
+            // nothing on a fresh install. The stone is the part worth walking back to.
             //
-            // Nothing reaches PinCategory.Runestone any other way. The 7 prefabs that used to fill
-            // its catalog were all guardian stones, which is why this is now the whole category
-            // rather than a second route into it.
+            // Nothing else reaches PinCategory.Runestone: the 7 prefabs in its catalog were all
+            // guardian stones, so this is the whole category.
             //
-            // Guardian stones carry a Vegvisir of their own, so the temple at world spawn arrived
-            // here and pinned as a runestone even after they were dropped from the catalog. Same
-            // rule, applied on this path too: a stone with a BossStone beside it is a temple stone,
-            // and vanilla already marks that temple.
-            // GetComponentInParent, not GetComponent: the vegvisir sits on a child of the guardian
-            // stone rather than on the stone itself, so a same-object test found nothing and the
-            // temple still pinned - as "$enemy_eikthyr", the first of the seven stones.
+            // Guardian stones carry a Vegvisir of their own, so the temple at world spawn would
+            // pin as a runestone. A stone with a BossStone beside it is a temple stone, and vanilla
+            // already marks that temple. GetComponentInParent, not GetComponent: the vegvisir sits
+            // on a child of the guardian stone, so a same-object test finds nothing and the temple
+            // pins as "$enemy_eikthyr", the first of the seven stones.
             Vegvisir vegvisir = loc.GetComponentInChildren<Vegvisir>();
             if (vegvisir != null && vegvisir.GetComponentInParent<BossStone>() == null)
             {
@@ -772,10 +757,10 @@ namespace CarturMapPins
             }
 
             // Lore runestones are the one location worth pinning that has neither an interior nor
-            // a generator, so they fell through this method and were never pinned at all. There
-            // are eleven, confirmed from the world generator's own 232 ZoneLocation definitions:
-            // Runestone_Boars, _Meadows, _Draugr, _Greydwarfs, _Swamps, _Mountains, _BlackForest,
-            // _Plains, _Mistlands, _Ashlands, _DeepNorth.
+            // a generator, so nothing above catches them. There are eleven, confirmed from the
+            // world generator's own 232 ZoneLocation definitions: Runestone_Boars, _Meadows,
+            // _Draugr, _Greydwarfs, _Swamps, _Mountains, _BlackForest, _Plains, _Mistlands,
+            // _Ashlands, _DeepNorth.
             //
             // Separate category from Runestone above so the two toggle apart.
             if (prefabName != null &&
@@ -797,9 +782,8 @@ namespace CarturMapPins
                 return true;
             }
 
-            // Everything that reaches here is a location the mod will never pin: no interior, no
-            // generator, not a runestone, and no landmark name matched. Logged once per prefab so
-            // the blind spot is a list you can read rather than a guess.
+            // Everything that reaches here is a location the mod will never pin. Logged once per
+            // prefab so the blind spot is a list you can read rather than a guess.
             //
             // Reported from here rather than predicted from ZoneSystem.m_locations because a
             // ZoneLocation only holds a SoftReference to its prefab - deciding this up front would
@@ -848,9 +832,6 @@ namespace CarturMapPins
             return vegvisir.m_name;
         }
 
-        /// Labels come back as the raw "$token" strings the components hold; TryPin resolves them
-        /// through Labels.Localize on the way to the map. This used to say Minimap.PinNameData
-        /// localised pin names for us - it does not, and nothing else did either.
 #if DIAGNOSTICS
         /// Diagnostics hook: resolve a label without pinning anything, so every catalogued prefab
         /// can be previewed from one console command instead of by walking to each of them.
@@ -858,6 +839,8 @@ namespace CarturMapPins
             ResolveLabel(category, go, subtype);
 #endif
 
+        /// Labels come back as the raw "$token" strings the components hold; TryPin resolves them
+        /// through Labels.Localize on the way to the map.
         private static string ResolveLabel(PinCategory category, GameObject go, string subtype)
         {
             switch (category)
@@ -866,11 +849,11 @@ namespace CarturMapPins
                     // The ore type resolved at catalog time ("Copper") is already the label we
                     // want; fall back to deriving it from the dropped item. Either way it isn't
                     // the component's m_name, because the deposits that matter are plain
-                    // Destructibles with no m_name - which is why these once read "rock4_copper".
+                    // Destructibles with no m_name.
                     // Token, not the bare name: "Copper" is a word this mod chose, so nothing
-                    // downstream could ever have translated it. Translations.Token hands back the
-                    // plain name unchanged for anything it has no word for, so the fallback below
-                    // - derived from the prefab - is unaffected and stays English.
+                    // downstream could translate it. Translations.Token hands back the plain name
+                    // for anything it has no word for, so the prefab-derived fallback below stays
+                    // English.
                     return !string.IsNullOrEmpty(subtype)
                         ? Translations.Token(subtype)
                         : Labels.ForOre(Utils.GetPrefabName(go));
@@ -905,8 +888,8 @@ namespace CarturMapPins
 
                 case PinCategory.Wisp:
                     // piece_EternalPyre, piece_FaderEmbers, piece_wisplure - buildables, so they
-                    // carry a Piece.m_name token. Grouped with Spawner before, which leaked the
-                    // "piece_" prefix and called a wisplure a spawner.
+                    // carry a Piece.m_name token. Not the Spawner path, which would leak the
+                    // "piece_" prefix and call a wisplure a spawner.
                     Piece wisp = go.GetComponent<Piece>();
                     if (wisp != null && !string.IsNullOrEmpty(wisp.m_name))
                         return wisp.m_name;
@@ -992,16 +975,6 @@ namespace CarturMapPins
             return Labels.Prettify(Utils.GetPrefabName(go));
         }
 
-        /// The creature a spawner spawns, read off the spawner's own component instead of guessed
-        /// from its prefab name. This is the same principle the catalog uses to decide what counts
-        /// as ore - ask the object, don't pattern-match its name - and it answers every case the
-        /// name cannot: Spawner_Hole, Spawner_Location_Elite and EvilHeart_Forest all name a place
-        /// or a tuning variant rather than what comes out of them.
-        ///
-        /// The creature's own m_name is a localisation token, so the label comes out in the
-        /// player's language for free, the way Pickable.GetHoverName already does.
-        ///
-        /// Null when anything is missing, so the caller falls back to reading the prefab name.
         /// "None" is what the game hands back when a component has nothing to name - not a name.
         private static bool Usable(string name) =>
             !string.IsNullOrEmpty(name) && name != "None";
@@ -1060,6 +1033,16 @@ namespace CarturMapPins
         }
 #endif
 
+        /// The creature a spawner spawns, read off the spawner's own component instead of guessed
+        /// from its prefab name. Same principle the catalog uses to decide what counts as ore -
+        /// ask the object, don't pattern-match its name - and it answers every case the name
+        /// cannot: Spawner_Hole, Spawner_Location_Elite and EvilHeart_Forest all name a place or a
+        /// tuning variant rather than what comes out of them.
+        ///
+        /// The creature's own m_name is a localisation token, so the label comes out in the
+        /// player's language, the way Pickable.GetHoverName does.
+        ///
+        /// Null when anything is missing, so the caller falls back to reading the prefab name.
         private static string SpawnedCreatureName(GameObject go)
         {
             GameObject creature = SpawnedCreaturePrefab(go);
@@ -1071,9 +1054,9 @@ namespace CarturMapPins
                 return null;
 
             // The token is kept rather than resolved here. Localize substitutes tokens anywhere
-            // in a string, so "$enemy_greydwarf Spawner" still comes out right on the pin - and
-            // keeping it raw is what lets the label be redone when the language changes. Resolving
-            // it here baked the English name into the record and the save.
+            // in a string, so "$enemy_greydwarf Spawner" still comes out right on the pin, and
+            // keeping it raw lets the label be redone when the language changes. Resolving it here
+            // would bake the English name into the record and the save.
             return character.m_name + " Spawner";
         }
 
@@ -1081,8 +1064,8 @@ namespace CarturMapPins
         /// once: the icon, the dedupe key, and (for ore) the per-type toggle - so a copper pin
         /// can't suppress a tin node metres away.
         ///
-        /// Lives here rather than in the hook so that all subtype matching, and the logging of
-        /// what failed to match, stays in one place.
+        /// Lives here rather than in the hook so all subtype matching, and the logging of what
+        /// failed to match, stays in one place.
         internal static string SubtypeFor(PinCategory category, int hash, GameObject go)
         {
             switch (category)
@@ -1158,8 +1141,7 @@ namespace CarturMapPins
         /// something the mod would never place.
         ///
         /// Pickables resolve by group, everything else by the subtype name. SubtypeIconFor falls
-        /// back to the category's own setting when the subtype is null or has no icon bound, so
-        /// listing a category here is safe even when a particular instance didn't match.
+        /// back to the category's own setting when the subtype is null or has no icon bound.
         internal static Minimap.PinType IconFor(PinCategory category, string subtype, Plugin.CategorySettings settings)
         {
             if (category == PinCategory.Pickable)
@@ -1172,9 +1154,9 @@ namespace CarturMapPins
             }
 
             // Everything else asks for the kind's icon and gets the category's when the kind has
-            // none - SubtypeIconFor already falls back, so naming categories here bought nothing
-            // and cost the ones left out: chest sites and props were bound icons that could never
-            // be reached, because Chest and Prop were not on the list.
+            // none. SubtypeIconFor already falls back, so no category list is needed here; one
+            // would leave out categories (Chest, Prop) whose bound icons then could never be
+            // reached.
             return Plugin.SubtypeIconFor(subtype, settings);
         }
 
@@ -1192,10 +1174,9 @@ namespace CarturMapPins
 
         /// Pins a boss altar that a vegvisir or a guardian stone has just revealed from far away.
         ///
-        /// Goes through TryPin like every other pin rather than calling AddPin itself, so the
-        /// altar is recorded, deduped and iconned exactly as the one placed by walking up to it
-        /// would be. That is what stops the two from becoming two pins on the same altar when the
-        /// player finally gets there.
+        /// Goes through TryPin rather than calling AddPin itself, so the altar is recorded, deduped
+        /// and iconned exactly as the one placed by walking up to it would be, and the two do not
+        /// become two pins on the same altar when the player finally gets there.
         ///
         /// Returns TryPin's answer - true when a pin of ours is on that spot afterwards - so the
         /// caller knows whether it may drop vanilla's own marker for it.
@@ -1231,8 +1212,8 @@ namespace CarturMapPins
                 //
                 // Runs before the switches below on purpose. Turning a category off means "place
                 // no more of these", not "freeze the pins I already have on the generic glyph" -
-                // and with Spawner off by default, gating this behind Enabled left every pin from
-                // an older version stuck on the summoning circle with no way to ever repair it.
+                // and Spawner is off by default, so gating this behind Enabled would leave every
+                // pin from an older version stuck on the summoning circle with no way to repair it.
                 PinRecord.Upgrade(category, subtype, pos, settings.DedupeRadius.Value, pinType);
                 return true;
             }
@@ -1254,12 +1235,12 @@ namespace CarturMapPins
             // Placing then stacks a second pin on every deposit the player already has. The map
             // is the authority on what is already pinned, so ask it before adding, and take the
             // existing pin into the record so the answer is cheap from here on.
+            //
             // The found pin's own position goes into the record, not the position of the thing
             // that was scanned. They can be up to a dedupe radius apart - 15m for ore - and every
             // later operation looks for a pin within half a metre of the record. Recording the
-            // wrong one of the two made a record that nothing could ever act on again: the mined
-            // ore sweep found no pin at the recorded spot, gave up, and the pin stayed on the map
-            // forever with nothing in the log to say why.
+            // scanned position gives a record nothing can act on: the mined ore sweep finds no
+            // pin at the recorded spot, gives up, and the pin stays on the map forever.
             //
             // Only adopted when its name is empty or exactly what we would have written. The match
             // is on icon and position, so a pin the player placed by hand with the same icon would
@@ -1289,13 +1270,12 @@ namespace CarturMapPins
             return true;
         }
 
-        /// True when the map already carries a pin of this icon within `radius`. Matched on icon
-        /// and position rather than on name, because a name can be edited by hand and the icon
-        /// cannot - and because that is the same question vanilla's own private HaveSimilarPin
-        /// asks, just at a radius that suits an ore field rather than its hardcoded 1m.
-        /// The pin itself rather than a yes/no, so the caller can record where it actually is.
-        /// Nearest match, so a dense field pairs each object with the pin standing on it instead
-        /// of whichever happened to come first in the list.
+        /// The pin of this icon within `radius` on the map, or null. Matched on icon and position
+        /// rather than name, because a name can be edited by hand and the icon cannot - the same
+        /// question vanilla's private HaveSimilarPin asks, at a radius that suits an ore field
+        /// rather than its hardcoded 1m. Returns the pin rather than a yes/no so the caller can
+        /// record where it actually is. Nearest match, so a dense field pairs each object with the
+        /// pin standing on it instead of whichever came first in the list.
         private static Minimap.PinData ExistsOnMap(Vector3 pos, Minimap.PinType pinType, float radius)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(Minimap.instance);

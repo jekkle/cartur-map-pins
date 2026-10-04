@@ -5,15 +5,14 @@ namespace CarturMapPins
 {
     /// Tracks the ore nodes we've seen, so a pin can be dropped once its node is gone.
     ///
-    /// Ore deposits never respawn, so a pin on a mined-out node marks nothing - it is worse than
-    /// no pin, because you will walk back to it. The sweep that removes those pins needs to tell
-    /// "the node is gone" from "the node is not loaded right now", and Unity nulls a destroyed
-    /// object's reference either way. Positions are kept here rather than components for exactly
-    /// that reason: what matters is where a node was, so the sweep can ask ZoneSystem whether that
-    /// spot is still loaded before concluding anything.
+    /// Ore deposits never respawn, so a pin on a mined-out node is worse than no pin, because you
+    /// will walk back to it. The sweep that removes those pins has to tell "the node is gone"
+    /// from "the node is not loaded right now", and Unity nulls a destroyed object's reference
+    /// either way. Positions are kept alongside so the sweep can ask ZoneSystem whether that spot
+    /// is still loaded before concluding anything.
     ///
-    /// The spawn hook sees every ore node as its zone loads, which is both cheaper and more
-    /// precise than walking every MineRock in the scene.
+    /// The spawn hook sees every ore node as its zone loads, which is cheaper and more precise
+    /// than walking every MineRock in the scene.
     internal static class OreRegistry
     {
         private struct Node
@@ -21,9 +20,8 @@ namespace CarturMapPins
             public GameObject Go;
             public Vector3 Pos;
             /// Which ore this node yields - the same string the pin's record carries as its
-            /// subtype. Without it every question asked here is answered for the wrong deposit:
-            /// the radius the sweep works in covers whatever else is standing nearby, and a tin
-            /// node ten metres away would vouch for a mined-out copper pin forever.
+            /// subtype. Without it the sweep's radius covers whatever else is standing nearby, and
+            /// a tin node ten metres away would vouch for a mined-out copper pin forever.
             public string Type;
         }
 
@@ -34,8 +32,8 @@ namespace CarturMapPins
 #endif
 
         /// Pruning otherwise only happens inside NodeNear/AlivePositions, so a session that walks
-        /// a lot while nothing asks keeps every node it ever saw, and Add's scan below grows with
-        /// it. Pruned here when the list has doubled since the last prune.
+        /// a lot while nothing asks keeps every node it saw and Add's scan grows with it. Pruned
+        /// here when the list has doubled since the last prune.
         private static int _pruneAt = 256;
 
         public static void Add(GameObject go, string type)

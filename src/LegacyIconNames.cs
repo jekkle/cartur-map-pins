@@ -12,14 +12,10 @@ namespace CarturMapPins
     /// ConfigEntryBase.SetSerializedValue, it discards the old string rather than keeping it
     /// anywhere - so the next time the file is written, the choice is gone for good.
     ///
-    /// Everyone upgrading from 1.2.x hit this, because the four categories with a non-vanilla
-    /// default (Ore, Dungeon, Camp, Beehive) carried one of those names whether or not it was ever
-    /// changed by hand. For them the outcome was right by accident: the 1.3 default is the same
-    /// icon redrawn. Anyone who had picked something else lost it silently, which is the part
-    /// worth undoing.
-    ///
-    /// TomlTypeConverter.AddConverter is public, and a converter sees the raw string before the
-    /// enum parse can fail - so the name is translated instead of thrown away.
+    /// Everyone upgrading hit this, because the four categories with a non-vanilla default (Ore,
+    /// Dungeon, Camp, Beehive) carried one of those names whether or not it was changed by hand.
+    /// For them the outcome was right by accident: the 1.3 default is the same icon redrawn.
+    /// Anyone who had picked something else lost it silently, which is the part worth undoing.
     ///
     /// Two outcomes per name. Where the new sheet redrew the same thing, the value becomes that
     /// icon, so the pin keeps its meaning in the current artwork. Where it did not - a chicken, a
@@ -36,18 +32,16 @@ namespace CarturMapPins
         /// The nine that were 1.2.x category defaults are pinned to the matching 1.3 default rather
         /// than to the closest drawing, even where the drawing would be a better match - Nest to
         /// the summoning circle, Ember to the star. Almost everyone carrying one of those names
-        /// never chose it; it is simply what 1.2.x wrote. They have been looking at the 1.3
-        /// default since they upgraded, so sending them anywhere else now would be a second
-        /// unrequested change, which is the thing this file exists to prevent. The rule costs the
-        /// few who picked one of those names deliberately, and that trade is the right way round.
+        /// never chose it, and has been looking at the 1.3 default since upgrading, so sending
+        /// them anywhere else now would be a second unrequested change. The rule costs the few
+        /// who picked one of those names deliberately, which is the right way round.
         ///
         /// The rest are matched on what the icon shows. Where two old names mean one new icon -
-        /// Pig and Boar, Tombstone and Gravestone - both are mapped; nothing says an old sheet and
-        /// a new one have to agree on how finely to slice the world.
+        /// Pig and Boar, Tombstone and Gravestone - both are mapped.
         private static readonly Dictionary<string, int> Mapped =
             new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase)
         {
-            // --- the 1.2.x category defaults, pinned to their 1.3 counterparts ---------------
+            // The 1.2.x category defaults, pinned to their 1.3 counterparts.
             { "MineFace", 119 },        // Ore     -> generic ore chunk
             { "CobwebArch", 39 },       // Dungeon -> stairs down
             { "Shrine", 42 },           // Camp    -> village
@@ -58,7 +52,7 @@ namespace CarturMapPins
             { "SerpentHead", 50 },      // Leviathan -> leviathan
             { "Ember", 85 },            // Wisp    -> star
 
-            // --- redrawn in the new sheet ----------------------------------------------------
+            // Redrawn in the new sheet.
             { "Bed", 70 },
             { "Boar", 138 },
             { "Pig", 138 },
@@ -143,8 +137,8 @@ namespace CarturMapPins
             { "Canoe", 81 },
         };
 
-        /// Reverse of both tables, so a value written back to the config file reads as the name it
-        /// came in as instead of a bare number.
+        /// Reverse of KeptOld, so a value written back to the config file reads as the name it came
+        /// in as instead of a bare number. Mapped values are ordinary PinIcons and write themselves.
         private static readonly Dictionary<int, string> LegacyNames = BuildLegacyNames();
 
         private static Dictionary<int, string> BuildLegacyNames()
@@ -184,10 +178,9 @@ namespace CarturMapPins
         /// AddConverter refuses it anyway, because CanConvert already answers true. Reading the
         /// file is the way left that uses only public API.
         ///
-        /// Timing is the whole trick: ConfigFile.Bind writes the file back once it has bound an
-        /// entry, and an unparseable value is replaced by the default when it does. Run before the
-        /// first Bind, this sees what the player actually had. Run after, it would see 1.3's
-        /// defaults and translate nothing.
+        /// Must run before the first Bind: ConfigFile.Bind writes the file back, replacing an
+        /// unparseable value with the default. After that this would see 1.3's defaults and
+        /// translate nothing.
         public static void Capture(string configPath)
         {
             Raw.Clear();
@@ -216,17 +209,15 @@ namespace CarturMapPins
             }
             catch (System.Exception e)
             {
-                // Not fatal: without this the old names simply fall back to defaults, which is
-                // what 1.3.0 through 1.3.2 already did.
+                // Not fatal: the old names just fall back to defaults, as in 1.3.0 through 1.3.2.
                 Plugin.Log.LogWarning($"Could not read the config file to carry 1.2.2's icon names over: {e.Message}");
             }
         }
 
         /// Puts a 1.2.x name back into a setting BepInEx has just reset to its default.
         ///
-        /// Called straight after each icon is bound. By then the entry holds the default - the old
-        /// name could not be parsed - so the value captured from the file is the only record of
-        /// what was chosen, and this is the last moment it can be used.
+        /// Called straight after each icon is bound. The entry holds the default by then, so the
+        /// value captured from the file is the only record of what was chosen.
         public static void Adopt(ConfigEntry<PinIcon> entry)
         {
             if (entry == null)

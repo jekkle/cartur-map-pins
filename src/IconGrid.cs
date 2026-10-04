@@ -7,11 +7,8 @@ using UnityEngine.UI;
 
 namespace CarturMapPins
 {
-    /// The scrollable grid of icon buttons, shared by the map picker and the pin editor.
-    ///
-    /// Extracted only once there were two real callers. Both need the same clipping viewport,
-    /// grid layout, scroll behaviour and vanilla-styled buttons, and the two drifting apart would
-    /// be visible - they sit on the same screen.
+    /// The scrollable grid of icon buttons, shared by the map picker and the pin editor. They sit
+    /// on the same screen, so the clipping viewport, layout, scrolling and buttons must match.
     internal static class IconGrid
     {
         public const float CellSize = 46f;
@@ -23,11 +20,6 @@ namespace CarturMapPins
         /// Width of a panel showing `columns` columns, including its padding.
         public static float PanelWidth(int columns) => columns * (CellSize + Spacing) + 24f;
 
-        /// Fills `panel` with a clipped, scrollable grid of one button per icon.
-        ///
-        /// `onClick` receives the icon index. Returns one entry per icon - the button's selection
-        /// highlight, or null where the template had none - so the caller can show which is
-        /// currently chosen.
         /// True while the cursor is over `panel`. Both panels need this to keep the scroll wheel
         /// off the map: Unity's ScrollRect goes through the event system, which respects the
         /// pointer, while Minimap.UpdateMap reads the wheel raw and does not.
@@ -51,6 +43,11 @@ namespace CarturMapPins
                 : null;
         }
 
+        /// Fills `panel` with a clipped, scrollable grid of one button per icon.
+        ///
+        /// `onClick` receives the icon index. Returns one entry per icon - the button's selection
+        /// highlight, or null where the template had none - so the caller can show which is
+        /// currently chosen.
         public static List<Image> Build(GameObject panel, GameObject template, Action<int> onClick, float top = 0f, float bottom = 0f)
         {
             // Viewport clips the scrolling content.
@@ -63,9 +60,8 @@ namespace CarturMapPins
             viewRt.offsetMax = new Vector2(-8f, -8f - top);
             viewport.AddComponent<RectMask2D>();
 
-            // A column of sections rather than one grid, so a heading can sit between the current
-            // icons and 1.2.2's. Without it the old art simply continues after the new and reads
-            // as inconsistent drawing rather than as a second set.
+            // A column of sections rather than one grid, so a heading can separate the current
+            // icons from the previous set. Without it the old art reads as inconsistent drawing.
             var content = new GameObject("Content");
             content.transform.SetParent(viewport.transform, false);
             RectTransform contentRt = content.AddComponent<RectTransform>();
@@ -92,15 +88,14 @@ namespace CarturMapPins
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            // Six rows per wheel tick. Half a row was fine for 83 icons; the grid now holds 236
-            // in five columns - the current sheet and 1.2.2's below it - which is 48 rows, so a
-            // tick that moves a tenth of the way down is what "fast enough" has to mean.
+            // Six rows per wheel tick: 236 icons in five columns (current sheet plus 1.2.2's) is
+            // 48 rows, so a tick has to move about a tenth of the way down to be fast enough.
             scroll.scrollSensitivity = (CellSize + Spacing) * 6f;
 
             var highlights = new List<Image>(CustomIcons.PickerCount);
 
             // As many columns as the panel's own width holds (its sizeDelta, set by the caller
-            // before this runs; both panels are fixed width since the resize handle went).
+            // before this runs; both panels are fixed width).
             int fit = Mathf.Max(1, Mathf.FloorToInt(
                 (((RectTransform)panel.transform).sizeDelta.x - 16f + Spacing) / (CellSize + Spacing)));
             Transform current = AddSection(content.transform, fit);
@@ -129,10 +124,8 @@ namespace CarturMapPins
             grid.cellSize = new Vector2(CellSize, CellSize);
             grid.spacing = new Vector2(Spacing, Spacing);
             // A fixed count, not Flexible. Flexible takes the count from this section's laid-out
-            // width, which inherited the content's extra 100 (see Build) - 7 columns in a
-            // 5-column window, 44 of 158 icons unreachable (Dukaine, Penitence). The width is
-            // fixed at the source now; the count stays fixed too, since Flexible only existed for
-            // a panel resize handle that has since been removed.
+            // width, which inherited the content's extra 100 (see Build): 7 columns in a
+            // 5-column window, 44 of 158 icons unreachable (Dukaine, Penitence).
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = columns;
 
@@ -258,10 +251,8 @@ namespace CarturMapPins
                 cell.name = $"CarturIcon_{index}";
 
                 // Every decoration the template brought with it goes off. Vanilla's pin button is
-                // a gold-framed slab, so a cloned one wears that frame permanently - which left
-                // the mod's own border drawn inside somebody else's, and a gold selection sitting
-                // on a gold rest state. What the clone is kept for is its size and its Button
-                // wiring, not its artwork.
+                // a gold-framed slab, so the clone would draw our border inside its frame and a
+                // gold selection on a gold rest state. It is kept for its size and Button wiring.
                 foreach (Image img in cell.GetComponentsInChildren<Image>(true))
                 {
                     if (img.gameObject != cell)
@@ -331,22 +322,14 @@ namespace CarturMapPins
             int captured = index;
             button.onClick.AddListener(() => onClick(captured));
 
-            // The same problem as onClick above, for the other mouse button, and it had to be
-            // fixed the same way.
-            //
-            // Read off the shipped prefab (SoftRef bundle 17245031): vanilla's pin button
-            // GameObject "Icon0" carries a Button AND a MouseClick on the SAME object, and
-            // MouseClick.m_rightClick holds a serialized persistent call to
-            // Minimap.OnAltPressedIcon0 - which is just ToggleIconFilter(Icon0) with the type
-            // hardcoded. Instantiate clones that call along with everything else, and the
-            // template is always one fixed vanilla button (FindTemplateButton takes the first
-            // non-null of m_selectedIcon0/1/2/Boss). So before this, right-clicking ANY cell in
-            // this grid hid one fixed vanilla pin type rather than the icon under the cursor -
-            // reported as "whenever I right click their icon to hide them it just hides the
-            // vanilla campfire pins".
-            //
-            // Fresh UnityEvents rather than RemoveAllListeners(), for the reason given above:
-            // RemoveAllListeners leaves the prefab's serialized calls in place.
+            // Same problem as onClick, for the other mouse buttons. Read off the shipped prefab
+            // (SoftRef bundle 17245031): vanilla's pin button "Icon0" carries a Button AND a
+            // MouseClick on the SAME object, and MouseClick.m_rightClick holds a serialized call
+            // to Minimap.OnAltPressedIcon0, which is ToggleIconFilter(Icon0) with the type
+            // hardcoded. The template is always one fixed vanilla button (FindTemplateButton takes
+            // the first non-null of m_selectedIcon0/1/2/Boss), so right-clicking any cell hid that
+            // one vanilla pin type instead of the icon under the cursor ("it just hides the
+            // vanilla campfire pins"). Fresh UnityEvents, for the reason given above.
             MouseClick mouse = cell.GetComponent<MouseClick>();
             if (mouse != null)
             {
@@ -362,7 +345,6 @@ namespace CarturMapPins
                 });
             }
 
-            // The border is what the caller drives now, not vanilla's highlight.
             return border;
         }
 

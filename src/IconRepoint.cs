@@ -5,16 +5,14 @@ namespace CarturMapPins
 {
     /// Carries an icon change onto the pins that are already on the map.
     ///
-    /// Changing an ore icon used to change only what FUTURE pins looked like. The hundred copper
-    /// pins already out there kept the old artwork until somebody found out that
-    /// `carturpins_reicon` exists and typed it into a console that needs a launch argument to
-    /// open - which is to say, never.
+    /// An icon setting change otherwise only affects FUTURE pins. The hundred copper pins already
+    /// out there would keep the old artwork until somebody found `carturpins_reicon`, which needs
+    /// a console that takes a launch argument to open.
     ///
     /// Two rules, and the second is what keeps this from being a nuisance:
     ///
     ///  - A pin still carrying the icon the mod itself last gave it is a leftover, not a choice.
-    ///    It follows the change silently. Nobody picks a new icon and then wants the old one kept
-    ///    on half the map.
+    ///    It follows the change silently.
     ///  - A pin whose icon was chosen by hand through the map's own picker is a choice. Those are
     ///    counted, and only if there are any is anything asked.
     ///
@@ -22,12 +20,9 @@ namespace CarturMapPins
     internal static class IconRepoint
     {
         /// Set by any icon setting changing; acted on at the next tick rather than inside the
-        /// callback.
-        ///
-        /// This is the whole answer to two hazards at once. Applying a preset writes dozens of
-        /// settings in one go, and a config file rewritten by a mod manager raises the event for
-        /// every entry it touches - doing the work per event would mean dozens of passes and, far
-        /// worse, dozens of stacked dialogs. Coalescing to one pass makes a preset ask once.
+        /// callback. Applying a preset writes dozens of settings at once, and a config file
+        /// rewritten by a mod manager raises the event for every entry it touches, so per-event
+        /// work would mean dozens of passes and stacked dialogs. Coalescing makes a preset ask once.
         private static bool _pending;
         private static bool _primed;
 
@@ -73,11 +68,9 @@ namespace CarturMapPins
                 Ask(handPicked);
         }
 
-        /// The game's own dialog, for the same reason the sort buttons elsewhere are clones of the
-        /// game's own: it already handles gamepad focus, pausing and the escape key, and it looks
-        /// like Valheim because it is Valheim. IsAvailable is false while another popup is up, and
-        /// then the honest thing is to leave the hand-picked pins alone rather than queue a box
-        /// the player did not expect.
+        /// The game's own dialog: it already handles gamepad focus, pausing and the escape key.
+        /// IsAvailable is false while another popup is up, and then the hand-picked pins are left
+        /// alone rather than queueing a box the player did not expect.
         private static void Ask(int handPicked)
         {
             if (!UnifiedPopup.IsAvailable())

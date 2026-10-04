@@ -4,11 +4,9 @@ using UnityEngine;
 
 namespace CarturMapPins
 {
-    /// Diagnostics for "why didn't this thing get pinned?".
-    ///
-    /// Exists because the catalog registered 58 ore prefabs yet no ore instance ever matched a
-    /// live ZDO - which can only be answered by inspecting a real object in the world and
-    /// comparing its prefab name/hash against what's registered.
+    /// Diagnostics for "why didn't this thing get pinned?". Written because the catalog registered
+    /// 58 ore prefabs yet no ore instance matched a live ZDO; only a real object's prefab
+    /// name/hash compared against the registered ones could explain that.
     internal static class Probe
     {
         public static void Nearby(Terminal.ConsoleEventArgs args, float radius)
@@ -23,8 +21,7 @@ namespace CarturMapPins
             Vector3 origin = player.transform.position;
             var report = new List<string>();
 
-            // Everything that could plausibly be a pinnable node, found by component type rather
-            // than by prefab name - the same principle the catalog uses.
+            // Found by component type rather than prefab name, same as the catalog.
             Inspect<MineRock5>(origin, radius, "MineRock5", report);
             Inspect<MineRock>(origin, radius, "MineRock", report);
             Inspect<Beehive>(origin, radius, "Beehive", report);
@@ -122,10 +119,10 @@ namespace CarturMapPins
 
         /// Dumps every location the world generator knows about, by exact prefab name.
         ///
-        /// This is the authoritative source for the subtype tables: location prefab names are
-        /// NOT string literals in assembly_valheim (they're Unity asset references), so they
-        /// can't be read offline - but ZoneSystem.m_locations is public and populated on clients
-        /// too, and it also picks up locations added by other mods.
+        /// Authoritative source for the subtype tables: location prefab names are Unity asset
+        /// references, not string literals in assembly_valheim, so they cannot be read offline.
+        /// ZoneSystem.m_locations is public, populated on clients too, and includes locations
+        /// added by other mods.
         public static void DumpLocations(Terminal.ConsoleEventArgs args)
         {
             ZoneSystem zs = ZoneSystem.instance;
@@ -142,9 +139,8 @@ namespace CarturMapPins
                     continue;
                 string name = !string.IsNullOrEmpty(zl.m_prefabName) ? zl.m_prefabName : "(unnamed)";
                 string flags = zl.m_iconAlways ? " iconAlways" : (zl.m_iconPlaced ? " iconPlaced" : "");
-                // The game's own name for the place, which a prefab name only hints at: a location
-                // called MorkBorg or FimbulLocation01 says nothing about what a player would call
-                // it, and matching artwork to places needs the player's name for them.
+                // The game's own name for the place. A prefab name like MorkBorg or FimbulLocation01
+                // does not say what a player calls it, and matching artwork needs that.
                 string named = !string.IsNullOrEmpty(zl.m_name) ? $" name=\"{Labels.Localize(zl.m_name)}\"" : "";
                 Emit(args, $"    {name}  biome={zl.m_biome} quantity={zl.m_quantity}{flags}{named}{Shape(zl)}");
             }
@@ -153,10 +149,9 @@ namespace CarturMapPins
         /// Every prefab the game registers, by name, with the components that decide whether this
         /// mod can pin it.
         ///
-        /// The catalog only reports what it accepted; this reports what exists. Without it,
-        /// "is there a maypole in the game, and what is it called" cannot be answered at all -
-        /// prefab names are Unity asset references, not strings in the assembly, so they cannot
-        /// be read offline. This is the list the icon sheet's names have to be matched against.
+        /// The catalog only reports what it accepted; this reports what exists. Prefab names are
+        /// Unity asset references, not strings in the assembly, so they cannot be read offline.
+        /// This is the list the icon sheet's names have to be matched against.
         public static void DumpAllPrefabs(Terminal.ConsoleEventArgs args)
         {
             ZNetScene scene = ZNetScene.instance;
@@ -204,13 +199,11 @@ namespace CarturMapPins
 
         /// Every field of every location definition, written out once.
         ///
-        /// The summary line above is chosen - biome, quantity, the two flags the classifier reads -
-        /// and every time a question came up that it didn't answer, adding the missing field cost a
-        /// relaunch. Nothing about these 232 definitions changes between sessions, so this writes
-        /// all of it down instead: the ZoneLocation's own fields and the Location component's,
-        /// read by reflection so a field added by a game update appears without being asked for.
-        ///
-        /// Once in the repo this is answerable offline forever, which is the whole point.
+        /// The summary line above is a chosen subset (biome, quantity, the two flags the classifier
+        /// reads), and each missing field cost a relaunch to add. The 232 definitions do not change
+        /// between sessions, so this writes all of it down once: the ZoneLocation's fields and the
+        /// Location component's, by reflection so a field added by a game update appears unasked.
+        /// Kept in the repo, it is answerable offline.
         public static void DumpLocationsFull(Terminal.ConsoleEventArgs args)
         {
             ZoneSystem zs = ZoneSystem.instance;
@@ -300,12 +293,11 @@ namespace CarturMapPins
 
         /// The two fields TryClassifyLocation branches on, read off the location prefab itself.
         /// Without them the dump cannot tell a location nobody pins from one pinned on the generic
-        /// category icon, which is the whole question when deciding what deserves a subtype.
+        /// category icon.
         ///
-        /// ZoneLocation.m_prefab is a SoftReference, and its Asset getter throws until the prefab
-        /// is loaded - so this is the sequence ZoneSystem.SpawnLocation itself uses: Load, read,
-        /// Release. A location already held by the world stays held; only ones this loads are
-        /// released again.
+        /// ZoneLocation.m_prefab is a SoftReference whose Asset getter throws until the prefab is
+        /// loaded, so this uses the sequence ZoneSystem.SpawnLocation uses: Load, read, Release.
+        /// A location already held by the world stays held; only ones this loads are released.
         private static string Shape(ZoneSystem.ZoneLocation zl)
         {
             if (!zl.m_prefab.IsValid)
@@ -315,8 +307,7 @@ namespace CarturMapPins
             if (!alreadyLoaded)
             {
                 SoftReferenceableAssets.LoadResult result = zl.m_prefab.Load();
-                // Says which of "the bundle would not give it up" and "it has no Location on it"
-                // a blank answer is. Nineteen locations came back unreadable with no way to tell.
+                // Tells "the bundle would not give it up" from "it has no Location on it".
                 if (result != SoftReferenceableAssets.LoadResult.Succeeded)
                     return $" kind=? (load {result})";
             }
@@ -330,9 +321,8 @@ namespace CarturMapPins
                 if (loc == null)
                     return " kind=? (no Location component)";
 
-                // What the game prints when you walk into the place - "Winding Church" rather
-                // than "MorkBorg". The one field that can match the icon sheet's names to
-                // locations, and nothing has been reading it.
+                // What the game prints when you walk into the place, "Winding Church" rather than
+                // "MorkBorg". The one field that can match the icon sheet's names to locations.
                 string discover = !string.IsNullOrEmpty(loc.m_discoverLabel)
                     ? $" discover=\"{Labels.Localize(loc.m_discoverLabel)}\"" : "";
                 string gen = loc.m_generator != null ? $" generator={loc.m_generator.name}" : "";
@@ -351,10 +341,9 @@ namespace CarturMapPins
         /// What a location is built out of: the components the mod pins things by, counted on the
         /// prefab itself.
         ///
-        /// "Greydwarf_camp1 is surface, with no generator, and pins nothing" leaves the real
-        /// question open - whether anything inside it is pinned instead, or whether a Greydwarf
-        /// camp is invisible on the map entirely. That cannot be answered from the outside of the
-        /// prefab, and every unanswered question about a location costs a relaunch to ask.
+        /// "Greydwarf_camp1 is surface, with no generator, and pins nothing" leaves open whether
+        /// something inside it is pinned instead, or the camp is invisible on the map entirely.
+        /// That cannot be answered from outside the prefab.
         ///
         /// Inactive children are included: a location's spawners are frequently disabled until the
         /// location is placed.
@@ -398,18 +387,18 @@ namespace CarturMapPins
 
             string icon = subtype != null ? $"{category}:{subtype}" : $"{category}, category icon";
             string state = settings.Enabled.Value ? "on" : "OFF";
-            // Localized, because that is what the pin ends up carrying - a dump full of
-            // "$enemy_eikthyr" cannot be checked against what is actually on the map.
+            // Localized, because that is what the pin carries; "$enemy_eikthyr" cannot be checked
+            // against the map.
             return $"  -> {icon} [{state}] \"{Labels.Localize(label)}\"";
         }
 
         /// Lists the game's TMP font assets by exact name.
         ///
-        /// Unrelated to pinning, but there's nowhere else that can answer it: mods that take a
-        /// font name in config (e.g. Ammo Count's `AmmoTextFont`) match it exactly against
+        /// Unrelated to pinning, but nowhere else can answer it: mods that take a font name in
+        /// config (e.g. Ammo Count's `AmmoTextFont`) match it exactly against
         /// Resources.FindObjectsOfTypeAll&lt;TMP_FontAsset&gt;(), and a stale name silently yields a
-        /// null font - text renders as nothing while its icon still shows. The names can't be
-        /// read from the shipped tmp_fonts bundle because it's compressed.
+        /// null font, so text renders as nothing while its icon still shows. The names cannot be
+        /// read from the shipped tmp_fonts bundle because it is compressed.
         public static void DumpFonts(Terminal.ConsoleEventArgs args)
         {
             TMPro.TMP_FontAsset[] fonts = Resources.FindObjectsOfTypeAll<TMPro.TMP_FontAsset>();
@@ -421,9 +410,6 @@ namespace CarturMapPins
             }
         }
 
-        /// `args` is null when the probe runs itself on spawn rather than from a console
-        /// command - the log is the real output channel either way, which is what makes the
-        /// auto-probe usable without the game's console being enabled at all.
         /// Every catalogued prefab and the label it would actually get, resolved through the same
         /// code the pinning path uses. This is the coverage check: walking the whole world to see
         /// each label is not a test anyone runs, so ask the catalog instead.
@@ -466,9 +452,8 @@ namespace CarturMapPins
 
                     string flag = string.IsNullOrEmpty(label) || label == prefabName ? "   <-- UNCHANGED" : "";
 
-                    // Labels are stored as $tokens and localised when the pin is drawn, so the
-                    // raw value is not what anyone sees. Show both: the stored string, and what
-                    // it actually reads as on the map.
+                    // Labels are stored as $tokens and localised at draw, so show both the stored
+                    // string and what it reads as on the map.
                     string shown = label;
                     if (!string.IsNullOrEmpty(label) && label.Contains("$") && Localization.instance != null)
                         shown = Localization.instance.Localize(label);
@@ -482,10 +467,10 @@ namespace CarturMapPins
         /// Every registered spawner, with the creature prefab name it actually spawns and whether
         /// Subtypes.Spawners currently matches it.
         ///
-        /// This is the authoritative source for that table and there is no offline substitute:
-        /// creature prefab names are Unity asset references, not string literals, so the table
-        /// can only be written from a list the running game hands over. Anything reported NONE
-        /// here is a spawner showing the generic category icon.
+        /// Authoritative source for that table, with no offline substitute: creature prefab names
+        /// are Unity asset references, not string literals, so the table can only be written from
+        /// a list the running game hands over. Anything reported NONE is a spawner showing the
+        /// generic category icon.
         public static void DumpSpawners(Terminal.ConsoleEventArgs args)
         {
             ZNetScene scene = ZNetScene.instance;
@@ -545,17 +530,15 @@ namespace CarturMapPins
         /// Barley and flax each exist as two prefabs, plain and _Wild, and both are pinned. To
         /// keep a player's own field off the map the mod has to tell them apart, and the obvious
         /// test does not work: read off the DLL, Plant.Grow instantiates one of m_grownPrefabs,
-        /// sets its scale and destroys the sapling - it never writes a creator onto the grown
-        /// object's ZDO. So IsWild(zdo), which is what the bee hive and chest rules use, reports
-        /// a farmed crop as wild and would pass everything through.
+        /// sets its scale and destroys the sapling, and never writes a creator onto the grown
+        /// object's ZDO. So IsWild(zdo), which the bee hive and chest rules use, reports a farmed
+        /// crop as wild and would pass everything through.
         ///
-        /// That leaves the prefab as the only discriminator, and whether the _Wild suffix
-        /// actually carries it is prefab data - not in assembly_valheim, not readable offline.
-        /// This reads it off the live prefab list.
+        /// That leaves the prefab as the only discriminator, and whether the _Wild suffix carries
+        /// it is prefab data, not readable offline. This reads it off the live prefab list.
         ///
-        /// Every Plant is listed, not just the two asked about: the same question decides the
-        /// Crops group for carrot, turnip, onion and kale, and listing what is there beats
-        /// typing out names that a game update can move.
+        /// Every Plant is listed, not just the two: the same question decides the Crops group for
+        /// carrot, turnip, onion and kale, and a game update can move typed-out names.
         public static void DumpPlants(Terminal.ConsoleEventArgs args)
         {
             ZNetScene scene = ZNetScene.instance;
@@ -600,8 +583,8 @@ namespace CarturMapPins
                 Emit(args, "    no Plant prefabs in the scene list.");
         }
 
-        /// A prefab with what the catalog would do to it, so the answer above reads without
-        /// having to cross-reference carturpins_catalog by hand.
+        /// A prefab with what the catalog would do to it, so the dump above needs no cross-reference
+        /// against carturpins_catalog.
         private static string PinTag(GameObject prefab)
         {
             if (prefab == null)
@@ -617,6 +600,9 @@ namespace CarturMapPins
             return $"{prefab.name} [PINNED {category}{group}]";
         }
 
+        /// `args` is null when the probe runs itself on spawn rather than from a console command;
+        /// the log is the real output channel either way, so the auto-probe works without the
+        /// game's console enabled.
         private static void Emit(Terminal.ConsoleEventArgs args, string line)
         {
             Plugin.Log.LogInfo(line);
@@ -627,14 +613,10 @@ namespace CarturMapPins
 
         private static System.IO.StreamWriter _file;
 
-        /// Runs a set of dumps into their own file as well as the log.
-        ///
-        /// The BepInEx log is shared with every other mod, is rewritten each launch, and this mod
-        /// alone writes thousands of lines into it - so answering one question out of it means
-        /// running a command at exactly the right moment and reading fast. A file that holds only
-        /// the dump can be read whenever.
-        ///
-        /// Overwrites on each run: the interesting dump is always the current one.
+        /// Runs a set of dumps into their own file as well as the log. The BepInEx log is shared
+        /// with every other mod, rewritten each launch, and this mod alone writes thousands of
+        /// lines into it; a file holding only the dump can be read whenever. Overwrites on each
+        /// run, since the current dump is the interesting one.
         internal static void ToFile(string path, System.Action dumps)
         {
             try
@@ -645,8 +627,7 @@ namespace CarturMapPins
             }
             catch (System.Exception e)
             {
-                // Diagnostics must never be the reason a session dies. The dumps still went to the
-                // log, which is where they used to go anyway.
+                // Diagnostics must never be the reason a session dies. The dumps still went to the log.
                 Plugin.Log.LogWarning($"Could not write the dump file: {e.Message}");
             }
             finally

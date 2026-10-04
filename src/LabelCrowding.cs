@@ -7,17 +7,15 @@ namespace CarturMapPins
     /// Keeps the map readable where labels pile up, and gives every hidden one back under the
     /// cursor.
     ///
-    /// At the zoom you get from pressing M, a well-explored map is a wall of overlapping words -
-    /// COPPER over CRYPT, TROLL CAVE over CHEST. Two names on top of each other carry less than
-    /// either one alone, so the collision is resolved rather than drawn.
+    /// At the zoom you get from pressing M, a well-explored map is a wall of overlapping words
+    /// (COPPER over CRYPT, TROLL CAVE over CHEST). Two names on top of each other carry less than
+    /// either alone, so the collision is resolved rather than drawn.
     ///
-    /// Which one survives is decided by how common the name is on your map. CHEST appears forty
-    /// times and says little; CRYPT appears twice and says a lot. The rare name claims the space
-    /// and the common one steps aside - and since the icons are untouched, the chest is still
-    /// there to see.
+    /// The survivor is the rarer name on your map: CHEST appears forty times and says little,
+    /// CRYPT appears twice and says a lot. The icons are untouched, so the chest is still there.
     ///
-    /// Nothing is ever permanently unreadable: a pin under the cursor always shows its name, so
-    /// sweeping the mouse across a cluster reads it out.
+    /// A pin under the cursor always shows its name, so sweeping the mouse across a cluster
+    /// reads it out.
     internal static class LabelCrowding
     {
         /// How close the cursor has to be to a pin before its name is forced back on.
@@ -38,13 +36,10 @@ namespace CarturMapPins
         public static void Apply(List<Minimap.PinData> pins)
         {
             // Nothing is put back here, deliberately. UpdatePins writes every label visibility
-            // every pass - LargeZoom below m_showNamesZoom for the large map, off for everything
-            // else - so a label this pass wants shown is already shown by the time we run.
-            //
-            // Switching the previously-hidden ones back on was the bug behind labels crowding a
-            // zoomed-out map: this runs in a Postfix, so it overrode the decision vanilla had just
-            // made, and a label hidden once for a collision came back lit at every zoom, and on
-            // the small minimap too. Hiding is ours to do; showing is the game to do.
+            // every pass (LargeZoom below m_showNamesZoom for the large map, off for everything
+            // else), so a label wanted shown is already shown by the time we run. Re-showing from
+            // this Postfix would override that decision and light collided labels at every zoom,
+            // and on the small minimap. Hiding is ours to do; showing is the game's.
             Shown.Clear();
             Ordered.Clear();
             NameCounts.Clear();
@@ -55,11 +50,10 @@ namespace CarturMapPins
                 return;
             }
 
-            // Vanilla has this rule and it is dead on the live component: it hides names while
+            // Vanilla's rule is dead on the live component: it hides names while
             // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
-            // map allows is 1.0 - so the test is true at every zoom and no name is ever hidden by
-            // it. Measured, not assumed; the 0.5 in the assembly is only the field initializer.
-            // So the mod does it, or nobody does.
+            // map allows is 1.0, so the test is true at every zoom and no name is ever hidden by
+            // it. Measured at runtime; the 0.5 in the assembly is only the field initializer.
             float limit = Plugin.HideLabelsFromZoom.Value;
             if (limit < 100f && Crowding.ZoomOutPercent() > limit)
             {
@@ -67,8 +61,8 @@ namespace CarturMapPins
                 return;
             }
 
-            // Before the early return below: a pin that is not being drawn must not leave its
-            // name floating over the map, and that is true whatever the collision setting says.
+            // Before the early return below: a pin that is not drawn must not leave its name
+            // floating over the map, whatever the collision setting says.
             HideOutOfSight(pins);
 
             if (!Plugin.HideCollidingLabels.Value && !PinFilter.Active)
@@ -139,9 +133,9 @@ namespace CarturMapPins
             }
         }
 
-        /// Every label off, bar the one under the cursor. The exception is not a compromise on
-        /// the setting: a map of unlabelled icons cannot be read at all without some way to ask
-        /// what one of them is, and this is the same reveal the collision hiding already uses.
+        /// Every label off, bar the one under the cursor: a map of unlabelled icons cannot be read
+        /// without some way to ask what one is, and this is the same reveal the collision hiding
+        /// uses.
         private static void HideAll(List<Minimap.PinData> pins)
         {
             Vector2 cursor = CursorNear(pins);
@@ -161,8 +155,7 @@ namespace CarturMapPins
         }
 
         /// The cursor needs any one pin's icon to convert against, since they all share a parent.
-        /// A pin list with no drawn icons in it means the map is not showing anything, and the
-        /// off-screen answer hides everything, which is what was asked for anyway.
+        /// With no drawn icons the map shows nothing, and the off-screen answer reveals nothing.
         private static Vector2 CursorNear(List<Minimap.PinData> pins)
         {
             foreach (Minimap.PinData pin in pins)

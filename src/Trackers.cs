@@ -10,13 +10,11 @@ namespace CarturMapPins
     /// Pins that follow a thing instead of marking a place: your boat, your cart, the tames you
     /// named, and anything you can ride.
     ///
-    /// Everything else this mod pins is a fixed position written once and remembered forever, and
-    /// none of that machinery fits here. A moving pin must not go through PinRecord: that record
-    /// is the "already pinned, do not pin again" set, keyed on position, and a boat would write a
-    /// new entry every time it moved. So these pins are the mod's own, added with save:false,
-    /// rebuilt from scratch each session, and never handed to the dedupe path at all.
+    /// A moving pin must not go through PinRecord: that record is the "already pinned, do not pin
+    /// again" set, keyed on position, and a boat would write a new entry every time it moved. So
+    /// these pins are added with save:false, rebuilt each session, and never reach the dedupe path.
     ///
-    /// Read off the installed assembly_valheim rather than guessed:
+    /// Read off the installed assembly_valheim:
     ///  - Ship keeps a private static List&lt;Ship&gt; s_currentShips of every loaded boat.
     ///  - Vagon keeps a private static List&lt;Vagon&gt; m_instances, and its m_name is public. The
     ///    field initializer is the plain text "Wagon", not a token; whether the prefab overrides
@@ -26,10 +24,9 @@ namespace CarturMapPins
     ///  - Tameable.IsTamed(), GetText() (the player-given name, from ZDOVars.s_tamedName) and the
     ///    public m_saddle field are all the information needed to decide what is worth a pin.
     ///
-    /// The one real limitation, stated plainly: a client only holds ZDOs for zones near it, so a
-    /// boat moored across the ocean is not loaded and cannot be seen. That is why the last known
-    /// position is written to disk - the pin stays where you left the thing, and starts moving
-    /// again the moment you are close enough for the game to load it.
+    /// Limitation: a client only holds ZDOs for zones near it, so a boat moored across the ocean
+    /// is not loaded and cannot be seen. That is why the last known position is written to disk -
+    /// the pin stays where you left the thing, and starts moving again once the game loads it.
     internal static class Trackers
     {
         /// What kind of thing a tracked pin is following. Stored in the file, so the names matter.
@@ -39,9 +36,8 @@ namespace CarturMapPins
         {
             public Kind Kind;
 
-            /// Resolved once when the thing is first seen, and written to the file with it, so a
-            /// boat that is no longer loaded keeps the right icon instead of falling back to a
-            /// generic one the moment it leaves your zone.
+            /// Resolved when the thing is first seen and written to the file with it, so a boat that
+            /// is no longer loaded keeps its icon instead of falling back to a generic one.
             public PinIcon Icon;
 
             public string Label;          // "$piece_cart", or the name the player typed
@@ -50,13 +46,13 @@ namespace CarturMapPins
             public bool SeenThisSession;
 
             /// The live object while its zone is loaded, so the pin can follow it every frame
-            /// without re-walking the instance lists. Null the moment it unloads, which is what
-            /// freezes the pin at the last place it was seen.
+            /// without re-walking the instance lists. Null once it unloads, which freezes the pin
+            /// at the last place it was seen.
             public Transform Live;
         }
 
-        /// Keyed by the object's ZDO id as text, which is stable across sessions and unique -
-        /// unlike a position, which is the whole problem with tracking something that moves.
+        /// Keyed by the object's ZDO id as text, which is stable across sessions and unique,
+        /// unlike a position.
         private static readonly Dictionary<string, Tracked> Entries =
             new Dictionary<string, Tracked>(StringComparer.Ordinal);
 
@@ -65,7 +61,7 @@ namespace CarturMapPins
         ///
         /// These arrays are the single source of both the default and the setting - Plugin binds
         /// one config entry per row - so a kind cannot exist in the matcher without a switch in
-        /// the menu, which is the same rule the subtype tables already follow.
+        /// the menu, same as the subtype tables.
         internal struct IconKind
         {
             public string Prefab;    // matched against the live object's prefab name
@@ -76,10 +72,9 @@ namespace CarturMapPins
         private static IconKind K(string prefab, string display, PinIcon icon) =>
             new IconKind { Prefab = prefab, Display = display, Default = icon };
 
-        /// The five ship prefabs the game actually ships, read from its own asset bundle (every
-        /// GameObject carrying a Ship component) rather than guessed. The Ashlands ship and the
-        /// trailership start on the longship glyph because there is no drawn art that tells them
-        /// apart - a shared icon beats a wrong one, and the setting lets anyone override it.
+        /// The five ship prefabs the game ships, read from its own asset bundle (every GameObject
+        /// carrying a Ship component). The Ashlands ship and the trailership start on the longship
+        /// glyph because there is no art that tells them apart - a shared icon beats a wrong one.
         internal static readonly IconKind[] BoatKinds =
         {
             K("Raft", "Raft", PinIcon.UtilRaft),
@@ -90,8 +85,8 @@ namespace CarturMapPins
         };
 
         /// The same for the prefabs that actually carry a Tameable component.
-        /// Lox uses spawner_lox because that icon is already a lox head portrait rather than a
-        /// den - the "spawner_" in its name is historical, not a description.
+        /// Lox uses spawner_lox because that icon is a lox head portrait, not a den; the
+        /// "spawner_" in its name is historical.
         internal static readonly IconKind[] TameKinds =
         {
             K("Boar", "Boar", PinIcon.CreatureBoar),
@@ -114,8 +109,8 @@ namespace CarturMapPins
         private static bool _dirty;
         private static float _timer;
 
-        /// How often to go looking for things that have appeared or vanished. The pins themselves
-        /// move every frame regardless - see Follow.
+        /// How often to look for things that have appeared or vanished. Pins move every frame
+        /// regardless - see Follow.
         private const float Interval = 0.5f;
 
         public static void Load(string configDir)
@@ -124,9 +119,8 @@ namespace CarturMapPins
             Unload();
         }
 
-        /// Dropped when a world is torn down, for the same reason PinRecord is: the next world
-        /// must not inherit this one's boats, and the pins themselves belong to a Minimap that no
-        /// longer exists.
+        /// Dropped when a world is torn down, like PinRecord: the next world must not inherit this
+        /// one's boats, and the pins belong to a Minimap that no longer exists.
         public static void Unload()
         {
             Entries.Clear();
@@ -151,12 +145,10 @@ namespace CarturMapPins
             if (!_loaded)
                 return;
 
-            // Two different jobs at two different rates, which is the whole shape of this method.
-            //
-            // Finding what exists means walking every loaded character and both instance lists,
-            // and nothing about that answer changes between frames - so it runs on a timer.
-            // Following something already found is one transform read per tracked object, and it
-            // has to happen every frame or a boat under sail visibly lags its own pin.
+            // Finding what exists walks every loaded character and both instance lists, and the
+            // answer does not change between frames, so it runs on a timer. Following something
+            // already found is one transform read per object and must run every frame, or a boat
+            // under sail visibly lags its own pin.
             _timer += dt;
             if (_timer >= Interval)
             {
@@ -183,10 +175,9 @@ namespace CarturMapPins
 
         /// Copies each live object's position onto its record, every frame.
         ///
-        /// Cheap by construction: no lookups, no GetComponent, just a transform read per tracked
-        /// thing, and there are only ever a handful of those. A Transform destroyed since the last
-        /// scan compares equal to null through Unity's operator, which is exactly the "it
-        /// unloaded" case - the record keeps its last position and the pin stops moving.
+        /// Just a transform read per tracked thing, and there are only a handful. A Transform
+        /// destroyed since the last scan compares equal to null through Unity's operator, which is
+        /// the "it unloaded" case - the record keeps its last position and the pin stops moving.
         private static void Follow()
         {
             foreach (Tracked t in Entries.Values)
@@ -196,8 +187,8 @@ namespace CarturMapPins
 
                 Vector3 pos = t.Live.position;
 
-                // The save file only cares about where it ended up, not every frame on the way,
-                // so the dirty flag keeps the coarse threshold while the pin gets the exact spot.
+                // The save file only needs where it ended up, so the dirty flag uses a coarse
+                // threshold while the pin gets the exact spot.
                 if ((t.Pos - pos).sqrMagnitude > 4f)
                     _dirty = true;
 
@@ -206,8 +197,8 @@ namespace CarturMapPins
         }
 
         /// Boats and carts are built pieces, and a piece's ZDO carries its builder's player id in
-        /// ZDOVars.s_creator, so "your boat" is the one whose creator is you. Without this every
-        /// loaded boat and cart in range - other players', or a world's - got a pin.
+        /// ZDOVars.s_creator, so "your boat" is the one whose creator is you. Otherwise every
+        /// loaded boat and cart in range, other players' included, would get a pin.
         private static bool IsMine(ZNetView nview)
         {
             Player player = Player.m_localPlayer;
@@ -222,12 +213,10 @@ namespace CarturMapPins
 
             // Ship.Instances, NOT Ship.s_currentShips.
             //
-            // s_currentShips looks like the obvious list and is the wrong one: it is Added in
-            // OnTriggerEnter and Removed in OnTriggerExit, so it holds only the boats the player
-            // is physically standing on - which is what GetLocalShip() returns the last element
-            // of. Tracking that would have pinned a boat only while you were aboard it, and
-            // dropped the pin the moment you stepped off, which is the exact opposite of the
-            // feature. Ship.Instances is filled in OnEnable and emptied in OnDisable, so it is
+            // s_currentShips is Added in OnTriggerEnter and Removed in OnTriggerExit, so it holds
+            // only the boats the player is physically standing on (GetLocalShip() returns its last
+            // element). Tracking that would pin a boat only while you are aboard, the opposite of
+            // the feature. Ship.Instances is filled in OnEnable and emptied in OnDisable, so it is
             // every loaded ship, and it is public so nothing here needs reflection.
             foreach (IMonoUpdater updater in Ship.Instances)
             {
@@ -264,9 +253,8 @@ namespace CarturMapPins
 
         /// A tame is worth a pin if you named it or you can ride it.
         ///
-        /// Not every tame: a boar pen holds dozens and pinning all of them would bury the map in
-        /// exactly the way the crowding work exists to prevent. Naming one is the player already
-        /// saying this one is not livestock, and a saddle says the same thing without the typing.
+        /// Not every tame: a boar pen holds dozens and pinning all of them would bury the map.
+        /// Naming one is the player saying it is not livestock, and a saddle says the same thing.
         private static void ScanTames()
         {
             if (!Plugin.TrackTames.Value)
@@ -287,9 +275,9 @@ namespace CarturMapPins
                     continue;
 
                 // A given name is plain text the player typed; the species name is a "$token".
-                // Both go through the same Localize on the way to the pin, which is safe either
-                // way - Localize only rewrites what follows a '$' and returns anything else
-                // untouched. Falling back to the species keeps a saddled but unnamed Lox readable.
+                // Both go through Localize on the way to the pin, which only rewrites what follows
+                // a '$' and returns anything else untouched. The species fallback keeps a saddled
+                // but unnamed Lox readable.
                 string label = !string.IsNullOrEmpty(given) ? given : c.m_name;
                 Note(Kind.Tame, Plugin.TrackedIconFor(Utils.GetPrefabName(c.gameObject), PinIcon.UtilStar),
                      c.GetComponent<ZNetView>(), c.transform, c.transform.position, label);
@@ -323,9 +311,9 @@ namespace CarturMapPins
 
         /// Forgets things that are genuinely gone rather than merely out of range.
         ///
-        /// Not loaded is not the same as destroyed - most of the map is not loaded at any moment.
-        /// The one case where absence is proof is standing where the thing should be and not
-        /// finding it, so that is the only case that removes an entry.
+        /// Not loaded is not destroyed - most of the map is not loaded at any moment. Absence is
+        /// proof only when standing where the thing should be and not finding it, so that is the
+        /// only case that removes an entry.
         private static void Sweep()
         {
             Vector3 here = Player.m_localPlayer.transform.position;
@@ -380,17 +368,14 @@ namespace CarturMapPins
 
                 if (t.Pin == null)
                 {
-                    // save:false is the whole reason this is safe to do every session: the pin
-                    // lives in memory only, so nothing here can ever grow somebody's save file.
+                    // save:false keeps the pin in memory only, so nothing here can grow the save file.
                     t.Pin = MinimapAccess.AddPinKeepFilter(map, t.Pos, IconFor(t), Labels.ForPin(t.Label), save: false);
                     moved = true;
                     continue;
                 }
 
-                // A pin carries its icon in its type, and that is fixed at AddPin. So changing a
-                // Boat/Tame/Cart icon in the settings did nothing to a pin already on the map -
-                // it kept the old picture until the world was reloaded. Re-add it instead, which
-                // is what every other icon setting in this mod effectively does on the next pin.
+                // A pin carries its icon in its type, fixed at AddPin, so a changed Boat/Tame/Cart
+                // icon setting only reaches a pin already on the map if it is re-added.
                 Minimap.PinType wanted = IconFor(t);
                 if (t.Pin.m_type != wanted)
                 {
@@ -400,9 +385,9 @@ namespace CarturMapPins
                     continue;
                 }
 
-                // Compared on the ground plane and with a metre of slack. A boat bobbing or a tame
-                // shuffling changes m_pos every frame, which set the update flag every frame and
-                // made the map rebuild all its pins every frame; height means nothing on a 2D map.
+                // Compared on the ground plane with a metre of slack. A boat bobbing or a tame
+                // shuffling changes m_pos every frame, which would set the update flag every frame
+                // and make the map rebuild all its pins; height means nothing on a 2D map.
                 float dx = t.Pin.m_pos.x - t.Pos.x;
                 float dz = t.Pin.m_pos.z - t.Pos.z;
                 if (dx * dx + dz * dz > 1f)
@@ -444,9 +429,8 @@ namespace CarturMapPins
                 RemovePin(t);
         }
 
-        /// Same key as PinRecord uses, for the same reason: one world and one character per file.
-        /// Two characters in one world do not share a boat pin, and two worlds must never share
-        /// anything at all.
+        /// Same key as PinRecord: one world and one character per file. Two characters in one
+        /// world do not share a boat pin, and two worlds must never share anything.
         private static void EnsureLoaded()
         {
             if (_loaded || string.IsNullOrEmpty(_configDir))
@@ -473,8 +457,8 @@ namespace CarturMapPins
             return s;
         }
 
-        /// "zdoid|kind|x|z|label" per line. Tab-free and one field order, so a line that has been
-        /// hand-edited into nonsense is skipped rather than throwing.
+        /// "zdoid|kind|icon|x|z|label" per line. A line hand-edited into nonsense is skipped
+        /// rather than throwing.
         private static void ReadFile()
         {
             if (!File.Exists(_path))

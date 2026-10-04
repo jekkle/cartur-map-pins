@@ -8,15 +8,14 @@ namespace CarturMapPins
 {
     /// Side-car record of every pin this mod created, kept beside the config.
     ///
-    /// It serves two purposes: it's the dedupe set (so re-approaching a deposit across sessions
-    /// doesn't stack a second pin), and it's what the cleanup command uses to know which pins are
-    /// ours.
+    /// It is the dedupe set (so re-approaching a deposit across sessions doesn't stack a second
+    /// pin), and what the cleanup command uses to know which pins are ours.
     ///
-    /// Note on why the record exists at all rather than tagging the pins themselves: the obvious
-    /// tag would be PinData.m_ownerID, since it's one of the few fields Valheim persists. It must
-    /// NOT be used - Minimap's pin render loop skips any pin whose m_ownerID != 0 unless
-    /// shared-map fade is active, so tagged pins would be silently invisible while still piling up
-    /// in the save file. m_author is similarly load-bearing.
+    /// Why a record rather than tagging the pins themselves: the obvious tag would be
+    /// PinData.m_ownerID, one of the few fields Valheim persists. It must NOT be used -
+    /// Minimap's pin render loop skips any pin whose m_ownerID != 0 unless shared-map fade is
+    /// active, so tagged pins would be silently invisible while still piling up in the save file.
+    /// m_author is similarly load-bearing.
     internal static class PinRecord
     {
         /// Key is "Category" or "Category:Subtype" (e.g. "Ore:Copper"). Keying dedupe on the
@@ -28,12 +27,12 @@ namespace CarturMapPins
             public Vector3 Pos;
 
             /// The label before Localize ran on it - "$enemy_boar Spawner", "Copper". Kept so the
-            /// pin can be re-worded when the player changes the game's language, which the
-            /// localized text alone cannot be: "Eber" says nothing about which token produced it.
+            /// pin can be re-worded when the language changes; the localized text alone cannot do
+            /// that, since "Eber" says nothing about which token produced it.
             public string Source;
 
             /// The exact text this mod last put on the pin. A pin that no longer reads this way
-            /// was renamed by hand, and a rename outranks a translation - this is the only thing
+            /// was renamed by hand, and a rename outranks a translation; this is the only thing
             /// that tells the two apart.
             public string Written;
         }
@@ -64,9 +63,8 @@ namespace CarturMapPins
 
         /// Forgets the loaded record, so the next use resolves the file again.
         ///
-        /// Called when a world is torn down. Without it, walking out to the menu and into a second
-        /// world would keep the first world's records in memory and then write them over the
-        /// second world's file.
+        /// Called when a world is torn down. Without it, a second world entered from the menu
+        /// would keep the first world's records in memory and write them over its own file.
         public static void Unload()
         {
             Entries.Clear();
@@ -85,15 +83,14 @@ namespace CarturMapPins
 
         /// One record file per world per character.
         ///
-        /// There used to be one file for everything, read once at plugin load. The record is the
-        /// dedupe set - "we already pinned this" - so a second character entering a world the
-        /// first had explored was told every deposit in it was already pinned, and pinned nothing,
-        /// on a map that was empty. Same for a second world: one file, every world's positions in
-        /// it, each one suppressing pins somewhere else.
+        /// Per character because the record is the dedupe set ("we already pinned this"): a shared
+        /// file told a second character entering an explored world that every deposit was already
+        /// pinned, so it pinned nothing on an empty map. Same for a second world, whose positions
+        /// would suppress pins somewhere else.
         ///
-        /// Resolved lazily rather than at load because neither key exists at plugin load. Both are
-        /// read from the game, not guessed: ZNet.World is a public static property and World.m_uid
-        /// is the world's own unique id (the name alone is not unique - two worlds can share one).
+        /// Resolved lazily because neither key exists at plugin load. Both are read from the game,
+        /// not guessed: ZNet.World is a public static property and World.m_uid is the world's own
+        /// unique id (the name alone is not unique, two worlds can share one).
         /// PlayerProfile.m_filename is the character's save file name, so it is unique per
         /// character and already safe to put in a path.
         ///
@@ -121,10 +118,9 @@ namespace CarturMapPins
         /// Hands the old single shared record to the first world and character that asks for one,
         /// once.
         ///
-        /// That file was written by somebody playing somewhere, and throwing it away would make
-        /// them rediscover a map they had already filled in. Handing it to everybody would keep
-        /// the bug this fix exists to remove, so a marker file beside it says it has been claimed.
-        /// The old file is left exactly where it is - nothing is renamed and nothing is deleted.
+        /// Throwing that file away would make somebody rediscover a map they had already filled
+        /// in. Handing it to everybody would keep the shared-file bug, so a marker file beside it
+        /// says it has been claimed. The old file is left where it is, never renamed or deleted.
         private static void AdoptSharedRecord()
         {
             if (File.Exists(_path))
@@ -172,9 +168,8 @@ namespace CarturMapPins
                 foreach (string line in File.ReadAllLines(_path))
                 {
                     // key|x|y|z|source|written   (key is "Ore:Copper", "Dungeon", ...)
-                    // Lines written before 1.3.7 carry only the first four fields. They stay
-                    // valid and simply never re-word: the source label they were built from was
-                    // never recorded, so there is nothing to translate them from.
+                    // Lines written before 1.3.7 carry only the first four fields. They stay valid
+                    // and never re-word: their source label was never recorded.
                     string[] parts = line.Split('|');
 
                     if (parts.Length != 4 && parts.Length != 6)
@@ -210,9 +205,9 @@ namespace CarturMapPins
         {
             EnsureLoaded();
             // Records written before subtypes existed use the bare category ("Ore", "Pickable")
-            // where we now write "Ore:Copper". The ore type can't be recovered from them, but a
-            // legacy entry still means "we pinned something of this category here", so it counts
-            // as a match - otherwise every previously-pinned node would pin a second time.
+            // where we now write "Ore:Copper". The type can't be recovered, but a legacy entry
+            // still means "we pinned something of this category here", so it counts as a match;
+            // otherwise every previously-pinned node would pin a second time.
             string legacyKey = null;
             int colon = key.IndexOf(':');
             if (colon > 0)
@@ -234,19 +229,18 @@ namespace CarturMapPins
 
         /// `source` is the label before Localize, `written` the text actually put on the pin.
         /// Both null for a pin that was already on the map when we adopted it: we did not write
-        /// its name, so there is no way to know whether the player has since edited it, and
-        /// re-wording it on a language change would be overwriting something we never owned.
+        /// its name, so we cannot know whether the player edited it, and re-wording it on a
+        /// language change would overwrite something we never owned.
         public static void Add(string key, Vector3 pos, string source = null, string written = null)
         {
             EnsureLoaded();
-            // No file resolved yet means no world or no character, which means nothing placed a
-            // pin either. Appending now would only be thrown away when the real record loads.
+            // No file resolved yet means no world or character, so nothing placed a pin either;
+            // appending now would be thrown away when the real record loads.
             if (!_loaded)
                 return;
             Entries.Add(new Entry { Key = key, Pos = pos, Source = source, Written = written });
-            // Marked dirty rather than written immediately: walking into a dense area can place
-            // pins several times a second, and rewriting the whole file per pin is needless disk
-            // churn. Flush() is called from the throttled tick.
+            // Dirty rather than written at once: a dense area can place pins several times a
+            // second. Flush() is called from the throttled tick.
             _dirty = true;
         }
 
@@ -254,11 +248,10 @@ namespace CarturMapPins
         /// the world is close enough to say what the thing actually is, and repoints its pin to
         /// the matching icon.
         ///
-        /// Records written before subtypes existed carry only the category, so the upgrade
-        /// migration could restore no more than the generic category icon - a boar spawner and a
-        /// draugr pile both ended up on the summoning-circle glyph. The missing information is
-        /// not recoverable from the record at any time; it exists only while the spawner itself is
-        /// loaded, which is exactly when this runs.
+        /// Records written before subtypes existed carry only the category, so a boar spawner and
+        /// a draugr pile both ended up on the summoning-circle glyph. The missing information is
+        /// not in the record; it exists only while the spawner itself is loaded, which is exactly
+        /// when this runs.
         ///
         /// Only the icon is touched, never the name: a pin can be renamed by hand, and there is
         /// no way to tell a renamed pin from one still carrying our label.
@@ -309,9 +302,9 @@ namespace CarturMapPins
         }
 
         /// Drops records whose pin is no longer on the map, making those objects eligible to pin
-        /// again. Deliberately manual: a missing pin means either the pin was lost before the
-        /// character was saved, or the player deleted it on purpose, and nothing distinguishes
-        /// the two - so resurrecting pins is never done to somebody's map without them asking.
+        /// again. Deliberately manual: a missing pin was either lost before the character was
+        /// saved or deleted on purpose, nothing distinguishes the two, and pins are never
+        /// resurrected on somebody's map unasked.
         public static int ForgetMissing()
         {
             EnsureLoaded();
@@ -328,7 +321,7 @@ namespace CarturMapPins
         }
 
         /// Ticks or unticks our pin of this category near a position, and says whether anything
-        /// changed - so the caller can log the moment rather than every time it looks.
+        /// changed, so the caller can log the moment rather than every time it looks.
         ///
         /// m_checked is vanilla's own greyed-out state, saved with the map and set by clicking a
         /// pin, so a dungeon the mod ticks looks exactly like one you ticked yourself.
@@ -371,13 +364,13 @@ namespace CarturMapPins
 
         /// Resolves the "$token" names left on pins by versions that wrote them raw.
         ///
-        /// The map draws a pin's name exactly as stored, so those pins have been reading
-        /// "$piece_chestwood" on the map itself, not only in the editor. Localize turns that into
-        /// "Wood chest" in whatever language the player runs.
+        /// The map draws a pin's name exactly as stored, so those pins read "$piece_chestwood" on
+        /// the map itself, not only in the editor. Localize turns that into "Wood chest" in the
+        /// player's language.
         ///
-        /// Safe to run unasked, and safe to run on pins the mod did not place: a name containing a
-        /// dollar sign is an unresolved token, and nobody types one. A name that Localize does not
-        /// change is left exactly as it was.
+        /// Safe to run unasked, and on pins the mod did not place: a name containing a dollar sign
+        /// is an unresolved token, and nobody types one. A name Localize does not change is left
+        /// as it was.
         public static int LocalizeNames()
         {
             EnsureLoaded();
@@ -413,8 +406,7 @@ namespace CarturMapPins
         ///
         /// Narrower than RepointAllToCurrent on purpose, and safe to run unasked at every login:
         /// it only touches a pin whose icon is exactly the category default, so an icon somebody
-        /// chose by hand is never overwritten. A pin recorded as "Ore:Copper" but still drawing
-        /// the generic ore lump is one the mod could always have drawn better and never did.
+        /// chose by hand is never overwritten.
         ///
         /// It is also what makes ore colouring reach old pins: the colour is keyed by the pin type
         /// that carries each ore's icon, so a pin on the generic icon has no ore colour to find.
@@ -461,9 +453,9 @@ namespace CarturMapPins
         /// Sets every pin we placed to the icon its category and kind say today.
         ///
         /// Unlike MigrateIcons this asks no questions: it does not care what a pin is currently
-        /// wearing, so it also repairs pins left on a number whose meaning moved - which is what
-        /// happens to anyone who ran a build from between two icon sheets. It is also the honest
-        /// answer to "I changed the icon settings and want my existing pins to match".
+        /// wearing, so it also repairs pins left on a number whose meaning moved (anyone who ran a
+        /// build from between two icon sheets), and answers "I changed the icon settings and want
+        /// my existing pins to match".
         ///
         /// Only pins in the record, so hand-placed ones keep whatever they were given.
         public static int RepointAllToCurrent()
@@ -502,18 +494,17 @@ namespace CarturMapPins
             return changed;
         }
 
-        /// What the mod last worked out each kind's icon should be. The baseline an icon change
-        /// is measured against: without it there is no way to tell a pin still carrying the old
-        /// default - which should follow the change - from one somebody picked by hand, which
-        /// should not. SettingChanged fires after the write, so the old value is already gone by
-        /// the time anyone could ask for it.
+        /// What the mod last worked out each kind's icon should be: the baseline an icon change is
+        /// measured against. Without it there is no telling a pin still carrying the old default
+        /// (which should follow the change) from one picked by hand (which should not).
+        /// SettingChanged fires after the write, so the old value is already gone.
         private static readonly Dictionary<string, Minimap.PinType> LastWanted =
             new Dictionary<string, Minimap.PinType>(StringComparer.Ordinal);
 
         /// Records what every kind's icon currently resolves to, changing nothing.
         ///
-        /// Run once when the map first comes up, so the first real icon change has something to
-        /// compare against. Without it the first change would see every pin as hand-picked.
+        /// Run once when the map first comes up; without it the first icon change would see every
+        /// pin as hand-picked.
         public static void PrimeIconBaseline()
         {
             EnsureLoaded();
@@ -534,8 +525,7 @@ namespace CarturMapPins
         ///
         /// Only the ones still carrying what the mod itself last gave them. A pin whose icon was
         /// chosen by hand through the map's own picker is left alone and counted into
-        /// `handPicked`, so the caller can ask about those and only those - there is no sense
-        /// interrupting somebody to confirm a change nobody could disagree with.
+        /// `handPicked`, so the caller can ask about those and only those.
         ///
         /// Kinds whose icon did not change are skipped outright, so this stays cheap when one
         /// setting moved out of two hundred.
@@ -550,9 +540,9 @@ namespace CarturMapPins
 
             int changed = 0;
 
-            // LastWanted is read from a snapshot and only written after the loop. Writing it on a
-            // key's first entry made every later entry with that key see before == wanted and
-            // skip, so an icon change repointed only the first pin of each kind.
+            // LastWanted is read from a snapshot and only written after the loop: writing it on a
+            // key's first entry would make every later entry with that key see before == wanted
+            // and skip, repointing only the first pin of each kind.
             Dictionary<string, Minimap.PinType> snapshot = new Dictionary<string, Minimap.PinType>(LastWanted);
             Dictionary<string, Minimap.PinType> updated = new Dictionary<string, Minimap.PinType>();
 
@@ -644,8 +634,8 @@ namespace CarturMapPins
             return settings != null;
         }
 
-        /// Where every recorded pin of a category sits. Copied into a list rather than yielded,
-        /// because the caller removes entries as it goes.
+        /// Where every recorded pin of a category sits. Copied into a list because the caller
+        /// removes entries as it goes.
         public static List<Vector3> PositionsOf(PinCategory category)
         {
             EnsureLoaded();
@@ -659,24 +649,12 @@ namespace CarturMapPins
             return found;
         }
 
-        /// Position and subtype of every record in this category.
-        ///
-        /// The mined-ore sweep needs both. Its radius covers whatever else is standing nearby and
-        /// not only the ore it is asking about, so a position alone lets a live tin node vouch for
-        /// a mined-out copper pin, and lets the copper pin's removal take the tin pin with it.
-        /// Every recorded pin as position -> the language-independent text that says what it is.
-        ///
-        /// The key ("Ore:Copper") and the source - the label before Localize ran - joined and
-        /// lower-cased, with the colon opened out so "copper ore" reads as two words like anything
-        /// else. Both halves are internal English, which is the whole point: the hide list matches
-        /// these instead of the drawn name, so it keeps working when the game language changes.
         /// The name each recorded pin was last written with, for the hide list to offer.
         ///
         /// Read from the record rather than only from Minimap.m_pins, because the record is the
-        /// one source that is definitely complete: it is a file on disk holding every pin this
-        /// mod placed, whereas the live list is reached by reflection and holds whatever the map
-        /// happens to have loaded. A list of names that is missing the name you want is worse
-        /// than no list.
+        /// one source that is definitely complete: a file on disk holding every pin this mod
+        /// placed, where the live list is reached by reflection and holds whatever the map has
+        /// loaded. A list missing the name you want is worse than no list.
         ///
         /// Written first, Source second. Written is the exact text last put on the pin, which is
         /// what the player reads; Source is the untranslated token behind it, which is all there
@@ -696,6 +674,12 @@ namespace CarturMapPins
             return result;
         }
 
+        /// Every recorded pin as position -> the language-independent text that says what it is.
+        ///
+        /// The key ("Ore:Copper") and the source (the label before Localize ran) joined and
+        /// lower-cased, with the colon opened out so "copper ore" reads as two words like anything
+        /// else. Both halves are internal English: the hide list matches these instead of the
+        /// drawn name, so it keeps working when the game language changes.
         public static List<KeyValuePair<Vector3, string>> AllIdentities()
         {
             EnsureLoaded();
@@ -717,6 +701,11 @@ namespace CarturMapPins
             return result;
         }
 
+        /// Position and subtype of every record in this category.
+        ///
+        /// The mined-ore sweep needs both. Its radius covers whatever else is standing nearby and
+        /// not only the ore it is asking about, so a position alone lets a live tin node vouch for
+        /// a mined-out copper pin, and lets the copper pin's removal take the tin pin with it.
         public static List<KeyValuePair<Vector3, string>> RecordsOf(PinCategory category)
         {
             EnsureLoaded();
@@ -736,18 +725,17 @@ namespace CarturMapPins
         /// Removes our pin of this category near a position, and the record with it.
         ///
         /// Only ever called for something the world says is gone. The pin is matched the same way
-        /// the migration matches: by position, and only pins the game saved - so a hand-placed pin
-        /// sitting on top of a mined-out deposit is left alone unless it is the one we recorded.
+        /// the migration matches: by position, and only pins the game saved, so a hand-placed pin
+        /// on top of a mined-out deposit is left alone unless it is the one we recorded.
         ///
         /// `subtype` narrows it to one kind within the category, and the mined-ore sweep must pass
-        /// it. The radius is a category radius - 15 metres for ore - and two deposits of different
-        /// ores standing that close are two separate pins, because dedupe only ever merges a pin
-        /// with its own kind. Without this the first ore record inside the radius was taken, which
-        /// on a copper node beside a tin one removed whichever pin came first in the file: mine one
-        /// deposit and its untouched neighbour loses its pin.
+        /// it. The radius is a category radius (15 metres for ore), and two deposits of different
+        /// ores that close are two separate pins, because dedupe only merges a pin with its own
+        /// kind. Without it the first ore record inside the radius was taken, so mining a copper
+        /// node beside a tin one could remove the untouched neighbour's pin.
         ///
-        /// Null accepts any subtype, which is what a record written before subtypes were recorded
-        /// has, and what every other caller wants.
+        /// Null accepts any subtype, which is what a record written before subtypes has, and what
+        /// every other caller wants.
         public static bool Forget(PinCategory category, Vector3 pos, float radius, string subtype = null)
         {
             EnsureLoaded();
@@ -774,11 +762,9 @@ namespace CarturMapPins
                 if (d.x * d.x + d.z * d.z > sqr)
                     continue;
 
-                // No pin here means the record is stale: the pin was deleted or moved by hand, or
-                // the map was reset. (Records are per world and character, so it is not another
-                // world's.) Nothing to remove, so nothing is removed.
-                // Skipped, not given up on. Returning here meant the first record in radius with
-                // no pin ended the search, so a single stale entry hid every good one behind it.
+                // No pin here means the record is stale (the pin was deleted or moved by hand, or
+                // the map was reset), so there is nothing to remove. Skipped, not given up on:
+                // returning here would let a single stale entry hide every good one behind it.
                 Minimap.PinData pin = FindPinAt(map, Entries[i].Pos, Entries[i].Key);
                 if (pin == null)
                     continue;
@@ -793,9 +779,9 @@ namespace CarturMapPins
             return false;
         }
 
-        /// The subtype recorded for a pin of this category near a position, or null when the record
-        /// there is a bare category with no subtype. Lets the looted-chest sweep tell a chest that
-        /// is standing in for a ruin from an ordinary one.
+        /// The subtype recorded for a pin of this category near a position, or null when the
+        /// record there is a bare category with no subtype. Lets the looted-chest sweep tell a
+        /// chest standing in for a ruin from an ordinary one.
         public static string SubtypeNear(PinCategory category, Vector3 pos, float radius)
         {
             EnsureLoaded();
@@ -867,10 +853,10 @@ namespace CarturMapPins
             return removed;
         }
 
-        /// Repairs spawner labels written by an older version, once, on the pins already sitting in
-        /// the player's save. Those used to be named after the creature alone ("Skeleton") or after
-        /// the spawner's tuning ("Skeleton Night Noarcher"), both of which read like the creature
-        /// was standing there rather than spawning from there.
+        /// Repairs spawner labels written by an older version, on the pins already in the
+        /// player's save. Those were named after the creature alone ("Skeleton") or the spawner's
+        /// tuning ("Skeleton Night Noarcher"), which read like the creature was standing there
+        /// rather than spawning from there.
         ///
         /// The prefab is gone by the time a pin comes back from the save, but the old label still
         /// carries the creature's name, so the same word filtering that builds a new label repairs
@@ -878,7 +864,7 @@ namespace CarturMapPins
         ///
         /// Only Spawner entries are considered, and that restriction is the whole safety of this:
         /// run over an Ore pin it would turn "Copper" into "Copper Spawner". Hand-placed pins are
-        /// never touched - they aren't in the record.
+        /// never touched, they aren't in the record.
         public static int RelabelSpawners()
         {
             EnsureLoaded();
@@ -900,10 +886,10 @@ namespace CarturMapPins
                 // CleanSpawnerLabel appends " Spawner" to any name that does not already end in a
                 // place word. FindPinAt returns whatever saved pin sits within half a metre of the
                 // record, so a pin the player renamed ("Camp", a portal) was taken for the
-                // spawner's own and became "Camp Spawner". Written is exactly what this mod last put
-                // on the pin: if the pin no longer reads that, a person changed it and it stays
-                // theirs, the same test Relabel uses. Records from before Written existed have
-                // none and are still repaired, which is what this method is for.
+                // spawner's own and became "Camp Spawner". Written is exactly what this mod last
+                // put on the pin: if the pin no longer reads that, a person changed it and it stays
+                // theirs, the same test Relabel uses. Records from before Written existed have none
+                // and are still repaired.
                 if (!string.IsNullOrEmpty(e.Written) && pin.m_name != e.Written)
                     continue;
 
@@ -923,15 +909,14 @@ namespace CarturMapPins
 
         /// What 1.2.2 wrote into saved pins, by category and by dungeon/camp/pickable subtype.
         ///
-        /// FROZEN HISTORICAL DATA - do not update these to follow the current defaults. They are
-        /// what makes the migration below able to tell "this pin still carries the old sheet's
-        /// icon" from "the player chose this". Changing a value here would make the migration
-        /// either miss pins or overwrite deliberate choices.
+        /// FROZEN HISTORICAL DATA - do not update these to follow the current defaults. They let
+        /// the migration below tell "this pin still carries the old sheet's icon" from "the player
+        /// chose this"; changing a value would make it miss pins or overwrite deliberate choices.
         ///
         /// Categories whose 1.2.2 icon was -1 (BossAltar, Runestone) are deliberately absent:
         /// they resolved to a vanilla PinType, which the sheet swap never touched.
-        /// Tomb and Dvergr Tower are 1.2.2 subtypes the current table no longer has - their pins
-        /// still need migrating, and they correctly land on the category icon.
+        /// Tomb and Dvergr Tower are 1.2.2 subtypes the current table no longer has; their pins
+        /// still need migrating, and correctly land on the category icon.
         private static readonly Dictionary<string, int> LegacyCategoryIcon = new Dictionary<string, int>
         {
             { "Ore", 47 }, { "Dungeon", 22 }, { "Camp", 34 }, { "Beehive", 6 },
@@ -973,24 +958,23 @@ namespace CarturMapPins
             return LegacyCategoryIcon.TryGetValue(categoryName, out int byCategory) ? byCategory : -1;
         }
 
-        /// 1.2.2's looted-chest icon. A chest pin can be sitting on either this or the normal
-        /// chest icon, and which one it is says whether the chest was empty - information the
-        /// record itself does not carry.
+        /// 1.2.2's looted-chest icon. A chest pin sits on either this or the normal chest icon,
+        /// and which one says whether the chest was empty, which the record does not carry.
         private const int LegacyLootedChestIcon = 51;
 
         /// Repoints pins placed by 1.2.2 at the icons they mean under the current sheet.
         ///
         /// The sheet was replaced wholesale, so an index that meant "pickaxe" now means
-        /// "shipwreck" - every pin 1.2.2 saved would otherwise show unrelated artwork.
+        /// "shipwreck"; every pin 1.2.2 saved would otherwise show unrelated artwork.
         ///
         /// Self-limiting rather than version-stamped: a pin is only rewritten when it still
         /// carries exactly the icon 1.2.2 would have given it. That makes this idempotent (after
-        /// the rewrite it no longer matches), safe across multiple worlds sharing one record
-        /// (a config stamp would mark the first world done and leave the rest broken), and
-        /// incapable of overwriting an icon the player picked themselves.
+        /// the rewrite it no longer matches), safe across multiple worlds sharing one record (a
+        /// config stamp would mark the first world done and leave the rest broken), and
+        /// incapable of overwriting an icon the player picked.
         ///
-        /// Hand-placed pins are never touched: they aren't in the record. They are only counted,
-        /// because their artwork has shifted too and there is no way to recover what was meant.
+        /// Hand-placed pins are never touched, they aren't in the record. They are only counted,
+        /// because their artwork has shifted too and what was meant cannot be recovered.
         public static int MigrateIcons()
         {
             EnsureLoaded();
@@ -1047,9 +1031,6 @@ namespace CarturMapPins
                 if (wanted == pin.m_type)
                     continue;
 
-                // Replaced rather than mutated: a pin's sprite is resolved once when it is
-                // created and the field that forces a UI rebuild is private - the same reason
-                // the looted-chest sweep re-adds instead of writing m_type.
                 if (!Repoint(map, pin, wanted))
                     continue;
                 migrated++;
@@ -1083,15 +1064,13 @@ namespace CarturMapPins
 
         /// Changes a pin's icon without removing it.
         ///
-        /// The obvious approach - RemovePin then AddPin - is what the looted-chest sweep used to
-        /// do, on the reasoning that a pin's sprite is resolved once at creation and the rebuild
-        /// flag is private. Both halves of that are true and the conclusion still doesn't follow:
-        /// AddPin resolves GetSprite into PinData.m_icon, and m_type, m_icon and m_iconElement are
-        /// all public, so the cached sprite can simply be replaced in place.
+        /// RemovePin then AddPin is not needed: a pin's sprite is resolved once at creation, but
+        /// AddPin puts it in PinData.m_icon, and m_type, m_icon and m_iconElement are all public,
+        /// so the cached sprite can be replaced in place.
         ///
         /// That matters for other people's saves. PinData carries sixteen fields; re-adding
-        /// carries five of them across and invents defaults for the rest - m_ownerID and m_author
-        /// among them, and m_ownerID is load-bearing, since the render loop hides any pin whose
+        /// carries five of them across and invents defaults for the rest, m_ownerID and m_author
+        /// among them, and m_ownerID is load-bearing since the render loop hides any pin whose
         /// owner is non-zero. Editing in place cannot lose a field nobody thought to copy, and
         /// there is no instant where the pin does not exist.
         ///
@@ -1110,7 +1089,7 @@ namespace CarturMapPins
             if (pin.m_iconElement != null)
                 pin.m_iconElement.sprite = sprite;
             // The looted-chest fade is painted by the UpdatePins postfix, which only runs when the
-            // map asks for it - without this a chest you just emptied shows the open icon at full
+            // map asks for it; without this a chest you just emptied shows the open icon at full
             // opacity until the map next moves. See MinimapAccess.RequestPinUpdate.
             MinimapAccess.RequestPinUpdate(map);
             return true;
@@ -1132,25 +1111,24 @@ namespace CarturMapPins
 
         /// Moves a record onto the pin it describes, when the two have come apart.
         ///
-        /// Records adopted from a pin already on the map used to store the position of the OBJECT
-        /// that was scanned rather than of the pin that was found, and those two are allowed to be
-        /// a whole dedupe radius apart - 15 metres for ore. Every operation here looks for a pin
-        /// within half a metre of the record, so a record off by more than that described a pin
-        /// nothing could ever find again: the mined-ore sweep looked, found nothing, and quietly
-        /// gave up, which is why pins stayed on worked-out deposits with nothing in the log.
+        /// Records adopted from a pin already on the map stored the position of the OBJECT that
+        /// was scanned rather than of the pin that was found, and those can be a whole dedupe
+        /// radius apart (15 metres for ore). Every operation here looks for a pin within half a
+        /// metre of the record, so a record off by more than that described a pin nothing could
+        /// find again: the mined-ore sweep found nothing and quietly gave up, leaving pins on
+        /// worked-out deposits with nothing in the log.
         ///
-        /// Placing records the pin's own position now, so this is a repair for maps that already
-        /// have the bad ones, not something that keeps happening.
+        /// Placing records the pin's own position now, so this only repairs maps that already
+        /// have the bad ones.
         ///
         /// A pin already sitting under another record is never taken: in a dense field the nearest
         /// pin to a drifted record is often its neighbour's, and stealing it would leave two
         /// records on one pin and another pin orphaned again.
         ///
-        /// Nor is a pin whose icon says it was never ours - see OursByIcon. This used to search on
-        /// distance alone, over a whole dedupe radius (15 metres for ore), so a drifted record
-        /// could adopt a pin the player had placed by hand. From that moment the record described
-        /// the player's pin, and both the mined-ore sweep and carturpins_clear delete whatever
-        /// stands at a record's position - so a repair pass silently destroyed hand-placed pins.
+        /// Nor is a pin whose icon says it was never ours (see OursByIcon). Searching on distance
+        /// alone let a drifted record adopt a hand-placed pin, and both the mined-ore sweep and
+        /// carturpins_clear delete whatever stands at a record's position, so a repair pass
+        /// silently destroyed hand-placed pins.
         public static int RepairPositions()
         {
             EnsureLoaded();
@@ -1250,10 +1228,10 @@ namespace CarturMapPins
             }
 
             // Ore is reported separately because it is the only category that removes its own
-            // pins, so it is the only one where a record being unusable is visible. Two different
-            // faults look identical from the map - a record that cannot find its pin, and a
-            // record whose deposit is gone but which still has a live node of its own ore inside
-            // the sweep's radius.
+            // pins, so the only one where an unusable record is visible. Two different faults
+            // look identical from the map: a record that cannot find its pin, and a record whose
+            // deposit is gone but which still has a live node of its own ore inside the sweep's
+            // radius.
             int oreTotal = 0, oreBlocked = 0, oreFar = 0;
             Player player = Player.m_localPlayer;
             Vector3 me = player != null ? player.transform.position : Vector3.zero;
@@ -1297,13 +1275,12 @@ namespace CarturMapPins
 
         /// A recorded pin this one is a second copy of.
         ///
-        /// The old duplicate bug put two pins on one deposit and recorded only one of them: the
-        /// second was placed by a run whose record file had been emptied. Forget then took the
-        /// recorded one and deleted the record, leaving the twin with nothing pointing at it - and
-        /// every sweep works from the record list, so nothing looks at it again. That is a pin
-        /// stuck on a worked-out deposit forever.
+        /// The old duplicate bug put two pins on one deposit and recorded only one: the second was
+        /// placed by a run whose record file had been emptied. Forget then took the recorded one
+        /// and deleted the record, leaving the twin with nothing pointing at it, and every sweep
+        /// works from the record list. That is a pin stuck on a worked-out deposit forever.
         ///
-        /// Same type AND same name AND close by. Type alone would catch a pin placed by hand that
+        /// Same type AND same name AND close by. Type alone would catch a hand-placed pin that
         /// happens to stand near one of ours; a duplicate carries the same label because the same
         /// code wrote it.
         private static Minimap.PinData TwinOf(List<Minimap.PinData> pins, Minimap.PinData orphan)
@@ -1331,9 +1308,9 @@ namespace CarturMapPins
         /// Removes pins the old duplicate bug left behind: a second copy of a recorded pin, with
         /// no record of its own, which nothing else can ever act on.
         ///
-        /// Never touches a pin that stands alone, and never the recorded one of a pair - so a pin
-        /// you placed by hand survives unless it is a same-name same-icon copy sitting on top of
-        /// one of ours, which is the thing being cleaned up.
+        /// Never touches a pin that stands alone, and never the recorded one of a pair, so a
+        /// hand-placed pin survives unless it is a same-name same-icon copy sitting on top of one
+        /// of ours, which is the thing being cleaned up.
         public static int RemoveOrphanTwins()
         {
             EnsureLoaded();
@@ -1367,7 +1344,7 @@ namespace CarturMapPins
 
         /// How far a record of this kind was ever allowed to drift from its pin, which is the
         /// category's own dedupe radius. Falls back to something generous when the category no
-        /// longer exists - a record from a version that had one this one does not.
+        /// longer exists (a record from a version that had one this one does not).
         private static float RadiusFor(string key)
         {
             int colon = key.IndexOf(':');
@@ -1382,18 +1359,17 @@ namespace CarturMapPins
         /// Whether a pin on the map could be the one a record with this key describes, judged by
         /// the only thing about a pin the player cannot edit: its icon.
         ///
-        /// Every other matcher in this mod asks this question - ExistsOnMap compares m_type,
-        /// TwinOf compares type and name - and RepairPositions did not, which is how it came to
-        /// adopt pins nobody here placed.
+        /// Every other matcher in this mod asks this question (ExistsOnMap compares m_type, TwinOf
+        /// compares type and name); RepairPositions did not, and adopted pins nobody here placed.
         ///
         /// Two icons are accepted rather than one: the icon this key resolves to today, and the
         /// category's own generic icon. A record written before its kind had artwork still sits on
-        /// a pin wearing the generic glyph - that is exactly the state AdoptSubtypeIcons exists to
-        /// repair - and demanding the kind's icon would refuse to repair the oldest records, which
-        /// are the ones most likely to have drifted in the first place.
+        /// a pin wearing the generic glyph (the state AdoptSubtypeIcons exists to repair), and
+        /// demanding the kind's icon would refuse to repair the oldest records, which are the
+        /// ones most likely to have drifted.
         ///
-        /// A key naming a category this version no longer has matches nothing, so nothing moves.
-        /// That is the safe answer: a record that cannot be read must not claim a pin.
+        /// A key naming a category this version no longer has matches nothing, so nothing moves:
+        /// a record that cannot be read must not claim a pin.
         private static bool OursByIcon(string key, Minimap.PinType type)
         {
             int colon = key.IndexOf(':');
@@ -1429,9 +1405,9 @@ namespace CarturMapPins
 
         /// The pins on the map that this mod placed.
         ///
-        /// Identified the same way everything else here identifies them - by matching a record's
-        /// position against the live pins - so there is one definition of "ours" and not a second
-        /// one that could disagree with RemoveAll or Forget.
+        /// Identified the same way everything else here identifies them, by matching a record's
+        /// position against the live pins, so there is one definition of "ours" that cannot
+        /// disagree with RemoveAll or Forget.
         public static HashSet<Minimap.PinData> OwnPins(Minimap map)
         {
             EnsureLoaded();
@@ -1449,9 +1425,9 @@ namespace CarturMapPins
         }
 
         /// Any saved pin within half a metre. With `ownKey`, only one carrying the icon that
-        /// record's kind could have given it - the callers that delete or claim a pin pass it, so
-        /// a hand-placed pin of another icon standing on a record is not taken for ours. (Callers
-        /// that repoint icons leave it off: a pin on a stale icon is exactly what they look for.)
+        /// record's kind could have given it: callers that delete or claim a pin pass it, so a
+        /// hand-placed pin of another icon standing on a record is not taken for ours. Callers
+        /// that repoint icons leave it off, since a pin on a stale icon is what they look for.
         private static Minimap.PinData FindPinAt(Minimap map, Vector3 pos, string ownKey = null)
         {
             List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
@@ -1480,9 +1456,9 @@ namespace CarturMapPins
         /// Re-words our pins into the language the game is currently set to.
         ///
         /// A pin's name is written into the character save as plain text, so a label localized
-        /// when the pin was placed stays in that language forever - switching the game to German
-        /// used to leave every pin already on the map in English. Re-deriving it needs the token
-        /// it came from, which is what Entry.Source is for.
+        /// when the pin was placed stays in that language, and switching the game to German would
+        /// leave every pin already on the map in English. Re-deriving it needs the token it came
+        /// from, which is what Entry.Source is for.
         ///
         /// Three things are deliberately left alone:
         ///   - a label with no '$' in it, because it was built from a prefab name and reads the
@@ -1514,9 +1490,9 @@ namespace CarturMapPins
                     continue;
 
                 pin.m_name = wanted;
-                // A label's text is written once, when its marker is built - see the comment on
-                // PinEditor.RefreshLabel. Without this the new wording sits in the save and on
-                // the map data while the map keeps drawing the old one until the world reloads.
+                // A label's text is written once, when its marker is built (see PinEditor.RefreshLabel).
+                // Without this the new wording sits in the map data while the map keeps drawing
+                // the old one until the world reloads.
                 PinEditor.RefreshLabel(pin);
                 Entries[i] = new Entry { Key = e.Key, Pos = e.Pos, Source = e.Source, Written = wanted };
                 changed++;

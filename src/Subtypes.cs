@@ -6,7 +6,7 @@ namespace CarturMapPins
     /// information you actually wanted on the map: a Burial Chamber vs a Frost Cave, copper vs
     /// tin, Haldor vs Hildir, a wolf den vs a draugr pile.
     ///
-    /// Matching is on fragments of a name, checked in order - so "sunkencrypt" must be tested
+    /// Matching is on fragments of a name, checked in order, so "sunkencrypt" must be tested
     /// before the bare "crypt", and "greydwarf_shaman" before "greydwarf". Anything unmatched
     /// falls back to the category icon and gets logged, so a missing name can be added rather
     /// than silently mislabelled.
@@ -19,9 +19,8 @@ namespace CarturMapPins
             public int DefaultIcon;
 
             /// Which pickable group this belongs to, for the Pickables table only. Nullable
-            /// rather than defaulted, because the first value of PickableGroup is HighValue and a
-            /// forgotten group would quietly mean "rare and worth remembering" for every dungeon
-            /// and spawner in the other tables.
+            /// because the first value of PickableGroup is HighValue, so a forgotten group would
+            /// quietly mean "rare and worth remembering" for every dungeon and spawner.
             public PickableGroup? Group;
         }
 
@@ -38,12 +37,12 @@ namespace CarturMapPins
         ///   DG_ForestCrypt DG_SunkenCrypt DG_Cave DG_GoblinCamp DG_DvergrTown DG_DvergrBoss
         ///   DG_MeadowsVillage DG_MeadowsFarm DG_AshlandRuins DG_FortressRuins
         ///   DG_Hildir_Cave DG_Hildir_ForestCrypt DG_Hildir_PlainsFortress
-        /// Location prefab names can't be read offline (they're Unity asset references, not
-        /// string literals), so run `carturpins_locations` in game to dump the authoritative
-        /// list and extend these tables from it.
+        /// Location prefab names cannot be read offline (Unity asset references, not string
+        /// literals), so run `carturpins_locations` in game to dump the authoritative list and
+        /// extend these tables from it.
         public static readonly Entry[] Dungeons =
         {
-            // Hildir variants first - they contain the base names they're variants of.
+            // Hildir variants first, they contain the base names they vary.
             E("hildir_crypt", "Hildir Crypt", 30),
             E("hildir_cave", "Hildir Cave", 33),
             E("dg_sunkencrypt", "Sunken Crypt", 32),
@@ -55,26 +54,25 @@ namespace CarturMapPins
             E("mountaincave", "Frost Cave", 33),
             E("trollcave", "Troll Cave", 31),
             E("morgen", "Putrid Hole", 126),
-            // Deep North. The icon sheet was drawn with these in mind and they had no table entry,
-            // so all three pinned on the generic stairs-down glyph. The generator name is the sure
-            // signal for the first - DG_MorkHalla is what the morkhalla icon is named after, and the
-            // Deep North progression is built on two dungeon types: the gates of Morkhalla and
-            // the Winding Tunnels below.
+            // Deep North. The icon sheet has glyphs for these; without entries all three pin on
+            // the generic stairs-down. The generator name is the sure signal for the first: DG_MorkHalla is
+            // what the morkhalla icon is named after, and the Deep North progression is built on
+            // two dungeon types, the gates of Morkhalla and the Winding Tunnels below.
             E("dg_morkhalla", "Gates of Morkhalla", 122),
             E("morkborg", "Gates of Morkhalla", 122),
-            // The Deep North's other dungeon type. Both are built from HoleRock_root pieces -
-            // root-choked rock - and TheDarkestHole is the unique one, a single instance in the
-            // world against forty of the ordinary kind, so it keeps its own name.
+            // The Deep North's other dungeon type. Both are built from HoleRock_root pieces
+            // (root-choked rock); TheDarkestHole is the unique one, a single instance against
+            // forty of the ordinary kind, so it keeps its own name.
             //
             // After "morgen" above, which matches the Ashlands MorgenHole prefabs: those contain
             // "hole" too and are a different dungeon entirely.
             E("darkesthole", "The Darkest Hole", 123),
             E("thehole", "Winding Tunnels", 123),
-            // Bear Cave has no generator and no cave in its name that the entries above would
-            // catch; it is a Black Forest cave mouth, which is what icon 35 draws.
+            // Bear Cave has no generator and nothing above would catch it; it is a Black Forest
+            // cave mouth, which is what icon 35 draws.
             E("bearcave", "Bear Cave", 35),
-            // The Ashlands oddity. Its two surface siblings already pin as Place of Mystery
-            // through the landmark table on icon 127, so the one with an interior matches them.
+            // The Ashlands oddity. Its two surface siblings already pin as Place of Mystery via
+            // the landmark table on icon 127; the one with an interior matches them.
             E("placeofmystery", "Place of Mystery", 127),
             E("dg_forestcrypt", "Crypt", 30),
             E("crypt", "Crypt", 30),        // after sunkencrypt, so that wins
@@ -97,22 +95,21 @@ namespace CarturMapPins
             E("woodvillage", "Abandoned Village", 42),
             E("woodfarm", "Abandoned Farm", 77),
             E("northvillage", "Deep North Village", 124),
-            // "greydwarf_camp", not "greydwarf": the camp table is now matched by name before the
-            // lore stones are, and a bare fragment would have turned Runestone_Greydwarfs into a
-            // Greydwarf Camp.
+            // "greydwarf_camp", not "greydwarf": the camp table is matched by name before the lore
+            // stones, and a bare fragment would turn Runestone_Greydwarfs into a Greydwarf Camp.
             E("greydwarf_camp", "Greydwarf Camp", 0),
             E("hildir", "Hildir Camp", 61),
         };
 
         /// World objects worth a pin that carry no component saying so.
         ///
-        /// Everything else in the catalog is found by asking the object what it is - a Container
+        /// Everything else in the catalog is found by asking the object what it is: a Container
         /// with loot, a Pickable, a spawner. A maypole is a Piece with a WearNTear, exactly like
-        /// a wooden wall, so the only thing that identifies it is its name. That makes this table
-        /// a deliberate allowlist rather than a rule: nothing lands here without being named.
+        /// a wooden wall, so only its name identifies it. This table is therefore a deliberate
+        /// allowlist, not a rule.
         ///
         /// These all exist in player-built form too, so the spawn hook checks the ZDO creator and
-        /// skips anything somebody built - the same gate beehives and chests go through.
+        /// skips anything somebody built, the same gate beehives and chests go through.
         public static readonly Entry[] Props =
         {
             E("maypole", "Maypole", 149),
@@ -122,9 +119,8 @@ namespace CarturMapPins
         ///
         /// There are four kinds of stone tower ruin at quantity 80 apiece and six Mistlands guard
         /// tower variants at 50-80: pinning the locations themselves would put five hundred icons
-        /// of broken wall on the map and bury everything else. But each one holds a chest, and that
-        /// chest is already pinned - so the chest pin wears the ruin's face and name instead of the
-        /// generic chest glyph. One pin, on the thing worth walking to, saying what it is.
+        /// of broken wall on the map. But each holds a chest that is already pinned, so the chest
+        /// pin wears the ruin's icon and name instead of the generic chest glyph.
         ///
         /// Matched against the name of the location a chest is standing inside, so these never
         /// touch a chest out in the open.
@@ -149,9 +145,9 @@ namespace CarturMapPins
         };
 
         /// Keyed by the ore type PinCatalog.OreTokens already resolves ("Copper", "Tin"), not by
-        /// a prefab name - so unlike the tables above these are never run through Match, the
-        /// Fragment is just the key repeated. Sulfur has no icon of its own in the sheet and
-        /// falls back to the generic ore glyph.
+        /// a prefab name, so unlike the tables above these never go through Match and Fragment is
+        /// just the key repeated. Sulfur has no icon of its own in the sheet and falls back to
+        /// the generic ore glyph.
         public static readonly Entry[] Ores =
         {
             E("Copper", "Copper", 110),
@@ -169,13 +165,13 @@ namespace CarturMapPins
 
         /// What each ore is, in colour.
         ///
-        /// The map is dark, so these are the material lifted towards its lightest honest reading
-        /// rather than its true one: obsidian, tar and black marble are all but black in the game
-        /// and would be a hole in the map at pin size. Copper stays copper.
+        /// The map is dark, so these are lifted towards the lightest honest reading of the
+        /// material: obsidian, tar and black marble are all but black in the game and would be a
+        /// hole in the map at pin size. Copper stays copper.
         ///
-        /// Keyed by the same names the ore table uses, which are the names the catalog resolves
-        /// from what a deposit drops - so an ore added by a game update simply has no colour until
-        /// one is written here, rather than taking somebody else's.
+        /// Keyed by the same names the ore table uses, which the catalog resolves from what a
+        /// deposit drops, so an ore added by a game update has no colour until one is written
+        /// here rather than taking somebody else's.
         public static readonly Dictionary<string, string> OreColours = new Dictionary<string, string>
         {
             { "Copper", "C87A33" },
@@ -195,8 +191,8 @@ namespace CarturMapPins
         /// ("Eikthyr", "gd_king", "GoblinKing"), falling back to the bowl's m_name.
         ///
         /// A vegvisir reveal has no bowl to ask, so the location's own name and the pin name the
-        /// stone carries are matched here too - "Eikthyrnir", "GDKing", "Dragonqueen". Order
-        /// matters for those: Moder's location is called Dragonqueen, so "dragon" has to be tried
+        /// stone carries are matched here too: "Eikthyrnir", "GDKing", "Dragonqueen". Order
+        /// matters for those: Moder's location is called Dragonqueen, so "dragon" must be tried
         /// before "queen" or Moder's altar would pin as the Queen's.
         public static readonly Entry[] Bosses =
         {
@@ -215,12 +211,10 @@ namespace CarturMapPins
             E("queen", "The Queen", 68),
             E("fader", "Fader", 69),
             // Deep North. The altar names its boss "FrozenKing"; the sheet calls the icon
-            // boss_kall, and Kall Fimbulbringer is who that is - confirmed by the label the altar
-            // itself hands us, "Kall Fimbulbringer".
+            // boss_kall, and the label the altar itself hands us confirms it is Kall Fimbulbringer.
             E("frozenking", "Kall Fimbulbringer", 120),
-            // Not a boss at all, but it arrives here because NorthMemorialPlace holds an offering
-            // bowl and an offering bowl is what identifies a boss altar. Named and iconned rather
-            // than left on the generic altar glyph; icon 59 is three standing stones, which is
+            // Not a boss, but it arrives here because NorthMemorialPlace holds an offering bowl,
+            // which is what identifies a boss altar. Icon 59 is three standing stones, which is
             // what the place is.
             E("memorialsite", "Memorial Site", 59),
         };
@@ -235,14 +229,14 @@ namespace CarturMapPins
         };
 
         /// Matched against the prefab name of the creature the spawner spawns, read off
-        /// CreatureSpawner.m_creaturePrefab / SpawnArea rather than off the spawner's own name -
-        /// the same "ask the object, don't pattern-match its name" principle the ore catalog
-        /// uses, and it answers the cases the spawner name cannot (Spawner_Hole,
-        /// Spawner_Location_Elite and EvilHeart_Forest all name a place or a tuning variant).
+        /// CreatureSpawner.m_creaturePrefab / SpawnArea rather than the spawner's own name: the
+        /// same "ask the object" principle as the ore catalog, and it answers the cases the
+        /// spawner name cannot (Spawner_Hole, Spawner_Location_Elite and EvilHeart_Forest all
+        /// name a place or a tuning variant).
         ///
-        /// Creature prefab names are Unity asset references and can't be read offline, so these
-        /// are the standard spellings and unmatched ones fall back to the category icon and get
-        /// logged - run the game and read the log to extend this.
+        /// Creature prefab names are Unity asset references and cannot be read offline, so these
+        /// are the standard spellings; unmatched ones fall back to the category icon and get
+        /// logged, so read the log to extend this.
         public static readonly Entry[] Spawners =
         {
             E("greydwarf_shaman", "Greydwarf Shaman", 20),   // before the bare "greydwarf"
@@ -254,8 +248,7 @@ namespace CarturMapPins
             E("seeker", "Seeker", 5),
             E("surtling", "Surtling", 6),
             // Before the bare "charred", which his prefab name also contains. Lord Reto is the
-            // two-star miniboss guarding a Dyrnwyn fragment, and the mod's own label dump has been
-            // calling his spawner "Lord Reto Spawner" while pinning him as a rank-and-file Charred.
+            // two-star miniboss guarding a Dyrnwyn fragment, not a rank-and-file Charred.
             E("dyrnwyn", "Lord Reto", 130),
             E("charred", "Charred", 7),
             E("hatchling", "Drake", 8),
@@ -282,10 +275,9 @@ namespace CarturMapPins
 
         /// The named, hand-placed minibosses, matched on the creature their spawner spawns.
         ///
-        /// These are not the Spawner category. A greydwarf nest is scenery you clear on the way
-        /// past and there are 103 spawner prefabs, which is why that category is off by default -
-        /// but Lord Reto and Hildir's three are single, named, fought-once creatures, and a
-        /// category being too noisy to enable is a poor reason for them never to appear.
+        /// These are not the Spawner category. A greydwarf nest is scenery and there are 103
+        /// spawner prefabs, which is why that category is off by default, but Lord Reto and
+        /// Hildir's three are single, named, fought-once creatures and should still appear.
         ///
         /// Matched before Subtypes.Spawners, which would otherwise take them: Lord Reto's prefab
         /// contains "charred", Brenna's "skeleton", and Zil and Thungr's "goblin".
@@ -300,25 +292,21 @@ namespace CarturMapPins
 
         /// Matched against the pickable's prefab name, so a bush gets its own berry rather than
         /// every berry sharing one glyph. Names confirmed from `carturpins_labels Pickable`.
+        /// Each entry also carries the pickable's group.
         ///
         /// Order matters where one name contains another: every mushroom variant is listed
         /// before the bare "mushroom", and the ore-bearing pickables use their full prefab
-        /// fragment so "tin" cannot catch something else.
+        /// fragment so "tin" cannot catch something else. The wild crops sit above their farmed
+        /// selves; both entries share a Name, so DistinctOf gives them one switch and one icon
+        /// and only the group differs.
         ///
-        /// Anything unmatched falls back to its PickableGroup icon, which is why this table only
-        /// needs the pickables the sheet actually has art for.
-        /// Pickables, and the group each one belongs to.
+        /// Anything unmatched falls back to its PickableGroup icon, so this table only needs the
+        /// pickables the sheet has art for.
         ///
-        /// The group used to come from substring rules run over the prefab name, which failed at
+        /// The group is a table column because substring rules over the prefab name failed at
         /// scale: 44 of the game's 89 pickables fell through to "Unrecognised", and the junk rule
-        /// matched the letters "stone", so every Mork Halla gemstone - Bloodstone, Draumyx and
-        /// the rest, the rarest things in the game - was filed with sticks and rocks. A table you
-        /// can read beats a rule you have to simulate, and this table already existed for the
-        /// names and icons; it only lacked this column.
-        ///
-        /// Fragments are still checked in order, which is what lets the two wild crops sit above
-        /// their farmed selves. Both entries share a Name, so DistinctOf gives them one switch
-        /// and one icon between them - the group is the only thing that differs.
+        /// matched the letters "stone", so every Mork Halla gemstone (Bloodstone, Draumyx and the
+        /// rest, the rarest things in the game) was filed with sticks and rocks.
         public static readonly Entry[] Pickables =
         {
             EP("raspberrybush", "Raspberry", 90, PickableGroup.Berries),
@@ -335,7 +323,7 @@ namespace CarturMapPins
             EP("mushroom", "Mushroom", 95, PickableGroup.Mushrooms),
 
             // Wild before farmed: a patch out in the Plains is worth walking back to, the field
-            // behind your house is not. Measured - carturpins_plants reports sapling_barley ->
+            // behind your house is not. Measured: carturpins_plants reports sapling_barley ->
             // Pickable_Barley, so the plain prefab is what a farm grows and _Wild is world
             // generation only.
             EP("barley_wild", "Barley", 103, PickableGroup.HighValue),
@@ -353,10 +341,9 @@ namespace CarturMapPins
             EP("pickable_flint", "Flint", 108, PickableGroup.Junk),
             EP("pickable_branch", "Branch", 107, PickableGroup.Junk),
 
-            // Fixed to one spot, finite, and worth a second trip - which is the whole test for
-            // this group. The commoner ones among them (tin, obsidian, bog iron) are here for the
-            // same reason and can be switched off one at a time under Pickable Kinds, which is
-            // what those per-kind switches are for.
+            // Fixed to one spot, finite, and worth a second trip, which is the whole test for this
+            // group. The commoner ones (tin, obsidian, bog iron) are here for the same reason and
+            // can be switched off one at a time under Pickable Kinds.
             EP("surtlingcorestand", "Surtling Core", 118, PickableGroup.HighValue),
             EP("moltencorestand", "Molten Core", 143, PickableGroup.HighValue),
             EP("blackcorestand", "Black Core", 144, PickableGroup.HighValue),
@@ -370,14 +357,13 @@ namespace CarturMapPins
             EP("dragonegg", "Dragon Egg", 8, PickableGroup.HighValue),
             EP("voltureegg", "Volture Egg", 12, PickableGroup.HighValue),
 
-            // Everything below had no entry at all, which is why it sat in Unrecognised - off by
-            // default and described as "didn't match a known group", holding some of the rarest
-            // things in the game. Icons are REUSED from the existing sheet, not new art: a star
-            // for the gemstones, the giant sword for the Dyrnwyn pieces, the coin pile for
-            // treasure, the crystal for frostcore.
+            // Without entries these fall into Unrecognised, which is off by default, and they are
+            // some of the rarest things in the game. Icons are reused from the existing sheet, not
+            // new art: a star for the gemstones, the giant sword for the Dyrnwyn pieces, the coin
+            // pile for treasure, the crystal for frostcore.
             //
             // One entry each rather than one "Ancient Gemstone" covering all seven, because
-            // dedupe is per subtype - a shared one would let the first gemstone found suppress a
+            // dedupe is per subtype: a shared one would let the first gemstone found suppress a
             // different gemstone five metres away.
             EP("morkhalla_eye1", "Draumyx", 85, PickableGroup.HighValue),
             EP("morkhalla_eye2", "Grimvarn", 85, PickableGroup.HighValue),
@@ -395,16 +381,15 @@ namespace CarturMapPins
             EP("dolmentreasure", "Dolmen Treasure", 88, PickableGroup.HighValue),
             EP("dvergrminetreasure", "Coin Pile", 88, PickableGroup.HighValue),
 
-            // Farm food that was falling through to Unrecognised while its own seeds landed in
-            // Crops - the same plant in two groups. "seedkale" first, or "kale" would swallow it.
+            // Farm food belongs in Crops with its seeds. "seedkale" first, or "kale" would
+            // swallow it.
             EP("seedkale", "Kale Seeds", 99, PickableGroup.Crops),
             EP("kale", "Kale", 99, PickableGroup.Crops),
             EP("poteitr", "Poteitr", 101, PickableGroup.Crops),
         };
 
-        /// Surface landmarks: locations with no interior, no dungeon generator and no runestone,
-        /// which the sweep previously identified only to discard. Wells, docks, shipwrecks,
-        /// dolmens, stone circles, swamp huts, abandoned houses.
+        /// Surface landmarks: locations with no interior, no dungeon generator and no runestone.
+        /// Wells, docks, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses.
         ///
         /// Unlike the dungeon and camp tables these fragments are NOT guesses - every one is a
         /// real prefab name from a live `carturpins_locations` dump of all 232 ZoneLocations.
@@ -413,9 +398,9 @@ namespace CarturMapPins
         /// the eleven Runestone_* lore stones, Vendor_BlackForest (Haldor, handled as a Trader),
         /// and the nest/spawner locations, all of which would otherwise pin twice.
         ///
-        /// StartTemple is absent for the same reason even though nothing of ours covers it:
-        /// it is the one location flagged iconAlways, so vanilla marks the spawn temple at world
-        /// generation and a landmark pin there would be the second icon on the same spot.
+        /// StartTemple is absent for the same reason even though nothing of ours covers it: it is
+        /// the one location flagged iconAlways, so vanilla already marks the spawn temple and a
+        /// landmark pin would be a second icon on the same spot.
         public static readonly Entry[] Landmarks =
         {
             E("shipwreck", "Shipwreck", 47),
@@ -460,7 +445,7 @@ namespace CarturMapPins
 
         /// Every table, so Translations can collect the names without a second list that would
         /// drift the first time a table is added. A table missing from here is a name that stays
-        /// English, which is why this sits directly above the tables it lists.
+        /// English.
         public static readonly Entry[][] AllTables =
         {
             Dungeons, Camps, Props, ChestSites, BuriedChests, Ores, Bosses, Traders, Spawners, Minibosses,
@@ -469,9 +454,8 @@ namespace CarturMapPins
 
         /// Returns the subtype name for a location, or null when nothing matches.
         ///
-        /// The generator name is checked first where present: those DG_* names are confirmed
-        /// from the game's asset manifest, whereas the location prefab names are only partly
-        /// known, so the reliable signal gets priority.
+        /// The generator name is checked first where present: the DG_* names are confirmed from
+        /// the game's asset manifest, so the reliable signal gets priority.
         public static string Match(Entry[] table, string prefabName, string generatorName = null)
         {
             string byGenerator = MatchOne(table, generatorName);
@@ -480,9 +464,8 @@ namespace CarturMapPins
             return MatchOne(table, prefabName);
         }
 
-        /// The group the Pickables table gives this prefab, or null when it names nothing that
-        /// matches - modded content, or something a game update added that nobody has classified
-        /// yet. Same ordered fragment match as everything else here.
+        /// The group the Pickables table gives this prefab, or null when nothing matches: modded
+        /// content, or something a game update added that nobody has classified yet.
         public static PickableGroup? GroupFor(string prefabName)
         {
             if (string.IsNullOrEmpty(prefabName))

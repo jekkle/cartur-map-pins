@@ -8,13 +8,12 @@ namespace CarturMapPins
 {
     /// Per-pin colour, size and opacity, kept in their own file beside the pin record.
     ///
-    /// Not in the pin record, because that file answers "did we pin this already" and covers only
-    /// pins the mod placed - while a style can be put on any pin, including one placed by hand,
-    /// which is most of the point. Not in the map save either: PinData has no field to spare and
-    /// adding one would mean rewriting the game's own save format.
+    /// Not in the pin record, because that covers only pins the mod placed while a style can go
+    /// on any pin, including one placed by hand. Not in the map save either: PinData has no
+    /// field to spare and adding one would mean rewriting the game's own save format.
     ///
     /// Keyed by position rounded to the metre. A pin does not move, so its position is its
-    /// identity; the rounding absorbs the float drift between a saved position and a reloaded one.
+    /// identity; the rounding absorbs float drift between a saved and a reloaded position.
     internal static class PinStyles
     {
         /// White means "leave it alone", which is why it is first and is the default.
@@ -90,12 +89,12 @@ namespace CarturMapPins
         }
 
         /// One styles file per world and character, named the way the pin record is. Styles are
-        /// keyed by x,z, so a single file shared by every world put one world's colours on
-        /// whatever pin sat at the same coordinates in another. The key does not exist at plugin
-        /// load, so the file is picked the first time it is asked for in a world.
+        /// keyed by x,z, so one shared file put a world's colours on whatever pin sat at the same
+        /// coordinates in another. The key does not exist at plugin load, so the file is picked
+        /// the first time it is asked for in a world.
         ///
-        /// The old single file is copied into the first world and character that has no file of
-        /// its own, once (a marker beside it says it has been claimed), and left where it is.
+        /// The old single file is copied once into the first world and character that has no file
+        /// of its own (a marker beside it says it has been claimed), and left where it is.
         private static void Resolve()
         {
             string key = PinRecord.WorldKey;
@@ -188,17 +187,16 @@ namespace CarturMapPins
 
         /// Ore colours, keyed by the pin type that carries each ore's icon.
         ///
-        /// By type rather than by position, which is the whole reason this is cheap: an ore type
-        /// already has an icon of its own, so it already has a pin type of its own, and painting
-        /// becomes a dictionary hit on a number the pin is already carrying. No per-pin record,
-        /// nothing to keep in step as pins come and go.
+        /// By type rather than by position: an ore type already has an icon of its own, so it
+        /// already has a pin type of its own, and painting is a dictionary hit on a number the pin
+        /// is already carrying. No per-pin record to keep in step.
         ///
         /// Rebuilt whenever the map is built, so changing an ore's icon in the settings takes
         /// effect on the next map rather than the next launch.
         ///
-        /// The catch, stated rather than hidden: two things sharing an icon share the colour. Tar
-        /// deposits and tar blob spawners both use the tar glyph, so a tar blob spawner comes out
-        /// tar-coloured too. That reads as correct more often than not.
+        /// The catch: two things sharing an icon share the colour. Tar deposits and tar blob
+        /// spawners both use the tar glyph, so a spawner comes out tar-coloured too, which reads
+        /// as correct more often than not.
         private static readonly Dictionary<Minimap.PinType, Color> OreTints =
             new Dictionary<Minimap.PinType, Color>();
 

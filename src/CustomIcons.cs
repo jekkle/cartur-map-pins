@@ -13,13 +13,13 @@ namespace CarturMapPins
     ///
     /// Three things have to line up for this to work, and only the first is obvious:
     ///  1. Minimap.m_icons is a public List&lt;SpriteData&gt; and GetSprite does m_icons.Find(...),
-    ///     a predicate search - so a PinType cast from an arbitrary int resolves fine.
+    ///     a predicate search, so a PinType cast from an arbitrary int resolves fine.
     ///  2. Minimap.AddPin CLAMPS any type >= m_visibleIconTypes.Length to Icon3, and
     ///  3. the pin render loop does a raw m_visibleIconTypes[(int)pin.m_type], which throws for
     ///     an out-of-range type.
-    /// So the private bool[] m_visibleIconTypes must be grown before any custom pin exists.
-    /// Without that, custom pins would be silently downgraded to Icon3 *and written that way to
-    /// the save file*, which is why this whole feature is opt-in.
+    /// So the private bool[] m_visibleIconTypes must be grown before any custom pin exists, or
+    /// custom pins are silently downgraded to Icon3 *and written that way to the save file*,
+    /// which is why this whole feature is opt-in.
     internal static class CustomIcons
     {
         /// Well clear of the 17 vanilla PinType values, leaving room for the game to add more
@@ -28,27 +28,26 @@ namespace CarturMapPins
 
         private const int SheetColumns = 10;
 
-        /// Derived from the enum rather than written down, because the enum and the sheet are
-        /// generated together by tools/build_sheet.py. A hardcoded count that fell behind the
-        /// sheet would slice off the last row; one that ran ahead would create null sprites.
+        /// Derived from the enum because the enum and the sheet are generated together by
+        /// tools/build_sheet.py. A hardcoded count behind the sheet would slice off the last row;
+        /// one ahead would create null sprites.
         public static readonly int IconCount = Enum.GetValues(typeof(PinIcon)).Length - 1;   // -1: Default
 
         /// 1.2.2's sheet, still registered on the exact type numbers it used.
         ///
-        /// It was replaced wholesale rather than extended, so every index means something else
-        /// now - and a pin the player placed by hand records nothing but its index. Keeping the
-        /// old sheet loaded at 100-182 is what lets those pins go on showing the picture they were
-        /// given, instead of whatever the new sheet happens to hold at that slot.
+        /// The sheet was replaced wholesale, so every index means something else now, and a
+        /// hand-placed pin records nothing but its index. Keeping the old sheet at 100-182 lets
+        /// those pins keep the picture they were given instead of whatever the new sheet holds at
+        /// that slot.
         ///
-        /// Nothing selects these on its own. Categories take their icons from the current sheet;
-        /// the old ones are reachable only by picking one, which is the point - they exist to
-        /// preserve choices already made, not to compete with the new art.
+        /// Nothing selects these on its own: categories take their icons from the current sheet,
+        /// and the old ones are reachable only by picking one.
         private const int LegacyIconCount = 83;
 
         private static Sprite[] _legacy;
 
-        /// Where the current sheet starts, after the old one. Moving it rather than the old one is
-        /// what keeps 1.2.2's saved pins pointing at 1.2.2's pictures.
+        /// Where the current sheet starts, after the old one. The old sheet stays put so 1.2.2's
+        /// saved pins keep pointing at 1.2.2's pictures.
         public const int CurrentBase = FirstCustomType + LegacyIconCount;
 
         private static Sprite[] _sprites;
@@ -59,11 +58,11 @@ namespace CarturMapPins
 
         /// Which Minimap instance we've registered against.
         ///
-        /// This must NOT be a plain "done" flag: returning to the menu and loading another world
-        /// builds a fresh Minimap with a fresh m_icons list and a fresh m_visibleIconTypes array
-        /// (Start recreates it). A static bool would skip re-registration, leaving custom types
-        /// unknown to that map - so AddPin would clamp them to Icon3 and write that into the new
-        /// world's saved pins. Keying on the instance re-registers whenever the map is rebuilt.
+        /// This must NOT be a plain "done" flag: loading another world builds a fresh Minimap with
+        /// a fresh m_icons list and m_visibleIconTypes array (Start recreates it). A static bool
+        /// would skip re-registration, so AddPin would clamp custom types to Icon3 and write that
+        /// into the new world's saved pins. Keying on the instance re-registers whenever the map
+        /// is rebuilt.
         private static Minimap _registeredFor;
 
         public static bool Ready => _sprites != null;
@@ -117,8 +116,7 @@ namespace CarturMapPins
                 return fallback;
 
             // A setting carried over from 1.2.2 whose icon the new sheet never redrew. The old
-            // sheet is still shipped and still registered on types 100-182, so the pin keeps the
-            // exact artwork it had rather than being nudged onto something merely similar.
+            // sheet is still registered on types 100-182, so the pin keeps its exact artwork.
             if (iconIndex >= LegacyIconNames.LegacyBase)
             {
                 int legacy = iconIndex - LegacyIconNames.LegacyBase;
@@ -141,12 +139,11 @@ namespace CarturMapPins
             // .Length) { ZLog.LogWarning(...); type = PinType.Icon3; }" - read off the installed
             // assembly_valheim. Loading a save with custom-icon pins while this array is still
             // vanilla-sized rewrites every one of them to Icon3 in memory, and the next profile
-            // save writes that to disk. The pin does not lose its icon, it loses which icon it
-            // was, and no later repair can recover it.
+            // save writes that to disk, losing which icon each pin was.
             //
-            // The size comes from the PinIcon enum, so it needs no sheet and no config - which is
-            // exactly why it can run before the sheet is loaded or the feature is even switched
-            // on. Turning custom icons off must mean "do not draw them", never "destroy them".
+            // The size comes from the PinIcon enum, so it needs no sheet and no config and can run
+            // before the sheet loads or the feature is switched on. Turning custom icons off must
+            // mean "do not draw them", never "destroy them".
             if (!Reserve(map))
                 return;
 
@@ -174,8 +171,8 @@ namespace CarturMapPins
                 if (_legacy == null)
                 {
                     Texture2D old = LoadSheet("pin_icons_legacy.png");
-                    // A missing old sheet is survivable: pins from 1.2.2 fall back to whatever the
-                    // new sheet holds at their index, which is what happened before this existed.
+                    // A missing old sheet is survivable: 1.2.2 pins fall back to whatever the new
+                    // sheet holds at their index.
                     _legacy = old != null ? Slice(old, LegacyIconCount) : new Sprite[0];
                 }
 
@@ -199,8 +196,8 @@ namespace CarturMapPins
         }
 
         /// Makes the custom type range valid on this Minimap. False when it could not be done,
-        /// which is the one case where registering anything further would be worse than doing
-        /// nothing: the types would be clamped on load and the save rewritten.
+        /// where registering anything further would be worse than nothing: the types would be
+        /// clamped on load and the save rewritten.
         private static bool Reserve(Minimap map)
         {
             try
@@ -218,11 +215,10 @@ namespace CarturMapPins
         /// Gives every custom type that has no sprite a vanilla one to draw.
         ///
         /// Reserve alone leaves those types valid but unknown to Minimap.GetSprite, which returns
-        /// the default of a struct - a null Sprite - and a Unity Image with a null sprite draws a
-        /// solid white box. So the save would be safe and the map would be full of white squares.
-        /// Pointing them at a vanilla glyph means a player with custom icons off sees what they
-        /// saw before this existed, while the pin keeps the type that says which icon it wants
-        /// back when they turn them on again.
+        /// the default of a struct (a null Sprite), and an Image with a null sprite draws a solid
+        /// white box. Pointing them at a vanilla glyph keeps the save safe and the map readable,
+        /// while the pin keeps the type that says which icon it wants back when icons are turned
+        /// on again.
         private static void FallbackSprites(Minimap map)
         {
             Sprite stand_in = VanillaSprite(map, Minimap.PinType.Icon3);
@@ -257,12 +253,11 @@ namespace CarturMapPins
         ///
         /// Minimap keeps one m_spawnPointPin and moves it when you claim a different bed, so it
         /// marks where you respawn rather than where you have lived. The mod's own Home pins mark
-        /// the beds and stay put - and since the two sit on the same spot for the bed you are
-        /// currently using, vanilla's bed glyph on top of our house would just be a double.
+        /// the beds and stay put; for the bed in use the two sit on the same spot, and vanilla's
+        /// bed glyph on top of our house would be a double.
         ///
-        /// Swapping the sprite in m_icons rather than touching the pin: the pin is re-created and
-        /// re-positioned by UpdateProfilePins on its own schedule, and anything done to the pin
-        /// itself would have to be redone every time it does that.
+        /// The sprite is swapped in m_icons rather than on the pin: UpdateProfilePins re-creates
+        /// and re-positions the pin on its own schedule and would undo anything done to it.
         private static void ReplaceBedSprite(Minimap map)
         {
             if (!Plugin.ReplaceBedMarker.Value)
@@ -322,11 +317,6 @@ namespace CarturMapPins
             return false;
         }
 
-        /// An override file next to the config wins, so the sheet can be swapped without a
-        /// rebuild; otherwise the embedded copy is used.
-        /// Only the current sheet honours the override file: swapping the art for the sheet the
-        /// mod draws from is a supported thing to do, but 1.2.2's sheet exists to keep old pins
-        /// looking the way they always did, and an override there would defeat the point.
         /// The bundled sheet, ignoring any override. Used when an override turns out to be
         /// unusable, so a bad file degrades to the shipped art instead of to nothing.
         private static Texture2D LoadSheetFromResource(string resource)
@@ -353,6 +343,9 @@ namespace CarturMapPins
             }
         }
 
+        /// An override file next to the config wins, so the sheet can be swapped without a
+        /// rebuild; otherwise the embedded copy is used. Only the current sheet honours the
+        /// override: 1.2.2's sheet exists to keep old pins looking the way they always did.
         private static Texture2D LoadSheet(string resource = "pin_icons.png")
         {
             bool current = resource == "pin_icons.png";
@@ -385,10 +378,10 @@ namespace CarturMapPins
                 return null;
 
             // An override drawn for an older sheet cannot cover this one, and slicing it anyway
-            // returns null sprites for every index past the end - so the map silently loses those
-            // icons. 1.2.2's sheet was 83 icons on a 2048x2048 grid, which yields ten rows of
-            // 204.8px cells: a hundred cells against the 153 this version needs. Say so and use
-            // the bundled sheet, rather than half-applying somebody's artwork.
+            // returns null sprites past the end, so the map silently loses those icons. 1.2.2's
+            // sheet was 83 icons on a 2048x2048 grid, which yields ten rows of 204.8px cells: a
+            // hundred cells against the 153 this version needs. Say so and use the bundled sheet
+            // rather than half-applying somebody's artwork.
             if (overriding)
             {
                 int columns = SheetColumns;
@@ -412,10 +405,9 @@ namespace CarturMapPins
         /// Texture2D.LoadImage is called by reflection on purpose.
         ///
         /// Referencing that overload set at compile time drags in System.ReadOnlySpan&lt;byte&gt;,
-        /// which doesn't resolve against net472 plus this game's netstandard.dll (CS0518) - the
-        /// same wall hit in the compass mod, which worked around it by shipping raw RGBA bytes
-        /// instead of a PNG. Reflection avoids the compile-time reference entirely, so the sheet
-        /// can stay a ~570KB PNG rather than a 16MB raw dump.
+        /// which doesn't resolve against net472 plus this game's netstandard.dll (CS0518). The
+        /// compass mod hit the same wall and shipped raw RGBA bytes instead of a PNG; reflection
+        /// avoids the reference, so the sheet can stay a ~570KB PNG rather than a 16MB raw dump.
         private static bool LoadImageViaReflection(Texture2D tex, byte[] data)
         {
             Type imageConversion = AccessTools.TypeByName("UnityEngine.ImageConversion");
@@ -478,11 +470,10 @@ namespace CarturMapPins
 
         /// Vanilla's own "hide this pin type" toggle, reached by right-clicking an icon.
         ///
-        /// Nothing here reimplements the filter, because there is nothing to reimplement:
-        /// Minimap.ToggleIconFilter flips the entry in m_visibleIconTypes, raises
-        /// m_pinUpdateRequired so the map redraws, and recolours vanilla's own buttons. It indexes
-        /// the array by raw pin type, and GrowVisibleIconTypes has already made room for every
-        /// custom type, so it works on ours unchanged.
+        /// Nothing to reimplement: Minimap.ToggleIconFilter flips the entry in
+        /// m_visibleIconTypes, raises m_pinUpdateRequired so the map redraws, and recolours
+        /// vanilla's own buttons. It indexes the array by raw pin type, and GrowVisibleIconTypes
+        /// has already made room for every custom type, so it works on ours unchanged.
         private static readonly MethodInfo ToggleFilterMethod =
             AccessTools.Method(typeof(Minimap), "ToggleIconFilter", new[] { typeof(Minimap.PinType) });
 
@@ -493,9 +484,9 @@ namespace CarturMapPins
             ToggleFilterMethod.Invoke(map, new object[] { type });
         }
 
-        /// Visible unless the array says otherwise. An index past the end reads as visible rather
-        /// than as hidden: that is the state a type has before the array is grown, and a cell
-        /// drawn greyed-out for a pin that is in fact showing would be a lie.
+        /// Visible unless the array says otherwise. An index past the end reads as visible: that
+        /// is the state a type has before the array is grown, and a greyed-out cell for a pin that
+        /// is showing would be wrong.
         public static bool IsVisible(Minimap map, Minimap.PinType type)
         {
             var visible = map != null ? VisibleTypesField?.GetValue(map) as bool[] : null;

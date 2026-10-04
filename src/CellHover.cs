@@ -6,14 +6,13 @@ namespace CarturMapPins
 {
     /// Lifts an icon cell slightly while the cursor is on it.
     ///
-    /// In a grid of 236 identical squares, the thing under the cursor needs to say so - clicking
-    /// the neighbour of what you meant is easy, and a pin's icon is not a mistake you notice until
-    /// you are back on the map.
+    /// In a grid of identical squares the thing under the cursor needs to say so - clicking the
+    /// neighbour of what you meant is easy, and a wrong icon is not noticed until you are back on
+    /// the map.
     ///
-    /// The component stays enabled and Update returns immediately when the cell is at rest. It
-    /// used to disable itself instead, which was cheaper and silently broken: the event system
-    /// does not deliver pointer callbacks to a disabled MonoBehaviour, so the first hover never
-    /// arrived and nothing ever moved.
+    /// The component stays enabled and Update returns immediately when the cell is at rest.
+    /// Disabling it instead breaks it: the event system does not deliver pointer callbacks to a
+    /// disabled MonoBehaviour, so the first hover would never arrive.
     internal class CellHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         private const float HoverScale = 1.12f;

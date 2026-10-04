@@ -7,11 +7,11 @@ namespace CarturMapPins
 {
     /// The font every label this mod creates is given.
     ///
-    /// These labels used to be built with no font at all, on the understanding that TMP would fall
-    /// back to its own default. It does not, reliably. TextMeshProUGUI.Awake, finding no font,
-    /// tries TMP_Settings.defaultFontAsset and then Resources.Load("Fonts &amp; Materials/
-    /// LiberationSans SDF") - and Valheim ships its TMP fonts in an asset bundle rather than under
-    /// Resources, so on some installs both come back empty:
+    /// A label built with no font does not reliably fall back to TMP's default.
+    /// TextMeshProUGUI.Awake, finding no font, tries TMP_Settings.defaultFontAsset and then
+    /// Resources.Load("Fonts &amp; Materials/LiberationSans SDF") - and Valheim ships its TMP
+    /// fonts in an asset bundle rather than under Resources, so on some installs both come back
+    /// empty:
     ///
     ///     The LiberationSans SDF Font Asset was not found. There is no Font Asset assigned to
     ///     Caption.
@@ -19,12 +19,11 @@ namespace CarturMapPins
     /// A TMP_Text with a null font throws out of MaterialReference..ctor the moment anything
     /// measures it, and these labels sit in a layout group inside a ScrollRect - so the throw comes
     /// back every frame from CanvasUpdateRegistry.PerformUpdate and takes the rest of that UI
-    /// rebuild with it. It did not show up here because on this machine the fallback happens to
-    /// resolve; it is not something to rely on.
+    /// rebuild with it. The fallback happens to resolve on the dev machine, so it hid this.
     ///
     /// The font is taken from the map's own pin-name field rather than looked up by name: that is
-    /// the face the surrounding UI is already drawn in, so the labels match it, and nothing
-    /// hardcodes a font name - names are exactly what a game update changes.
+    /// the face the surrounding UI is already drawn in, and a hardcoded name is exactly what a
+    /// game update changes.
     internal static class Fonts
     {
         private static readonly FieldInfo NameInputField = AccessTools.Field(typeof(Minimap), "m_nameInput");
@@ -51,13 +50,12 @@ namespace CarturMapPins
             }
         }
 
-        /// Adds a label carrying that font. Every label in this mod goes through here, so there is
-        /// one place that can be wrong about fonts rather than five.
+        /// Adds a label carrying that font. Every label in this mod goes through here.
         ///
         /// The object is deactivated across the AddComponent because TextMeshProUGUI.Awake runs
-        /// inside it, and Awake is what emits the missing-font warning. Setting the font first is
-        /// not possible - the component has to exist - so the alternative is one scary Unity
-        /// warning per label even though the font is assigned a line later.
+        /// inside it, and Awake is what emits the missing-font warning. The font cannot be set
+        /// first since the component has to exist, so without this every label logs a warning
+        /// even though the font is assigned a line later.
         public static TextMeshProUGUI AddLabel(GameObject go)
         {
             TMP_FontAsset font = Game;

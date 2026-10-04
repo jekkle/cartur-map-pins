@@ -4,15 +4,13 @@ using System.Text;
 
 namespace CarturMapPins
 {
-    /// Turns internal prefab names into short, generalised pin labels: "rock4_copper" -> "Copper",
+    /// Turns internal prefab names into short pin labels: "rock4_copper" -> "Copper",
     /// "TrollCave02" -> "Troll Cave", "Crypt2" -> "Crypt".
     ///
-    /// Ore names are derived from the item the node drops rather than from its prefab name, which
-    /// is both cleaner and already known - the catalog records which drop qualified each prefab
-    /// as ore, so "CopperOre" becomes "Copper" with no per-prefab table to maintain.
+    /// Ore names come from the item the node drops, not the prefab name. The catalog records which
+    /// drop qualified each prefab as ore, so "CopperOre" becomes "Copper" with no per-prefab table.
     internal static class Labels
     {
-        /// Suffixes/prefixes that are noise in an item or prefab name.
         private static readonly string[] DropSuffixes = { "ore", "scrap", "new", "old" };
 
         public static string ForOre(string prefabName)
@@ -32,15 +30,11 @@ namespace CarturMapPins
 
         /// Resolves the "$token" strings that component m_name fields hold.
         ///
-        /// Correction to what this comment said before: the current assembly_valheim DOES resolve
-        /// a pin name on its way to the map - PinNameData.SetTextAndGameObject writes
-        /// "PinNameText.text = Localization.instance.Localize(ParentPin.m_name)" (verified against
-        /// the installed DLL, not assumed). The old claim that only event pins were localized is
-        /// no longer true, whether the game changed or the earlier read missed that call.
-        ///
-        /// It is still resolved here rather than left as a token, because m_name is what the
-        /// rename box, the search bar and the pin list all show, and "$guardianstone_name" is not
-        /// a name to any of them. The map is only one of its readers.
+        /// The game also localizes a pin name on its way to the map -
+        /// PinNameData.SetTextAndGameObject writes "PinNameText.text =
+        /// Localization.instance.Localize(ParentPin.m_name)" (verified against the installed DLL).
+        /// It is still resolved here because m_name is what the rename box, the search bar and the
+        /// pin list show, and "$guardianstone_name" is not a name to any of them.
         ///
         /// Localize substitutes tokens anywhere in a string, so a label that mixes a prefab-derived
         /// word with a token - "Eikthyr $guardianstone_name" - comes out right in every language.
@@ -49,19 +43,17 @@ namespace CarturMapPins
                 ? text
                 : Localization.instance.Localize(text);
 
-        /// Valheim colours miniboss names in its own UI, so their Character.m_name arrives as
-        /// "<color=orange>Brenna</color>". That markup would be written straight into the save and
-        /// drawn on the pin, so the tags come off and the name stays.
-        ///
-        /// Affects the four minibosses - Brenna, Geirrhafa, Zil & Thungr, Lord Reto - and nothing
-        /// else, but stripping is cheap and any future named creature gets it for free.
         /// The one place a source label becomes the text on a pin: resolve its tokens, then take
         /// the colour markup off. Everything that writes a pin name goes through here, and so does
-        /// PinRecord.Relabel, so the text a language change produces is the same text the pin
-        /// would have been given had it been placed in that language. Two paths that agree by
-        /// coincidence would leave Relabel unable to recognise its own handiwork.
+        /// PinRecord.Relabel, so a language change produces the same text the pin would have been
+        /// given had it been placed in that language. Two paths that agree by coincidence would
+        /// leave Relabel unable to recognise its own handiwork.
         public static string ForPin(string label) => StripRichText(Localize(label)) ?? string.Empty;
 
+        /// Valheim colours miniboss names in its own UI, so their Character.m_name arrives as
+        /// "<color=orange>Brenna</color>". That markup would be written into the save and drawn on
+        /// the pin, so the tags come off and the name stays. Only the four minibosses (Brenna,
+        /// Geirrhafa, Zil & Thungr, Lord Reto) need it today.
         public static string StripRichText(string text)
         {
             if (string.IsNullOrEmpty(text) || text.IndexOf('<') < 0)
@@ -83,8 +75,8 @@ namespace CarturMapPins
         public static string ForLocation(string prefabName) => Prettify(prefabName);
 
         /// "Runestone_Boars" -> "Boars Runestone", "Runestone_BlackForest" -> "Black Forest
-        /// Runestone". Same shape as a spawner label - say what it is, with the qualifier first -
-        /// rather than Prettify's "Runestone Boars", which reads backwards.
+        /// Runestone". Qualifier first, like a spawner label, instead of Prettify's "Runestone
+        /// Boars", which reads backwards.
         public static string ForLoreStone(string prefabName)
         {
             const string prefix = "Runestone_";
@@ -97,10 +89,9 @@ namespace CarturMapPins
         }
 
         /// Words that describe how a spawner is tuned, or which biome's copy of it this is, rather
-        /// than what comes out of it. Taken from the 103 spawner prefabs the catalog actually
-        /// registers, not invented: the skeleton line alone ships eleven variants
-        /// (_hildir, _Meadows, _Mountains, _Swamp, _poison, _rise, _respawn_30, _night_noarcher...)
-        /// and they are all the same pin to anyone reading a map.
+        /// than what comes out of it. Taken from the 103 spawner prefabs the catalog registers: the
+        /// skeleton line alone ships eleven variants (_hildir, _Meadows, _Mountains, _Swamp,
+        /// _poison, _rise, _respawn_30, _night_noarcher...), all the same pin on a map.
         ///
         /// Creature variants are deliberately NOT in here - Elite, Brute, Shaman, Archer and Mage
         /// are different things to meet and the label should keep saying so.
@@ -111,8 +102,7 @@ namespace CarturMapPins
             "meadows", "mountains", "mountain", "swamp", "forest", "ashlands", "deep", "north", "cave",
         };
 
-        /// Names that already say the pin is a place you go to rather than a creature standing
-        /// there, so appending "Spawner" to them would only stutter.
+        /// Names that already say the pin is a place, so appending "Spawner" would stutter.
         private static readonly HashSet<string> PlaceWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "nest", "pile", "heart", "core", "spawner", "totem", "stand", "hole",
@@ -122,8 +112,8 @@ namespace CarturMapPins
         /// rules above, Spawner_Hole reads "Hole" and Spawner_Location_Elite reads "Elite".
         ///
         /// Hole is the greydwarf spawn hole. Elite and Shaman sit beside Spawner_Location_Greydwarf
-        /// in the catalog and are the elite and shaman forms placed in the same camps, so they are
-        /// named to match - an inference from the sibling prefabs, not something the name states.
+        /// in the catalog and are inferred to be the elite and shaman forms placed in the same
+        /// camps - an inference from the sibling prefabs, not something the name states.
         private static readonly Dictionary<string, string> SpawnerAliases =
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -135,19 +125,18 @@ namespace CarturMapPins
         /// "Spawner_Skeleton" -> "Skeleton Spawner", "Spawner_Skeleton_night_noarcher" -> the same,
         /// "Spawner_GreydwarfNest" -> "Greydwarf Nest" (left alone, it already reads as a place).
         ///
-        /// Stripping the prefix on its own was the bug: it removed the only word saying this is a
-        /// spawn point, so the map read "Skeleton" and looked like a skeleton was standing there.
+        /// The "Spawner" suffix is the only word saying this is a spawn point; without it the map
+        /// reads "Skeleton" and looks like a skeleton is standing there.
         public static string ForSpawner(string prefabName)
         {
-            // Prettify first so underscores and camelCase are both split into words - that way
+            // Prettify first so underscores and camelCase both split into words, and
             // "Spawner_Skeleton_Meadows" and "Spawner_DvergerDeepNorth" filter the same way.
             return CleanSpawnerLabel(Prettify(StripSpawnerPrefix(prefabName)));
         }
 
-        /// The half of ForSpawner that works on words rather than on a prefab name, so a label
-        /// already sitting in somebody's save can be repaired without the prefab - which is long
-        /// gone by the time a pin is loaded back from the map. "Skeleton Night Noarcher" and
-        /// "Skeleton" both arrive here and both leave as "Skeleton Spawner".
+        /// The half of ForSpawner that works on words, so a label already in somebody's save can be
+        /// repaired without the prefab, which is gone by the time a pin is loaded back.
+        /// "Skeleton Night Noarcher" and "Skeleton" both leave as "Skeleton Spawner".
         public static string CleanSpawnerLabel(string prettified)
         {
             if (string.IsNullOrEmpty(prettified))
@@ -162,7 +151,7 @@ namespace CarturMapPins
                     kept.Add(w);
             }
 
-            // Everything filtered out - fall back rather than pin an empty label.
+            // Everything filtered out: keep the original rather than an empty label.
             if (kept.Count == 0)
                 return prettified;
 
@@ -220,14 +209,12 @@ namespace CarturMapPins
 
             string s = raw.Replace('_', ' ');
 
-            // Drop biome/era qualifiers that add nothing to a map label.
             foreach (string noise in new[] { "Mistlands ", "Ashlands ", "Hildir ", "Dvergr " })
             {
                 if (s.StartsWith(noise, System.StringComparison.OrdinalIgnoreCase) && s.Length > noise.Length)
                     s = s.Substring(noise.Length);
             }
 
-            // Split camelCase into words.
             var sb = new StringBuilder(s.Length + 8);
             for (int i = 0; i < s.Length; i++)
             {
@@ -246,7 +233,6 @@ namespace CarturMapPins
             if (end > 0)
                 s = s.Substring(0, end);
 
-            // Collapse runs of spaces, then title-case for map readability.
             string[] words = s.Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
             var outSb = new StringBuilder();
             foreach (string w in words)

@@ -12,12 +12,11 @@ namespace CarturMapPins
     /// Opened by shift-clicking a pin on the large map, and placed beside that pin rather than in
     /// a fixed corner, so the icon being changed stays visible while you choose its replacement.
     ///
-    /// Works on any pin, ours or hand-placed, which is the only repair available for a pin whose
-    /// artwork moved when the icon sheet was replaced - nothing records which icon was originally
-    /// meant, but the player can point at the pin and choose again.
+    /// Works on any pin, ours or hand-placed. It is the only repair for a pin whose artwork moved
+    /// when the icon sheet was replaced: nothing records which icon was meant, but the player can
+    /// point at the pin and choose again.
     ///
-    /// Nothing is written until Confirm: picking an icon only marks the choice, so a misclick in
-    /// a 153-icon grid costs nothing.
+    /// Nothing is written until Confirm, so a misclick in a 153-icon grid costs nothing.
     internal static class PinEditor
     {
         private const int Columns = 5;
@@ -43,7 +42,7 @@ namespace CarturMapPins
 
         /// Minimap.m_nameInput is a GUIFramework.GuiInputField, which lives in gui_framework.dll.
         /// Read by reflection rather than referencing that assembly: the clone only needs to be a
-        /// TMP_InputField, which GuiInputField derives from and which is already referenced.
+        /// TMP_InputField, which GuiInputField derives from.
         private static readonly FieldInfo NameInputField = AccessTools.Field(typeof(Minimap), "m_nameInput");
 
         /// Keeps the scroll wheel off the map while the cursor is over the editor.
@@ -68,8 +67,8 @@ namespace CarturMapPins
             if (_nameInput != null)
                 _nameInput.text = pin.m_name ?? string.Empty;
 
-            // Opens showing the icon this pin already has, so the gold border says "this is what
-            // it is" before it says "this is what you just picked".
+            // Start on the pin's current icon, so the gold border means "this is what it is"
+            // before it means "this is what you picked".
             _pending = CustomIcons.PickerIndexFor(pin.m_type);
             _style = PinStyles.For(pin.m_pos);
             RefreshStyleControls();
@@ -88,7 +87,7 @@ namespace CarturMapPins
         }
 
         /// Positions the panel next to the pin's own UI element, nudged clear of it, then pulled
-        /// back inside the screen so a pin near an edge doesn't open the panel off-screen.
+        /// back inside the screen so a pin near an edge does not open it off-screen.
         private static void PlaceBeside(Minimap.PinData pin)
         {
             if (_panelRect == null)
@@ -97,8 +96,8 @@ namespace CarturMapPins
             RectTransform pinRect = pin.m_uiElement;
             if (pinRect == null)
             {
-                // The pin has no UI element yet (off-screen, or not drawn this frame). Fall back
-                // to the cursor, which is where the click just happened anyway.
+                // No UI element yet (off-screen, or not drawn this frame): use the cursor, which is
+                // where the click just happened.
                 _panelRect.position = ZInput.pointerPosition + new Vector3(GapFromPin, 0f, 0f);
             }
             else
@@ -136,8 +135,8 @@ namespace CarturMapPins
             _panel = new GameObject("CarturPinEditor");
             _panel.transform.SetParent(map.m_largeRoot.transform, false);
             _panelRect = _panel.AddComponent<RectTransform>();
-            // Anchored to one corner so that setting .position places it outright, rather than
-            // being stretched by a parent whose size we don't control.
+            // Anchored to one corner so setting .position places it outright instead of being
+            // stretched by a parent whose size we don't control.
             _panelRect.anchorMin = Vector2.zero;
             _panelRect.anchorMax = Vector2.zero;
             _panelRect.pivot = new Vector2(0f, 0.5f);
@@ -197,20 +196,17 @@ namespace CarturMapPins
                 return null;
 
             // Fresh event objects rather than RemoveAllListeners, which leaves the prefab's
-            // serialized calls intact. Nothing is applied here: the name is read when Confirm is
-            // pressed.
+            // serialized calls intact. The name is read on Confirm, not here.
             input.onSubmit = new TMP_InputField.SubmitEvent();
             input.onEndEdit = new TMP_InputField.SubmitEvent();
-            // Not enough on its own - see DropVanillaSubmit. Without it, Enter here still
-            // reached Minimap.OnPinTextEntered.
+            // Not enough on its own: without DropVanillaSubmit, Enter here still reached
+            // Minimap.OnPinTextEntered.
             TextFocus.DropVanillaSubmit(input);
             return input;
         }
 
-        /// The colour swatches and the two sliders, sitting between the grid and the buttons.
-        ///
-        /// Nothing here touches the pin. Like the icon grid above it, this only records what you
-        /// have chosen - Confirm is what writes it, and Cancel is what throws it away.
+        /// The colour swatches and the two sliders, between the grid and the buttons. Like the
+        /// icon grid, this only records the choice; Confirm writes it.
         private static void AddStyleControls(Transform parent)
         {
             var strip = new GameObject("Style");
@@ -232,8 +228,7 @@ namespace CarturMapPins
                 var go = new GameObject(PinStyles.PaletteNames[i]);
                 go.transform.SetParent(strip.transform, false);
 
-                // Spread across the full width rather than bunched at the left: a row of swatches
-                // reads as a palette, a huddle of them in a corner reads as leftovers.
+                // Spread across the full width so the row reads as a palette.
                 float span = 1f / count;
                 RectTransform srt = go.AddComponent<RectTransform>();
                 srt.anchorMin = new Vector2(i * span, 1f);
@@ -250,8 +245,8 @@ namespace CarturMapPins
                 button.onClick = new Button.ButtonClickedEvent();
                 button.onClick.AddListener(() => ChooseColour(index));
 
-                // The frame around a swatch is what says which colour is chosen - the swatch
-                // itself cannot show it, since its own colour is the thing being chosen.
+                // The frame shows the chosen colour; the swatch cannot, its colour is the thing
+                // being chosen.
                 var frameGo = new GameObject("Border");
                 frameGo.transform.SetParent(go.transform, false);
                 RectTransform frt = frameGo.AddComponent<RectTransform>();
@@ -274,9 +269,9 @@ namespace CarturMapPins
                                      v => { _style.Alpha = v; RefreshReadouts(); });
         }
 
-        /// A slider built from three plain images: a track, a fill and a handle. Vanilla has
-        /// sliders of its own, but they live on prefabs reached through the settings screen rather
-        /// than anything the map holds, and three images is less code than finding one.
+        /// A slider built from plain images: a track, a fill and a handle. Vanilla's sliders live
+        /// on prefabs reached through the settings screen, not anything the map holds, and this is
+        /// less code than finding one.
         private static Slider AddSlider(Transform parent, string label, float y, float min, float max,
                                         UnityEngine.Events.UnityAction<float> onChange)
         {
@@ -317,8 +312,7 @@ namespace CarturMapPins
             Image trackImage = track.AddComponent<Image>();
             trackImage.color = new Color(0.95f, 0.92f, 0.82f, 0.18f);
 
-            // The filled part, so a value can be read at a glance instead of judged from where
-            // the handle sits.
+            // The filled part, so the value reads at a glance.
             var fillArea = new GameObject("FillArea");
             fillArea.transform.SetParent(go.transform, false);
             RectTransform fart = fillArea.AddComponent<RectTransform>();
@@ -387,8 +381,7 @@ namespace CarturMapPins
         private static readonly Dictionary<Slider, TextMeshProUGUI> Readouts =
             new Dictionary<Slider, TextMeshProUGUI>();
 
-        /// Size as a multiplier and opacity as a percentage - each in the unit the thing is
-        /// actually thought about in, rather than both as a number between nought and one.
+        /// Size as a multiplier and opacity as a percentage, the units each is thought about in.
         private static void RefreshReadouts()
         {
             if (_sizeSlider != null && Readouts.TryGetValue(_sizeSlider, out TextMeshProUGUI size))
@@ -428,15 +421,14 @@ namespace CarturMapPins
             for (int i = 0; i < _swatches.Count; i++)
                 IconGrid.SetSelected(_swatches[i], i == _style.Colour);
 
-            // Assigned without firing the listeners: setting .value would call back into the very
-            // fields being loaded and overwrite them with the slider's old position.
+            // Without firing the listeners: setting .value would call back into the fields being
+            // loaded and overwrite them with the slider's old position.
             _sizeSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Size, _sizeSlider.minValue, _sizeSlider.maxValue));
             _alphaSlider?.SetValueWithoutNotify(Mathf.Clamp(_style.Alpha, _alphaSlider.minValue, _alphaSlider.maxValue));
             RefreshReadouts();
         }
 
-        /// One half of the footer. `from` and `to` are fractions of the panel's width, so the two
-        /// buttons split it without either needing to know the panel's size.
+        /// One half of the footer. `from` and `to` are fractions of the panel's width.
         private static void AddFooterButton(Transform parent, string text, float from, float to,
                                             UnityEngine.Events.UnityAction onClick, Color colour)
         {
@@ -474,15 +466,15 @@ namespace CarturMapPins
             label.raycastTarget = false;
         }
 
-        /// Marks a choice without applying it, so a misclick in a 153-icon grid costs nothing.
+        /// Marks a choice without applying it.
         private static void Choose(int index)
         {
             _pending = index;
             RefreshHighlights();
         }
 
-        /// Minimap.UpdatePins only runs when the map asks for it, so a change made here sat
-        /// unpainted until the next click on the map. This is the flag the map itself sets when a
+        /// Minimap.UpdatePins only runs when the map asks for it, so without this a change sits
+        /// unpainted until the next click on the map. It is the flag the map itself sets when a
         /// pin is added, removed or re-iconned.
         private static readonly FieldInfo PinUpdateRequired =
             AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
@@ -493,12 +485,10 @@ namespace CarturMapPins
                 PinUpdateRequired?.SetValue(_map, true);
         }
 
-        /// Throws away whatever was typed or clicked and shuts the panel.
-        ///
-        /// Nothing has to be undone: choosing an icon only marks it, and the name lives in the
-        /// input box until Confirm copies it across - so closing is the undo. Worth a button of
-        /// its own all the same, because "click away and hope" is not an obvious way to back out
-        /// of a dialog with a Confirm on it.
+        /// Throws away whatever was typed or clicked and shuts the panel. Nothing has to be
+        /// undone: a chosen icon is only marked and the name stays in the input box until Confirm,
+        /// so closing is the undo. It gets a button anyway because "click away and hope" is not an
+        /// obvious way out of a dialog with a Confirm on it.
         private static void Cancel() => Close();
 
         private static void Confirm()
@@ -549,21 +539,22 @@ namespace CarturMapPins
             Close();
         }
 
+        /// DestroyMapMarker is private; it is Destroy plus a null, and vanilla calls it every pass
+        /// for off-screen pins, so it is safe to repeat.
+        private static readonly MethodInfo DestroyMapMarker =
+            AccessTools.Method(typeof(Minimap.PinNameData), "DestroyMapMarker");
+
         /// Makes a renamed pin show its new name.
         ///
         /// A label's text is written exactly once, in PinNameData.SetTextAndGameObject when its
         /// marker is built; UpdatePins only shows and hides it afterwards and never reads m_name
-        /// again. So writing m_name alone left the old name on the map until the pin scrolled
-        /// off-screen or the world reloaded - and a pin that had no name yet has no PinNameData
-        /// at all, so no label was ever built for it.
+        /// again. So writing m_name alone leaves the old name on the map until the pin scrolls
+        /// off-screen or the world reloads, and a pin with no name yet has no PinNameData at all,
+        /// so no label was ever built for it.
         ///
         /// Vanilla's own rename path creates the PinNameData when it is missing. When it exists,
         /// dropping its marker is enough: UpdatePins rebuilds any name whose GameObject is null,
-        /// and the rebuild reads the new name. DestroyMapMarker is private; it is Destroy plus a
-        /// null, and vanilla calls it every pass for off-screen pins, so it is safe to repeat.
-        private static readonly MethodInfo DestroyMapMarker =
-            AccessTools.Method(typeof(Minimap.PinNameData), "DestroyMapMarker");
-
+        /// and the rebuild reads the new name.
         internal static void RefreshLabel(Minimap.PinData pin)
         {
             if (pin.m_NamePinData == null)

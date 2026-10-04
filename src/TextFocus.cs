@@ -10,7 +10,7 @@ namespace CarturMapPins
     /// Minimap.InTextInput is what PlayerController.TakeInput, Chat.Update and Minimap.Update all
     /// consult before acting on a key - it is how vanilla's own pin-name field stops M from closing
     /// the map while you are typing a name. Fields this mod builds are not that field, so the
-    /// answer was no and every letter went to the game: h opened another mod's menu, m shut the
+    /// answer is no and every letter goes to the game: h opens another mod's menu, m shuts the
     /// map.
     ///
     /// Answering yes for our fields too fixes vanilla and every mod polite enough to ask. A mod
@@ -45,19 +45,19 @@ namespace CarturMapPins
             }
         }
 
+        private static FieldInfo _vanillaSubmit;
+
         /// Cuts a cloned text box loose from vanilla's pin-naming handler.
         ///
         /// Minimap.m_nameInput is a GUIFramework.GuiInputField, and that class's own Start()
         /// wires onSubmit to its OnInputSubmit event - a serialized field, so Instantiate copies
         /// it with the prefab's listener intact, and that listener is how the map names a pin.
         /// Giving the clone a fresh onSubmit does not help: Start runs a frame later and hooks
-        /// the fresh one just the same. So Enter in a box of ours reached Minimap.OnPinTextEntered,
+        /// the fresh one just the same. So Enter in a box of ours reaches Minimap.OnPinTextEntered,
         /// which closes vanilla's own name box and leaves whatever pin it was naming unnamed.
         ///
         /// Only the field itself stops it. Its handler null-checks it before invoking, so null is
         /// the whole fix - no listener to remove and no replacement event to build.
-        private static FieldInfo _vanillaSubmit;
-
         public static void DropVanillaSubmit(TMP_InputField field)
         {
             if (field == null)

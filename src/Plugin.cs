@@ -44,9 +44,8 @@ namespace CarturMapPins
         private static ConfigEntry<bool> _pickJunk;
         private static ConfigEntry<bool> _pickOther;
 
-        /// Per-category knobs. PinType is exposed because the enum names Icon0-Icon4 say nothing
-        /// about which artwork they actually are - that has to be checked in game, and then any
-        /// slot can be reshuffled here without a rebuild.
+        /// Per-category knobs. PinType is only the vanilla fallback for when the custom sheet
+        /// fails to load, and is hidden from the settings screen.
         public class CategorySettings
         {
             public ConfigEntry<bool> Enabled;
@@ -92,8 +91,8 @@ namespace CarturMapPins
         /// Cave you dip into for one chest may not be.
         ///
         /// Stored in the same place as every other per-kind switch, under a key of its own rather
-        /// than in a second dictionary that would need its own lookup, its own binder and its own
-        /// "missing means yes" rule.
+        /// than in a second dictionary that would need its own lookup, binder and "missing means
+        /// yes" rule.
         private const PinCategory TickPseudoCategory = (PinCategory)(-1);
 
         public static bool TickKindEnabled(string kind) => SubtypeEnabled(TickPseudoCategory, kind);
@@ -122,9 +121,9 @@ namespace CarturMapPins
             Sections.Capture(Config.ConfigFilePath);
 
             // Written as an action rather than a state: choosing one applies it and the setting
-            // drops back to None. Anything else would claim a preset is still in force while you
-            // change switches underneath it, and there is no honest way to know when it stopped
-            // being true.
+            // drops back to None. A state would claim a preset is still in force while you change
+            // switches underneath it, and there is no honest way to know when it stopped being
+            // true.
             // Ordered to the top of General: ConfigurationManager sorts a section by Order
             // descending, and the two settings that DO something belong above the ones that
             // merely describe a preference.
@@ -157,17 +156,16 @@ namespace CarturMapPins
             HideCollidingLabels = Config.Bind(Sections.Of("General", "HideCollidingLabels"), "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
 
-            // Hiding rather than deleting, and it is the only control here that reaches pins
-            // that are already on the map. Turning a category off stops new pins and leaves the
-            // old ones; this puts them away and brings them back, with nothing lost either way.
+            // The only control here that reaches pins already on the map: turning a category off
+            // stops new pins and leaves the old ones; this puts them away and brings them back,
+            // with nothing lost either way.
             HiddenPins = Config.Bind(Sections.Of("General", "HiddenPins"), "HiddenPins", "",
                 new ConfigDescription(
                     "Pin names to hide, separated by commas. The pins stay on your map and in your save - they are simply not drawn - so removing a name here brings them straight back. Open the list to pick from what is actually on your map. Every word you type has to match, so \"copper\" and \"copper ore\" both hide copper, and \"core\" hides all three kinds of core.",
                     null,
                     new ConfigurationManagerAttributes { Order = 6, CustomDrawer = HideListDrawer.Draw }));
 
-            // Parsed once here and once per edit. The draw pass runs over every pin every time
-            // the map moves, and splitting a string in there is a frame-rate bug.
+            // Parsed once here and once per edit, not in the draw pass that runs over every pin.
             PinHiding.Reparse(HiddenPins.Value);
             HiddenPins.SettingChanged += (_, __) => PinHiding.Reparse(HiddenPins.Value);
 
@@ -198,16 +196,18 @@ namespace CarturMapPins
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(Subtypes.Ores))
                 BindSubtypeIcon(Sections.Of("Ore Icons"), e);
 
+            // Pickable must be bound: without it SettingsFor(Pickable) is null and TryPin drops
+            // every pickable. Bound into the existing "Pickables" section rather than a new
+            // "Pickable" one, so the category's own knobs sit with the group toggles.
             Bind(PinCategory.Pickable, true, Minimap.PinType.Icon1, 5f,
                 "Pickable plants, mushrooms and one-off items. Which kinds are pinned is decided by the group switches below - this is the master switch for all of them.",
                 iconIndex: 84, sectionName: "Pickables");   // question mark; group and per-plant icons override it
 
             // Not advanced, deliberately. Every other category's Enabled switch is on the plain
-            // page, and these five were the exception - so the one switch that turns mushroom
-            // pins on was invisible unless you had already found the Advanced checkbox. Four
-            // separate people asked for "a way to toggle pickables", and one filed it as a bug
-            // ("Common Mushroom No Auto Pin"), which is what a setting nobody can find looks like
-            // from outside. The defaults are unchanged; only where they are drawn has changed.
+            // page, and hiding these five made the switch that turns mushroom pins on invisible
+            // unless you had found the Advanced checkbox. Four separate people asked for "a way
+            // to toggle pickables", and one filed it as a bug ("Common Mushroom No Auto Pin"),
+            // which is what a setting nobody can find looks like from outside.
             _pickHighValue = Config.Bind(Sections.Of("Pickables", "HighValue"), "HighValue", true,
                 new ConfigDescription("Surtling, molten and black cores, cave crystals, royal jelly, obsidian, tin, bog iron, tar, meteorites, dragon and Volture eggs, and wild barley and flax. Rare and worth remembering.",
                     null, Attr(order: 5)));
@@ -270,8 +270,6 @@ namespace CarturMapPins
                 "One-off world objects that carry no component saying what they are, so the mod knows them by name - currently the maypole standing in an abandoned Meadows village. Anything you built yourself is never pinned.",
                 iconIndex: 149);  // maypole; per-prop icons override this
             BindKinds(PinCategory.Prop, "Prop", Subtypes.Props);
-            // Ruins that never get a pin of their own - their chest carries the name and icon, so
-            // switching one off means those ruins stop being pinned at all.
             Bind(PinCategory.Spawner, false, Minimap.PinType.Icon3, 15f,
                 "Creature nests and spawners (greydwarf nests, draugr piles, bone piles, surtling geysers) - the static ones worth farming or avoiding. OFF by default - the catalog covers 103 spawner prefabs, including chicken, bat, fish and leech, so a fresh world would carpet the map. Individual creatures have their own icons in Spawner Types.",
                 iconIndex: 9);    // summoning circle; per-creature icons override this
@@ -292,6 +290,8 @@ namespace CarturMapPins
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1))));
 
+            // Ruins that never get a pin of their own - their chest carries the name and icon, so
+            // switching one off means those ruins stop being pinned at all.
             BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
             BindKinds(PinCategory.Chest, "Chest Site", Subtypes.BuriedChests);
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
@@ -304,11 +304,6 @@ namespace CarturMapPins
             Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
                 "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
                 iconIndex: 85);   // star
-            // Pickable had no binding at all, which meant SettingsFor(Pickable) returned null and
-            // TryPin dropped every pickable on the floor - the whole Pickables section, the
-            // classifier and the group icons were wired to nothing. Bound into the existing
-            // "Pickables" section rather than a new "Pickable" one, so the category's own knobs
-            // sit with the group toggles instead of in a near-identically named section.
             Bind(PinCategory.Home, true, Minimap.PinType.Bed, 5f,
                 "Marks a bed as home when you claim it as your spawn. Vanilla marks only your current spawn and moves that one marker when you sleep somewhere else, so an outpost you slept in last week leaves nothing behind - these pins stay.",
                 iconIndex: 70);   // house with a bed in it
@@ -331,10 +326,10 @@ namespace CarturMapPins
             MapPickerEnabled = Config.Bind(Sections.Of("CustomIcons", "MapPicker"), "MapPicker", true,
                 "Show a scrollable grid of the custom icons on the large map, next to vanilla's own row of pin-type buttons. Only affects pins you place by hand - auto-pins use each category's IconIndex.");
             MapPickerEnabled.SettingChanged += (_, __) => MapIconPicker.SetVisible(MapPickerEnabled.Value);
-            // Renamed from MapPickerX/Y, which measured from the bottom LEFT corner. The panel
-            // moved to the right, so an old config's 20 would now mean 20 pixels from the right
-            // edge and bury the picker under vanilla's pin buttons. New names, so every existing
-            // config takes the new defaults and the stale lines sit there harmlessly.
+            // Not named MapPickerX/Y, which measured from the bottom LEFT corner: the panel is on
+            // the right now, so an old config's 20 would mean 20 pixels from the right edge and
+            // bury the picker under vanilla's pin buttons. New names, so existing configs take the
+            // new defaults and the stale lines sit there harmlessly.
             MapPickerRight = Config.Bind(Sections.Of("CustomIcons", "MapPickerRight"), "MapPickerRight", 108f,
                 new ConfigDescription("How far in from the right edge of the map screen the picker sits. The default puts it against vanilla's column of pin buttons without overlapping them.",
                     null, Attr(advanced: true)));
@@ -350,9 +345,8 @@ namespace CarturMapPins
                 "Writes the full diagnostics dump to BepInEx/config/carturpins_dump.txt a few seconds after you load in - every location, the catalog, map labels, spawners, every prefab. OFF by default now that the answers are in the repo: it costs a hitch on every load and rewrites a 800KB file nobody is reading. Turn it on when a game update has moved something, or run carturpins_dumpall once instead.");
 #endif
 
-            // Pins that follow the thing rather than mark the spot. Separate section because
-            // these behave differently from every other pin in the mod: they move, they are not
-            // saved into the map, and they are not deduped by position.
+            // Pins that follow the thing rather than mark the spot. Separate section because they
+            // move, are not saved into the map, and are not deduped by position.
             TrackBoats = Config.Bind(Sections.Of("Tracking", "Boats"), "Boats", true,
                 new ConfigDescription("Put a pin on your boats and keep it on them as they move. When a boat is too far away for the game to have it loaded, its pin stays where you last saw it.",
                     null, Attr(order: 6)));
@@ -366,8 +360,8 @@ namespace CarturMapPins
 
             // One entry per boat and per tame, generated from the same tables the tracker matches
             // against, so the menu can never fall behind what the mod recognises. Not run through
-            // AdoptLegacy like the subtype icons are: these keys are new, so there is no 1.2.2
-            // value to adopt and pretending otherwise would only confuse the next reader.
+            // AdoptLegacy like the subtype icons: these keys are new, so there is no 1.2.2 value
+            // to adopt.
             foreach (Trackers.IconKind kind in Trackers.BoatKinds)
                 BindTrackedIcon(Sections.Of("Boat Icons"), kind);
             foreach (Trackers.IconKind kind in Trackers.TameKinds)
@@ -377,31 +371,29 @@ namespace CarturMapPins
                 new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",
                     new AcceptableValueRange<float>(10f, 500f), Attr(advanced: true)));
 
-            // Written as a dropdown rather than a tick box, and with the frightening option spelled
-            // out in full, because this throws away work: a tick box sits one stray click from
-            // deleting a map somebody filled in over fifty hours. Choosing a named option is
-            // deliberate in a way that ticking a box is not.
+            // A dropdown with the option spelled out in full, not a tick box, because this throws
+            // away work: a tick box is one stray click from deleting a map somebody filled in over
+            // fifty hours.
             ResetPins = Config.Bind(Sections.Of("General", "ResetPins"), "ResetPins", PinReset.No,
                 new ConfigDescription("Start this world's pins over. Removes every pin this mod placed and forgets them, so each one is pinned again as you rediscover it. Pins you placed by hand are untouched, and so are any colours or sizes you set. Returns to No once it has run - it is a button, not a state.",
                     null, Attr(order: 99)));
             ResetPins.SettingChanged += (_, __) => Reset(ResetPins.Value);
 
-            // After every Bind, before anything reads a value. The section names changed in this
-            // version, and BepInEx keys a setting by (section, key) - so without this every
-            // switch, icon and offset anybody had set would have come back as its default, and
-            // the old lines would sit orphaned further up the same file. Silent, unless it
-            // actually moved something.
+            // After every Bind, before anything reads a value. BepInEx keys a setting by
+            // (section, key), so without this the renamed sections would bring back every switch,
+            // icon and offset at its default and orphan the old lines further up the file. Silent
+            // unless it actually moved something.
             int carried = Sections.Adopt(Config);
             if (carried > 0)
                 Logger.LogInfo($"Settings: carried {carried} value(s) over from the old section names.");
 
-            // Only notes where records live. Which file is this one depends on the world and the
-            // character, and at plugin load there is neither - it resolves on first use.
             // Before any pin is placed: an unregistered token would be drawn as
             // "[carturpins_frost_cave]", and Token() deliberately refuses to emit one it has not
             // registered, so registering late would silently leave the first pins in English.
             Translations.Register();
 
+            // Only notes where records live. Which file is this one depends on the world and the
+            // character, and at plugin load there is neither - it resolves on first use.
             PinRecord.Load(Paths.ConfigPath);
             Trackers.Load(Paths.ConfigPath);
             PinStyles.Load(Paths.ConfigPath);
@@ -421,8 +413,8 @@ namespace CarturMapPins
             Apply(ApplyPreset.Value);
 
             // A mod that throws on load takes every plugin after it down with it. Every target
-            // resolves against the game installed today, so this catches nothing now - it is here
-            // for the update that renames one of them, where the honest outcome is this mod not
+            // resolves against the game installed today, so this catches nothing now; it is for
+            // the update that renames one of them, where the honest outcome is this mod not
             // working and the rest of the game starting.
             try
             {
@@ -439,15 +431,15 @@ namespace CarturMapPins
         }
 
         /// Wrapped, because this runs on the game's own event: an exception escaping here would
-        /// land inside Valheim's language-change notification with every later subscriber
-        /// unnotified, which is a settings menu that half-applies.
+        /// land inside Valheim's language-change notification and leave every later subscriber
+        /// unnotified.
         private static void OnLanguageChanged()
         {
             try
             {
-                // Before Relabel, not after: switching language makes Localization reload its
-                // table, which drops every word a mod added, so the tokens have to go back in
-                // before anything asks for their text.
+                // Before Relabel: switching language makes Localization reload its table, which
+                // drops every word a mod added, so the tokens must go back in before anything
+                // asks for their text.
                 Translations.Register();
 
                 int reworded = PinRecord.Relabel();
@@ -470,13 +462,13 @@ namespace CarturMapPins
         /// is rediscovered.
         ///
         /// Refuses unless a map exists. PinRecord.RemoveAll drops its records whether or not it
-        /// found pins to remove, so running this from the main menu would forget everything while
-        /// leaving the pins on the map - and the next world load would then pin all of it a second
-        /// time on top of what is already there, with nothing left that knows they are duplicates.
+        /// found pins to remove, so from the main menu it would forget everything while leaving
+        /// the pins on the map, and the next world load would pin all of it a second time with
+        /// nothing left that knows they are duplicates.
         ///
-        /// Styles are deliberately left alone. A colour or size is keyed by position and is set by
-        /// hand through the pin editor, which works on hand-placed pins too - so wiping them here
-        /// would throw away work this reset never touched.
+        /// Styles are deliberately left alone: a colour or size is keyed by position and set by
+        /// hand through the pin editor, which works on hand-placed pins too, so wiping them would
+        /// throw away work this reset never touched.
         private static void Reset(PinReset choice)
         {
             if (choice == PinReset.No)
@@ -517,9 +509,9 @@ namespace CarturMapPins
 
         /// Applies a preset and then clears itself.
         ///
-        /// Writes through the config entries rather than to some parallel state, so the file, the
-        /// settings screen and the mod all say the same thing afterwards and a preset can be used
-        /// as a starting point to tweak from.
+        /// Writes through the config entries rather than to parallel state, so the file, the
+        /// settings screen and the mod all agree afterwards and a preset can be a starting point
+        /// to tweak from.
         private static void Apply(Preset preset)
         {
             if (preset == Preset.None)
@@ -566,7 +558,6 @@ namespace CarturMapPins
                 ApplyPreset.Value = Preset.None;
         }
 
-        /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
         /// Every icon setting goes through here on its way out of Bind, so a name written by
         /// 1.2.2 is carried over in the one moment it still can be.
         private static ConfigEntry<PinIcon> AdoptLegacy(ConfigEntry<PinIcon> entry)
@@ -575,6 +566,7 @@ namespace CarturMapPins
             return entry;
         }
 
+        /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
         private static ConfigurationManagerAttributes Attr(bool? browsable = null, bool advanced = false, int order = 0) =>
             new ConfigurationManagerAttributes { Browsable = browsable, IsAdvanced = advanced, Order = order };
 
@@ -584,9 +576,6 @@ namespace CarturMapPins
         private void Bind(PinCategory category, bool enabled, Minimap.PinType pinType, float dedupe, string description, int iconIndex, string sectionName = null)
         {
             string section = Sections.Of(sectionName ?? category.ToString());
-            // Every icon entry is watched, so a change to any of them carries the pins already
-            // on the map with it. Registered at the one place each is bound, so a category or
-            // subtype added later is covered without anybody remembering to come back here.
             Settings[category] = new CategorySettings
             {
                 Enabled = Config.Bind(section, "Enabled", enabled,
@@ -594,20 +583,22 @@ namespace CarturMapPins
                 IconIndex = AdoptLegacy(Config.Bind(section, "Icon", (PinIcon)iconIndex,
                     new ConfigDescription("Pin icon for this category. Pick one, or use the default.",
                         null, IconAttr(order: 1)))),
-                // Kept out of the settings screen. The vanilla icon is only ever a fallback for
-                // when the custom sheet fails to load, and choosing one is not a decision anybody
-                // needs to make from a menu.
+                // Kept out of the settings screen: the vanilla icon is only a fallback for when
+                // the custom sheet fails to load.
                 PinType = Config.Bind(section, "PinTypeFallback", pinType,
                     new ConfigDescription("Vanilla map icon used only if the custom icon sheet fails to load.",
                         null, Attr(browsable: false))),
-                // Spacing between two pins of the same kind. Correct values differ per category -
-                // chests sit metres apart in a village, ore clusters do not - so these stay, but
-                // off the settings screen where they were 13 sliders nobody wanted.
+                // Spacing between two pins of the same kind. Correct values differ per category
+                // (chests sit metres apart in a village, ore clusters do not), so these stay, but
+                // under Advanced: they were 13 sliders nobody wanted.
                 DedupeRadius = Config.Bind(section, "MinimumSpacing", dedupe,
                     new ConfigDescription("Don't place a second pin of this kind within this many metres.",
                         null, Attr(advanced: true, order: 0))),
             };
 
+            // Every icon entry is watched, so a change to any of them carries the pins already on
+            // the map with it. Done where each is bound, so a category or subtype added later is
+            // covered automatically.
             IconRepoint.Watch(Settings[category].IconIndex);
         }
 
@@ -622,9 +613,9 @@ namespace CarturMapPins
         ///
         /// Sections are "X Kinds" for the switches and "X Icons" for the icons - except where 1.2.2
         /// already shipped a section, which keeps its name whatever it holds. A section and key
-        /// pair carries one type of value, so reusing "Dungeon Types" for switches would have read
-        /// somebody's saved icon choice as a true/false, failed, and silently reset it. Two odd
-        /// names are cheaper than every updating player losing the icons they picked.
+        /// pair carries one type of value, so reusing "Dungeon Types" for switches would read
+        /// somebody's saved icon choice as a true/false, fail, and silently reset it. Two odd names
+        /// are cheaper than every updating player losing the icons they picked.
         private void BindKinds(PinCategory category, string name, Subtypes.Entry[] table,
                                string switchSection = null, string iconSection = null)
         {
@@ -642,17 +633,16 @@ namespace CarturMapPins
                 return;
             bool on = !KindsOffByDefault.Contains(key);
             // The tick switches hang off Dungeon/TickWhenLooted rather than a category of their
-            // own, so they say so instead of naming the pseudo-category they are keyed under.
+            // own, so they name that instead of the pseudo-category they are keyed under.
             string requires = category == TickPseudoCategory
                 ? " Requires Dungeon/TickWhenLooted."
                 : $" Requires the {category} category to be enabled.";
 
             // Advanced, along with every other per-kind row. There are 379 settings here and
-            // roughly 340 of them are one of these: a switch or an icon for a single kind of
-            // thing. Shown by default they bury the seventeen settings that decide what the mod
-            // does at all, so somebody who only wants to turn camps off has to find "Camp" among
-            // nine sections whose names begin with Camp. They are one tick away, under Advanced,
-            // and nothing about them has changed.
+            // roughly 340 of them are a switch or an icon for a single kind of thing. Shown by
+            // default they bury the seventeen settings that decide what the mod does at all, so
+            // somebody who only wants to turn camps off has to find "Camp" among nine sections
+            // whose names begin with Camp.
             SubtypeToggles[key] = Config.Bind(section, kind, on,
                 new ConfigDescription(description + requires + (on ? "" : " OFF by default."),
                     null, Attr(advanced: true)));
@@ -738,14 +728,12 @@ namespace CarturMapPins
                 case PickableGroup.HighValue: return _pickHighValue.Value;
                 case PickableGroup.Berries: return _pickBerries.Value;
                 // Mushrooms are a separate group from Berries because they get a separate icon,
-                // but they are NOT a separate switch - BerriesAndMushrooms says in its own
-                // description that it covers both. Without this case they fell through to
-                // default, which is the Unrecognised switch: off by default, and described as
-                // "didn't match a known group". So turning BerriesAndMushrooms on pinned berries
-                // and silently did nothing for mushrooms, and the only way to get a mushroom pin
-                // was to turn on a switch that says it is for things the mod failed to classify.
-                // Reported as the bug "Common Mushroom No Auto Pin" - Pickable_Mushroom classifies
-                // correctly as Mushrooms, so the classifier was never the problem, this gate was.
+                // but NOT a separate switch: BerriesAndMushrooms says in its own description that
+                // it covers both. Without this case they would fall through to default, the
+                // Unrecognised switch (off by default, "didn't match a known group"), and turning
+                // BerriesAndMushrooms on would silently do nothing for mushrooms. Reported as the
+                // bug "Common Mushroom No Auto Pin": Pickable_Mushroom classifies correctly as
+                // Mushrooms, so the gate was the problem, not the classifier.
                 case PickableGroup.Mushrooms: return _pickBerries.Value;
                 case PickableGroup.Crops: return _pickCrops.Value;
                 case PickableGroup.Junk: return _pickJunk.Value;
@@ -773,9 +761,8 @@ namespace CarturMapPins
                 "Removes leftover duplicate pins - a second copy of one of this mod's pins that no record points at, which nothing else can ever clean up. Run it with the word yes to actually remove them; without it, it only counts.",
                 args =>
                 {
-                    // Counts unless told otherwise. This deletes pins the mod has no record of,
-                    // and the whole reason they are being removed is that nothing is tracking
-                    // them - so there is no undo and no way to put one back.
+                    // Needs an explicit "yes". This deletes pins the mod has no record of, so
+                    // nothing is tracking them: no undo, no way to put one back.
                     bool confirmed = args.Args != null && args.Args.Length > 1 &&
                                      string.Equals(args.Args[1], "yes", System.StringComparison.OrdinalIgnoreCase);
 
@@ -899,8 +886,8 @@ namespace CarturMapPins
                 "Diagnostics: lists the prefab names registered for a category, e.g. `carturpins_catalog Ore`.",
                 args => Probe.DumpCategory(args, args.Args.Length > 1 ? args.Args[1] : null));
 
-            // Every dump in one go. Each of these needs a restart to pick up a code change, and
-            // running them one at a time means a restart per question.
+            // Every dump in one go: each needs a restart to pick up a code change, so running
+            // them one at a time costs a restart per question.
             new Terminal.ConsoleCommand("carturpins_dumpall",
                 "Diagnostics: runs every dump - locations, catalog, labels, spawners - into the log in one pass.",
                 args => Probe.DumpEverything(args));

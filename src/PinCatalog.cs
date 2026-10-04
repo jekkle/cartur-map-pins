@@ -25,7 +25,7 @@ namespace CarturMapPins
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the
-    /// world, so they're grouped and toggled separately from everything else.
+    /// world, so they are grouped and toggled separately from everything else.
     public enum PickableGroup
     {
         HighValue,   // surtling cores, eggs, wild barley and flax
@@ -39,17 +39,17 @@ namespace CarturMapPins
     /// Prefab-hash -> category lookup, built once at runtime.
     ///
     /// Deliberately classifies by COMPONENT PRESENCE (and, for ore, by what a node drops) rather
-    /// than by prefab name: not one ore/pickable/beehive prefab name exists as a string literal
-    /// anywhere in assembly_valheim.dll (they're Unity asset references), so a hardcoded name
-    /// list is impossible to derive from the game and would rot on every update. Reading the live
-    /// prefab list instead is self-maintaining, and picks up modded content for free.
+    /// than by prefab name: no ore/pickable/beehive prefab name exists as a string literal in
+    /// assembly_valheim.dll (they are Unity asset references), so a hardcoded list cannot be
+    /// derived from the game and would rot on every update. The live prefab list is
+    /// self-maintaining and picks up modded content for free.
     internal static class PinCatalog
     {
         private static readonly Dictionary<int, PinCategory> ByHash = new Dictionary<int, PinCategory>();
         private static readonly Dictionary<int, PickableGroup> PickableGroups = new Dictionary<int, PickableGroup>();
 
-        /// Ore type per prefab hash ("Copper", "Tin", ...) - drives both the label and the
-        /// per-ore-type toggle, and keys dedupe so a copper pin can't suppress nearby tin.
+        /// Ore type per prefab hash ("Copper", "Tin", ...). Drives the label and the per-ore-type
+        /// toggle, and keys dedupe so a copper pin cannot suppress nearby tin.
         private static readonly Dictionary<int, string> OreTypes = new Dictionary<int, string>();
 
         /// Shattered-deposit debris, prefab hash -> the ore it yields. Never a pin; read only by
@@ -72,7 +72,7 @@ namespace CarturMapPins
         public static bool Contains(int hash) => ByHash.ContainsKey(hash);
 
         /// Categories that also exist in player-built form, where a pin would just mark
-        /// somebody's base. These are the ones that have to be creator-checked before pinning.
+        /// somebody's base. These have to be creator-checked before pinning.
         public static bool PlayerBuildable(PinCategory category) =>
             category == PinCategory.Beehive || category == PinCategory.Chest ||
             category == PinCategory.Prop;
@@ -89,8 +89,8 @@ namespace CarturMapPins
         public static readonly Dictionary<string, string> OreQualifiedBy = new Dictionary<string, string>();
 
         /// Drop-item name fragment -> the ore type shown on the map and used for its toggle.
-        /// This list is both the detector and the source of the per-type config entries, so a
-        /// type can't exist in one without the other.
+        /// Both the detector and the source of the per-type config entries, so a type cannot
+        /// exist in one without the other.
         public static readonly (string Token, string Type)[] OreTokens =
         {
             ("copperore",  "Copper"),
@@ -152,10 +152,10 @@ namespace CarturMapPins
 
         private static bool TryClassify(GameObject prefab, out PinCategory category)
         {
-            // Props are matched by name, alone among the categories, because that is the only
-            // thing that distinguishes them. A maypole is a Piece with a WearNTear and nothing
-            // else - the same components a wall has - so no component test can find it, and the
-            // table is short and specific rather than a rule that could sweep in scenery.
+            // Props are matched by name, alone among the categories, because nothing else
+            // distinguishes them. A maypole is a Piece with a WearNTear and nothing else, the
+            // same components a wall has, so no component test can find it. The table is short
+            // and specific so it cannot sweep in scenery.
             if (Subtypes.Match(Subtypes.Props, prefab.name) != null)
             {
                 category = PinCategory.Prop;
@@ -169,16 +169,15 @@ namespace CarturMapPins
                 category = PinCategory.BossAltar;
                 return true;
             }
-            // The seven guardian stones at the spawn temple - the ones you hang boss trophies on -
-            // carry a RuneStone component alongside their BossStone, so they classified as
+            // The seven guardian stones at the spawn temple, the ones you hang boss trophies on,
+            // carry a RuneStone component alongside their BossStone, so they would classify as
             // Runestones and put seven pins inside one 20 m ring at world spawn.
             //
-            // Nothing is lost by dropping them: the temple has a marker of its own already.
-            // StartTemple is the one location in ZoneSystem flagged iconAlways, so vanilla draws
-            // it at world generation whether or not the player has been there.
+            // Nothing is lost by dropping them: StartTemple is the one location in ZoneSystem
+            // flagged iconAlways, so vanilla already draws the temple at world generation.
             //
-            // BossStone is the right test rather than the "BossStone_" prefab name: the component
-            // owns the trophy ItemStand, which is what makes one of these a temple stone.
+            // BossStone is the test rather than the "BossStone_" prefab name: the component owns
+            // the trophy ItemStand, which is what makes one of these a temple stone.
             if (prefab.GetComponent<BossStone>() != null)
             {
                 category = default;
@@ -207,16 +206,16 @@ namespace CarturMapPins
             if (prefab.GetComponent<SpawnArea>() != null || prefab.GetComponent<CreatureSpawner>() != null)
             {
                 // A spawner that spawns one of the named minibosses is its own category, so those
-                // five can be on by default without the 103-prefab Spawner category coming with
-                // them. Asked of the spawner's own creature reference, same as the icon table.
+                // five can be on by default without the 103-prefab Spawner category. Asked of the
+                // spawner's own creature reference, same as the icon table.
                 category = Subtypes.Match(Subtypes.Minibosses, PinPlacer.SpawnedCreaturePrefabName(prefab)) != null
                     ? PinCategory.Miniboss
                     : PinCategory.Spawner;
                 return true;
             }
 
-            // Loot containers. The wild/player-built distinction can't be made here (it's per
-            // instance, from the ZDO creator), so that check happens at pin time.
+            // Loot containers. Wild vs player-built is per instance (ZDO creator), so that check
+            // happens at pin time.
             Container container = prefab.GetComponent<Container>();
             if (container != null && container.m_defaultItems?.m_drops != null &&
                 container.m_defaultItems.m_drops.Count > 0)
@@ -227,18 +226,18 @@ namespace CarturMapPins
 
             // Ore is classified by WHAT IT DROPS, not by component type.
             //
-            // The obvious test - "has MineRock5 or MineRock" - is wrong twice over: the Black
+            // The obvious test, "has MineRock5 or MineRock", is wrong twice over: the Black
             // Forest copper deposit (`rock4_copper`) is a plain Destructible with neither
-            // component, while the prefabs that *do* carry MineRock are mostly destruction
-            // debris (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...).
-            // Debris from a shattered deposit is never pinned - that is what LooksLikeFragment
-            // is for - but it is still the node standing there. A Black Forest copper deposit is
-            // a Destructible that destroys ITSELF and spawns rock4_copper_frac, the MineRock5 the
-            // player then mines for the actual ore. The registry only held the original, so its
-            // reference went null the moment the rock broke, the mined-ore sweep saw nothing
-            // standing, and three sweeps later it deleted the pin while the player was still
-            // mining the pile. Recorded here as evidence, with no category, so it can never
-            // become a pin of its own.
+            // component, while the prefabs that do carry MineRock are mostly destruction debris
+            // (cliff_ashlands1_frac, mudpile_frac, Rock_3_frac...).
+            //
+            // Debris is never pinned (LooksLikeFragment), but it is still the node standing
+            // there. A Black Forest copper deposit is a Destructible that destroys ITSELF and
+            // spawns rock4_copper_frac, the MineRock5 the player then mines for the ore. The
+            // registry only held the original, so its reference went null the moment the rock
+            // broke, the mined-ore sweep saw nothing standing, and three sweeps later it deleted
+            // the pin while the player was still mining the pile. So the debris is recorded here
+            // as evidence, with no category, and can never become a pin of its own.
             if (LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string fragHow) &&
                 YieldsOre(prefab, out string fragVia, out string fragOre))
             {
@@ -261,7 +260,7 @@ namespace CarturMapPins
             // so this category could never pin anything (ChuckM85, 1.7.0). The wild one is the
             // ZNetScene prefab "Beehive", placed inside the abandoned-house locations (read from the
             // game's bundles: a "Beehive" object with its own LODGroup in ~20 location bundles), and
-            // carries none of the components above - so it is matched by name, like the props.
+            // carries none of the components above, so it is matched by name like the props.
             if (prefab.GetComponent<Beehive>() != null || prefab.name == "Beehive")
             {
                 category = PinCategory.Beehive;
@@ -278,17 +277,15 @@ namespace CarturMapPins
         }
 
         /// Dropping an ore item is not enough to be an ore deposit. A barrel, a cauldron, a rusty
-        /// crypt gate, a weapon rack and a pile of giant bones all drop scrap or marble when you
-        /// break them, and all of them were being pinned as "Iron" or "Tin".
+        /// crypt gate, a weapon rack and a pile of giant bones all drop scrap or marble when
+        /// broken, and would pin as "Iron" or "Tin".
         ///
-        /// What separates a deposit is that you cannot get into it with a weapon - the damage
-        /// modifiers let the pickaxe through and stop everything else. Props take ordinary slash
-        /// damage. That is the test, rather than a component type, because the component test was
-        /// already tried and fails both ways: rock4_copper is a plain Destructible with no
-        /// MineRock, while most MineRock prefabs are destruction debris.
+        /// What separates a deposit is that a weapon cannot get into it: the damage modifiers let
+        /// the pickaxe through and stop everything else, while props take ordinary slash damage.
+        /// That is the test rather than a component type, which fails both ways: rock4_copper is
+        /// a plain Destructible with no MineRock, while most MineRock prefabs are debris.
         ///
-        /// Reports which rule matched, so `carturpins_catalog Ore` shows the reasoning rather than
-        /// asking anyone to take the classification on trust.
+        /// Reports which rule matched, so `carturpins_catalog Ore` shows the reasoning.
         private static bool LooksMineable(GameObject prefab, out string how)
         {
             how = null;
@@ -324,19 +321,19 @@ namespace CarturMapPins
                 return true;
             }
 
-            // A _destruction mesh is the game saying this thing breaks like a prop rather than
-            // shattering like a node, and it is the only thing separating the giants' weapons and
-            // armour from a tin deposit: both are pickaxe-only, because both are big and stony.
+            // A _destruction mesh means the game breaks this like a prop rather than shattering
+            // it like a node. It is the only thing separating the giants' weapons and armour from
+            // a tin deposit: both are pickaxe-only, being big and stony.
             //   giant_sword1 -> giant_sword1_destruction   scenery, drops scrap
             //   MineRock_Tin -> no fragment child at all   a deposit
             if (shards != null && shards.name.ToLowerInvariant().Contains("_destruction"))
                 return false;
 
             // Not every deposit shatters. MineRock_Tin and MineRock_Obsidian are plain
-            // Destructibles that drop directly and spawn no fragments - and despite the name,
-            // they carry no MineRock component either, which is exactly the trap the comment on
-            // Classify warns about. What they do have is a deposit's damage profile: the pickaxe
-            // gets through and nothing else does. A barrel or a cauldron takes a sword.
+            // Destructibles that drop directly and spawn no fragments, and despite the name carry
+            // no MineRock component either (the trap noted in TryClassify). What they do have is a
+            // deposit's damage profile: the pickaxe gets through and nothing else does. A barrel
+            // or a cauldron takes a sword.
             HitData.DamageModifiers dmg = destructible.m_damages;
             if (!Blocks(dmg.m_pickaxe) && Blocks(dmg.m_slash))
             {
@@ -397,9 +394,9 @@ namespace CarturMapPins
                 }
             }
 
-            // A big deposit often doesn't drop ore itself - it spawns a mineable chunk that does
+            // A big deposit often does not drop ore itself, it spawns a mineable chunk that does
             // (Destructible.m_spawnWhenDestroyed). Follow that one level so the parent deposit,
-            // which is the thing you actually see and want pinned, still qualifies.
+            // the thing you see and want pinned, still qualifies.
             if (depth == 0)
             {
                 Destructible destructible = prefab.GetComponent<Destructible>();
@@ -415,20 +412,18 @@ namespace CarturMapPins
             return false;
         }
 
-        /// Grouped by what the pickable YIELDS rather than by its prefab name, so a renamed or
-        /// modded bush still lands in the right bucket.
         /// Which group a pickable belongs to.
         ///
         /// The Subtypes.Pickables table answers first, because it is a list somebody wrote down
-        /// and can read back. The substring rules below used to answer everything, and at scale
-        /// they were wrong more often than right: run over the game's 89 pickables, 44 fell
-        /// through to Other - every Ashlands core, every quest fragment, every treasure pile -
-        /// and the junk rule, which matches the letters "stone", swept up all seven Mork Halla
-        /// gemstones with the sticks.
+        /// and can read back. The substring rules below were wrong more often than right at
+        /// scale: run over the game's 89 pickables, 44 fell through to Other (every Ashlands
+        /// core, quest fragment and treasure pile) and the junk rule, which matches the letters
+        /// "stone", swept up all seven Mork Halla gemstones with the sticks.
         ///
-        /// The rules stay as the fallback, which is what Other is honestly for: modded content,
-        /// and anything a game update adds before the table catches up. Both are logged, so a new
-        /// name can be added rather than sitting in Unrecognised forever.
+        /// The rules stay as the fallback, which is what Other is for: modded content, and
+        /// anything a game update adds before the table catches up. Both are logged, so a new
+        /// name can be added. The rules read what the pickable yields as well as its prefab name,
+        /// so a renamed or modded bush can still land in the right bucket.
         private static PickableGroup ClassifyPickable(GameObject prefab)
         {
             PickableGroup? named = Subtypes.GroupFor(prefab.name);
@@ -455,9 +450,8 @@ namespace CarturMapPins
             if (ContainsAny(haystack, "thistle", "dandelion", "seed", "carrot", "turnip", "onion"))
                 return PickableGroup.Crops;
 
-            // "stone" is deliberately not in this list. It was, and it matched Bloodstone and
-            // every *_gemstone prefab, which is how the rarest pickables in the game came to be
-            // classified as junk. The three real ones are named instead.
+            // "stone" is deliberately not in this list: it matches Bloodstone and every *_gemstone
+            // prefab, the rarest pickables in the game. The three real ones are named instead.
             if (ContainsAny(haystack, "branch", "wood", "pickable_stone", "stonerock",
                             "placeable_stone", "flint", "feather", "resin"))
                 return PickableGroup.Junk;

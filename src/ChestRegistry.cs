@@ -6,10 +6,10 @@ namespace CarturMapPins
     /// enumerate every Container in the scene.
     ///
     /// FindObjectsByType&lt;Container&gt; returns the player's entire base as well - every chest,
-    /// barrel and cart - which is a lot of objects to walk just to check a handful of world
-    /// chests. The spawn hook already sees each container exactly once as its zone loads, and
-    /// it has already filtered out player-built ones, so collecting them there is both cheaper
-    /// and more precise. Mirrors how the game itself keeps Character.s_characters.
+    /// barrel and cart - which is a lot to walk just to check a handful of world chests. The
+    /// spawn hook already sees each container once as its zone loads and has filtered out
+    /// player-built ones, so collecting them there is cheaper and more precise. Mirrors how the
+    /// game itself keeps Character.s_characters.
     internal static class ChestRegistry
     {
         private static readonly List<Container> Live = new List<Container>();

@@ -13,17 +13,11 @@ namespace CarturMapPins
     ///
     /// Everything here is decided in WORLD metres, not screen pixels, and over every pin rather
     /// than only the ones currently on screen. That is the whole reason the answers hold still.
-    ///
-    /// The first version measured crowding between icons where they had landed on screen, which
-    /// seemed obviously right - it is what the eye sees. It made the map re-roll its decisions
-    /// constantly: a cell boundary is fixed to the screen, so panning one pixel slides every pin
-    /// towards a different cell, and a pin crossing one changes what its neighbours are worth.
-    /// Pins also lose their icons the moment they scroll off, so the set being measured changed
-    /// every time the view moved. Between the two, no two looks at the same map agreed.
-    ///
-    /// A patch of ground does not move when you drag the map, and a pin's position in the world
-    /// does not depend on whether it is currently visible. So the only thing that changes an
-    /// answer now is the zoom, which is the one time a change is wanted.
+    /// Measuring between icons where they landed on screen made the map re-roll its decisions:
+    /// a cell boundary is fixed to the screen, so panning slides pins into different cells, and
+    /// pins lose their icons as they scroll off, so the measured set changed with the view.
+    /// A patch of ground does not move when you drag the map, so only zoom changes an answer,
+    /// which is the one time a change is wanted.
     ///
     /// Never below half size. Past that a pin stops being readable, and a cluster of unreadable
     /// pins is worse than an overlapping one.
@@ -39,8 +33,8 @@ namespace CarturMapPins
         private static float _cellMetres = 1f;
         private static float _zoom = 1f;
 
-        /// Reused rather than allocated per pass: this runs on every pin update, and a dictionary
-        /// a frame is the kind of thing that shows up as stutter half an hour later.
+        /// Reused rather than allocated per pass: this runs on every pin update, and a new
+        /// dictionary each time shows up as stutter.
         private static readonly Dictionary<long, int> Counts = new Dictionary<long, int>();
 
         /// How many pins on the whole map share each name. A name appearing once says more than
@@ -56,8 +50,7 @@ namespace CarturMapPins
             new Dictionary<long, Minimap.PinData>();
 
         /// Pins this pass decided not to draw - too far from the player, or a repeat of one drawn
-        /// beside it. Held by reference; PinData is a plain class with no equality of its own, so
-        /// this is identity, which is what is wanted.
+        /// beside it. PinData has no equality of its own, so this is by identity, as wanted.
         private static readonly HashSet<Minimap.PinData> NotDrawn = new HashSet<Minimap.PinData>();
 
         /// Which patch of ground a pin stands on. World metres, so dragging the map cannot change
@@ -73,10 +66,9 @@ namespace CarturMapPins
 
         /// Which of two pins standing in the same place is kept, when nothing else separates them.
         ///
-        /// Decided on world position rather than on whichever came first in the list. Order is
-        /// only stable while the same pins are in play, and they are not: markers come and go as
-        /// the view moves, so "first one seen" handed the job to a different pin each time and the
-        /// survivor visibly swapped for no reason. Position is a property of the pin.
+        /// Decided on world position, not list order. Markers come and go as the view moves, so
+        /// "first one seen" handed the job to a different pin each time and the survivor visibly
+        /// swapped for no reason. Position is a property of the pin.
         private static bool Precedes(Minimap.PinData a, Minimap.PinData b)
         {
             if (!Mathf.Approximately(a.m_pos.x, b.m_pos.x))
@@ -87,9 +79,8 @@ namespace CarturMapPins
         /// Counts in steps rather than one for one.
         ///
         /// A pin near a cell boundary flips its neighbour's count between two and three, and a
-        /// size that answers every such flip is the shrinking and growing you can see on the map.
-        /// Steps mean the common wobble changes nothing: it takes a real change in how crowded a
-        /// spot is to move a pin to the next size down.
+        /// size that answers every such flip visibly shrinks and grows. Steps mean that common
+        /// wobble changes nothing.
         private static float ScaleForCount(int count)
         {
             if (count <= 1)
@@ -172,10 +163,8 @@ namespace CarturMapPins
             if (map == null || pins == null)
                 return;
 
-            // Folded in here rather than handled separately, because NotDrawn is already what
-            // both the icon fade and the label pass read. A pin the player has hidden is a pin
-            // this pass decided not to draw, and saying it once means the name cannot be left
-            // floating over a map with no icon under it.
+            // NotDrawn is what both the icon fade and the label pass read, so a hidden pin goes
+            // in it too; otherwise its name would float over a map with no icon under it.
             PinHiding.Apply(pins);
             if (PinHiding.Any)
             {
@@ -216,9 +205,8 @@ namespace CarturMapPins
             bool merging = Plugin.MergeRepeatedPins.Value;
 
             // Pass one: everything that is not drawn at all, and who wins each patch of ground.
-            // Every pin, not only the ones with an icon right now - a pin just off the edge is
-            // still standing in that patch, and leaving it out was half of why the map kept
-            // changing its mind.
+            // Every pin, not only the ones with an icon right now: a pin just off the edge still
+            // stands in that patch.
             foreach (Minimap.PinData pin in pins)
             {
                 if (pin == null)
@@ -337,11 +325,9 @@ namespace CarturMapPins
             return _zoom * ScaleForCount(count);
         }
 
-        /// Every number that decides a pin size, in one line.
-        ///
-        /// Here because the map twice failed to look like the settings said it should, and one
-        /// measurement ends an argument that another edit to a guess will not. Read by the
-        /// carturpins_zoom command; costs nothing until somebody types it.
+        /// Every number that decides a pin size, in one line, so a map that does not look like
+        /// its settings can be measured rather than guessed at. Read by the carturpins_zoom
+        /// command; costs nothing until somebody types it.
         public static string Describe()
         {
             Minimap map = Minimap.instance;

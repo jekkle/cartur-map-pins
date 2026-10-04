@@ -6,21 +6,19 @@ namespace CarturMapPins
 {
     /// Draws the hide list as a text box with a list of what is actually on your map underneath.
     ///
-    /// ConfigurationManager's own string drawer is a bare text field, which means typing a pin's
-    /// name exactly and from memory - and the names are localized, so half of them are not what
-    /// the wiki calls them. Offering the names that are really there, with counts, turns it into
-    /// picking from a list. Same mechanism as the icon dropdown next door: a CustomDrawer, drawn
-    /// inline rather than floating, because the manager's scroll view moves under an overlay.
+    /// ConfigurationManager's own string drawer is a bare text field, so a pin's name has to be
+    /// typed exactly and from memory, and the names are localized, so half are not what the wiki
+    /// calls them. Offering the names that are really there, with counts, turns it into picking
+    /// from a list. Same mechanism as the icon dropdown: a CustomDrawer, drawn inline rather than
+    /// floating, because the manager's scroll view moves under an overlay.
     ///
     /// The count is the part that matters. "core" legitimately takes Surtling, Molten and Black
-    /// Core at once, and the honest way to allow that is to say so before it happens rather than
-    /// to forbid it.
+    /// Core at once, and the honest way to allow that is to say so before it happens.
     internal static class HideListDrawer
     {
-        /// How tall the scrolling list is, in pixels. Scrolled rather than cut off at a row
-        /// count: the first build showed the fourteen commonest names and hid everything else
-        /// behind a text box, so finding a name meant already knowing how it is spelled - which
-        /// is the one thing the list exists to save you from.
+        /// How tall the scrolling list is, in pixels. Scrolled rather than cut off at a row count:
+        /// hiding the rarer names meant finding one required already knowing its spelling, which
+        /// is what the list exists to save you from.
         private const int ListHeight = 260;
 
         private static readonly HashSet<string> Expanded = new HashSet<string>();
@@ -28,7 +26,7 @@ namespace CarturMapPins
         private static Vector2 _scroll;
 
         /// Suggestions() walks the whole record and the live pin list, and OnGUI runs several
-        /// times a frame. Built when the drawer opens or the list text changes, not per event.
+        /// times a frame, so build it when the drawer opens or the text changes, not per event.
         private static List<KeyValuePair<string, int>> _suggestions;
         private static string _suggestionsFor;
 
@@ -111,10 +109,10 @@ namespace CarturMapPins
             GUILayout.EndVertical();
         }
 
-        /// Whether this exact name is already one of the terms. Deliberately an exact, whole-term
-        /// test and not the matching rule the hide itself uses: the button says whether clicking
-        /// it again will take this name back out, and a term like "core" that happens to cover
-        /// this pin is not something the Show button could undo.
+        /// Whether this exact name is already one of the terms. Deliberately an exact whole-term
+        /// test, not the hide's own matching rule: the button says whether clicking it will take
+        /// this name back out, and a term like "core" that happens to cover this pin is not
+        /// something the Show button could undo.
         private static bool Contains(string raw, string name)
         {
             name = NoCommas(name);

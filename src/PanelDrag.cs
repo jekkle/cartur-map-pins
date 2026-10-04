@@ -6,12 +6,10 @@ namespace CarturMapPins
     /// Drags the icon picker around the map by its grab handle.
     ///
     /// Unity's own drag events rather than mouse tracking: the canvas already has a
-    /// GraphicRaycaster working out what the cursor is over, and doing it by hand would mean
-    /// re-deciding every frame whether the pointer is still on the handle.
+    /// GraphicRaycaster working out what the cursor is over.
     ///
     /// Only the handle carries this, not the panel, so dragging never competes with scrolling the
-    /// grid or clicking an icon - the two live on different objects and Unity routes to whichever
-    /// the cursor is actually on.
+    /// grid or clicking an icon; Unity routes to whichever object the cursor is on.
     internal class PanelDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         private RectTransform _panel;
@@ -44,9 +42,8 @@ namespace CarturMapPins
             _panel.anchoredPosition += eventData.delta / scale;
         }
 
-        /// Written on release rather than on every frame of the drag: the config file is saved
-        /// when a value changes, and doing that a few hundred times across one drag would write
-        /// the file a few hundred times.
+        /// Written on release rather than every frame of the drag: the config file is saved each
+        /// time a value changes.
         public void OnEndDrag(PointerEventData eventData)
         {
             _commit?.Invoke();

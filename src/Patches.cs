@@ -8,18 +8,16 @@ namespace CarturMapPins
     /// Keeps this mod's pins off the cartography table when the player asks for that.
     ///
     /// Minimap.GetSharedMapData is the single funnel - MapTable.GetMapData is its only caller in
-    /// the whole game - and it already decides what to publish with two tests it applies itself:
-    /// it skips any pin whose m_save is false, and any pin of type Death. So there is no need to
-    /// rewrite the package or to reimplement the format. Clearing m_save for the duration of the
-    /// call makes vanilla's own filter do the work, and it is put back immediately afterwards.
+    /// the whole game - and it already skips any pin whose m_save is false, and any pin of type
+    /// Death. So there is no need to rewrite the package or reimplement the format: clearing
+    /// m_save for the duration of the call makes vanilla's own filter do the work.
     ///
-    /// That "immediately afterwards" is the whole risk of this patch, and why the restore is a
-    /// Finalizer rather than a Postfix: a Finalizer runs even when the original throws. A pin left
-    /// with m_save false would be dropped from the player's own save the next time the game wrote
-    /// it - losing pins is far worse than sharing them, so the restore must not be skippable.
+    /// The restore is a Finalizer rather than a Postfix because a Finalizer runs even when the
+    /// original throws. A pin left with m_save false would be dropped from the player's own save
+    /// the next time the game wrote it - losing pins is far worse than sharing them, so the
+    /// restore must not be skippable.
     ///
-    /// Reading other players' pins off a table is untouched; that is AddSharedMapData, a different
-    /// method with a different caller.
+    /// Reading other players' pins off a table is untouched; that is AddSharedMapData.
     [HarmonyPatch(typeof(Minimap), nameof(Minimap.GetSharedMapData))]
     internal static class Patch_Minimap_GetSharedMapData
     {
@@ -37,8 +35,7 @@ namespace CarturMapPins
             if (pins == null)
                 return;
 
-            // Only resolved for the mode that needs it - OwnPins walks the record against the map,
-            // and there is no reason to pay for that when every pin is being withheld anyway.
+            // Only resolved for the mode that needs it - OwnPins walks the record against the map.
             HashSet<Minimap.PinData> mine = mode == Plugin.PinSharingMode.HandPlacedOnly
                 ? PinRecord.OwnPins(__instance)
                 : null;
@@ -75,8 +72,8 @@ namespace CarturMapPins
             PinPlacer.Clear();
             // Containers from the previous world would otherwise linger as stale references.
             ChestRegistry.Clear();
-            // Records are per world per character now, so the previous world's must be dropped
-            // before anything asks this world whether a thing is already pinned.
+            // Records are per world per character, so the previous world's must be dropped before
+            // anything asks this world whether a thing is already pinned.
             PinRecord.Unload();
             IconRepoint.Reset();
             // Same reason, plus the tracked pins belong to a Minimap that is being replaced.
@@ -93,16 +90,14 @@ namespace CarturMapPins
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.AddInstance))]
     internal static class Patch_ZNetScene_AddInstance
     {
-        // Diagnostics: the spawn-hook path went completely silent while the Location sweep
-        // worked, and there was no way to tell from outside whether the hook wasn't firing or
-        // every object was being filtered out. Counters + a periodic summary answer that.
+        // Diagnostics: counters plus a periodic summary, to tell "the hook is not firing" from
+        // "every object is being filtered out".
         //
-        // Counted through Tally rather than written to directly. ReportIfDue is the only thing
-        // that ever reads them and it is not compiled into a release, so in a shipped build the
-        // additions were work done for nobody - in the one method that runs for every arrow,
-        // dropped item and creature in the world. [Conditional] removes the call at each site,
-        // which leaves the method reading identically in both builds; bracketing six increments
-        // in #if would not. The fields themselves stay because the calls still have to bind.
+        // Counted through Tally because ReportIfDue is the only reader and it is not compiled into
+        // a release, so the increments would be work done for nobody in the one method that runs
+        // for every arrow, dropped item and creature. [Conditional] removes the call at each site
+        // and leaves the method reading identically in both builds; bracketing six increments in
+        // #if would not. The fields stay because the calls still have to bind.
         [System.Diagnostics.Conditional("DIAGNOSTICS")]
         private static void Tally(ref int counter) => counter++;
 
@@ -137,10 +132,10 @@ namespace CarturMapPins
             int hash = zdo.GetPrefab();
             if (!PinCatalog.TryGet(hash, out PinCategory category))
             {
-                // A second int lookup, and only for things the first one already rejected. It
-                // buys the one case the sweep could not otherwise see: a deposit that shatters
-                // destroys itself and leaves its _frac pieces behind, which are not pinnable but
-                // ARE the deposit. Without this the copper pin went the moment the rock broke.
+                // A second int lookup, only for things the first one rejected. It covers the one case
+                // the sweep cannot see: a deposit that shatters destroys itself and leaves its
+                // _frac pieces behind, which are not pinnable but ARE the deposit. Without it the
+                // copper pin goes the moment the rock breaks.
                 if (PinCatalog.TryGetOreFragment(hash, out string fragmentOre))
                     OreRegistry.Add(nview.gameObject, fragmentOre);
                 return;   // the fast path for the overwhelming majority of calls
@@ -155,8 +150,8 @@ namespace CarturMapPins
                 return;
 
             // Resolved once and carried into the queue. The switch is read again when the pin is
-            // actually placed, because a queued pickable waits for the player to walk up to it and
-            // the switch can be turned off in between.
+            // placed, because a queued pickable waits for the player to walk up to it and the
+            // switch can be turned off in between.
             PickableGroup group = category == PinCategory.Pickable
                 ? PinCatalog.GroupOf(hash)
                 : PickableGroup.Other;
@@ -169,13 +164,13 @@ namespace CarturMapPins
 
             GameObject go = nview.gameObject;
 
-            // Beehives and loot chests both exist in player-built form, and pinning someone's
-            // base would be useless noise. Read the creator straight off the ZDO rather than via
-            // Piece.IsPlacedByPlayer(): Piece.m_creator is populated in Piece.Awake, Unity
-            // doesn't guarantee component Awake order, and a built one read too early looks wild.
+            // Beehives and loot chests both exist in player-built form, and pinning someone's base
+            // would be noise. Read the creator straight off the ZDO rather than via
+            // Piece.IsPlacedByPlayer(): Piece.m_creator is populated in Piece.Awake, Unity does not
+            // guarantee component Awake order, and a built one read too early looks wild.
             // This catches a built piece arriving over the network, where the creator is already
             // on the ZDO. It does NOT catch one the local player just placed - see the second
-            // check in PinPlacer.DrainQueue for why.
+            // check in PinPlacer.DrainQueue.
             if (PinCatalog.PlayerBuildable(category) && !IsWild(zdo))
             {
                 Tally(ref _skippedHive);
@@ -200,14 +195,14 @@ namespace CarturMapPins
                 ChestRegistry.Add(go.GetComponent<Container>());
 
             // Ore nodes are registered whether or not they get pinned: the sweep that forgets a
-            // mined-out deposit needs to know a node is still standing, and a node that was pinned
-            // by an earlier session is seen again here rather than at pin time.
+            // mined-out deposit needs to know a node is still standing, and a node pinned in an
+            // earlier session is seen again here rather than at pin time.
             if (category == PinCategory.Ore)
                 OreRegistry.Add(go, PinCatalog.OreTypeOf(hash));
 
             Tally(ref _enqueued);
-            // The subtype carries through so the pin gets its own icon and dedupes only against
-            // its own kind - copper against copper, a wolf den against other wolf dens.
+            // The subtype gives the pin its own icon and dedupes it only against its own kind -
+            // copper against copper, a wolf den against other wolf dens.
             PinPlacer.Enqueue(category, zdo.GetPosition(), go, PinPlacer.SubtypeFor(category, hash, go), group);
         }
 
@@ -217,28 +212,26 @@ namespace CarturMapPins
     /// Drops the pin on a pickable that has been picked and will never come back.
     ///
     /// Berries, mushrooms and crops regrow, so their pins are right to keep. A surtling core
-    /// stand, a Dyrnwyn fragment, a treasure pile does not: once taken, the pin marks an empty
-    /// patch of ground forever, which is the same complaint the mined-ore sweep exists to answer.
+    /// stand, a Dyrnwyn fragment or a treasure pile does not: once taken, the pin marks an empty
+    /// patch of ground forever.
     ///
-    /// The game says which is which and the mod does not have to guess. Read from
-    /// Pickable.SetPicked, both branches that write the respawn time are gated on
+    /// Read from Pickable.SetPicked: both branches that write the respawn time are gated on
     /// m_respawnTimeMinutes being greater than zero, so zero or less means it never comes back.
     ///
     /// SetPicked rather than RPC_Pick or Interact: it is public, it is the single place m_picked
     /// is written, and RPC_SetPicked is a four-instruction forwarder to it - so this one hook
     /// covers the player who picked it and everyone who hears about it. Awake does NOT call it,
-    /// which is what keeps a world load from running this hundreds of times; the cost is that
-    /// pins left by an older version are not swept up, and carturpins_forget_missing already
-    /// exists for those.
+    /// which keeps a world load from running this hundreds of times; the cost is that pins left
+    /// by an older version are not swept up, and carturpins_forget_missing exists for those.
     [HarmonyPatch(typeof(Pickable), nameof(Pickable.SetPicked))]
     internal static class Patch_Pickable_SetPicked
     {
         /// Deliberately tight. The record keeps the pin's position, which can sit up to a dedupe
-        /// radius - five metres - from the thing that was scanned, and several core stands can
-        /// share a chamber. Matching only what is essentially underfoot means a cluster keeps its
-        /// pin until the one the pin actually sits on is taken. That leaves a pin standing a
-        /// little too long; the other way round removes a pin that still marks something, and
-        /// nothing re-places it until the zone reloads.
+        /// radius (five metres) from the thing that was scanned, and several core stands can share
+        /// a chamber. Matching only what is underfoot means a cluster keeps its pin until the one
+        /// the pin sits on is taken. That leaves a pin standing a little too long; the other way
+        /// round removes a pin that still marks something, and nothing re-places it until the
+        /// zone reloads.
         private const float Underfoot = 2f;
 
         private static void Postfix(Pickable __instance, bool picked)
@@ -264,19 +257,18 @@ namespace CarturMapPins
     /// Drops the pin on a loose item once somebody picks it up.
     ///
     /// Coins, amber, pearls, rubies and the rest of the dungeon floor loot are PickableItem, not
-    /// Pickable - a separate MonoBehaviour that shares no base class with it, which is why the
-    /// patch above never saw them and their pins stayed on the map forever.
+    /// Pickable - a separate MonoBehaviour that shares no base class with it, so the patch above
+    /// never sees them.
     ///
-    /// No respawn test here, and that is not an omission. Read off the DLL, PickableItem has no
-    /// respawn field at all - not m_respawnTimeMinutes, nothing - and RPC_Pick ends with
-    /// m_nview.Destroy(). One pick and the object is gone for good, so the pin is always wrong
-    /// afterwards. Pickable, which does respawn, keeps its check.
+    /// No respawn test here, on purpose. Read off the DLL, PickableItem has no respawn field at
+    /// all and RPC_Pick ends with m_nview.Destroy(). One pick and the object is gone for good, so
+    /// the pin is always wrong afterwards.
     ///
     /// Interact rather than RPC_Pick: RPC_Pick returns immediately unless m_nview.IsOwner(), so on
     /// a client picking something the server owns it would never run locally and the pin would
-    /// stay on the map of the one person who just took the item. Interact runs on whoever pressed
-    /// the key, which is exactly whose map needs correcting. It returns false only when the
-    /// ZNetView is invalid, and true once the pick has been sent.
+    /// stay on the map of the one person who took the item. Interact runs on whoever pressed the
+    /// key, which is whose map needs correcting. It returns false only when the ZNetView is
+    /// invalid, and true once the pick has been sent.
     [HarmonyPatch(typeof(PickableItem), nameof(PickableItem.Interact))]
     internal static class Patch_PickableItem_Interact
     {
@@ -293,9 +285,9 @@ namespace CarturMapPins
             int hash = Utils.GetPrefabName(go).GetStableHashCode();
             string subtype = PinPlacer.SubtypeFor(PinCategory.Pickable, hash, go);
 
-            // Same tight radius and the same reason as the Pickable patch next door: the record
-            // holds the pin's position, which can sit a dedupe radius from the thing that was
-            // scanned, and a pile of loot is several objects close together.
+            // Same tight radius and reason as the Pickable patch above: the record holds the pin's
+            // position, which can sit a dedupe radius from the thing that was scanned, and a pile
+            // of loot is several objects close together.
             if (PinRecord.Forget(PinCategory.Pickable, pos, 2f, subtype))
                 Plugin.Log.LogInfo($"{subtype ?? "Item"} pin at {pos.x:F0},{pos.z:F0} removed - picked up.");
         }
@@ -310,21 +302,20 @@ namespace CarturMapPins
     ///     if (owner == 0L)        { SetOwner(...); SetCustomSpawnPoint(GetSpawnPoint()); }
     ///     else if (IsMine())      { ... SetCustomSpawnPoint(GetSpawnPoint()); }   // no SetOwner
     ///
-    /// so a SetOwner hook silently placed nothing for every bed claimed before the mod was
-    /// installed, or claimed and then re-selected later. What the player was left looking at was
-    /// vanilla's own m_spawnPointPin - which Minimap.UpdateProfilePins re-derives from the profile
-    /// with name "" and save: false, so it carries no label and cannot be renamed or edited. With
-    /// ReplaceBedMarker on it even wears our house icon, so it reads as a Home pin that has gone
-    /// wrong rather than as a different pin entirely.
+    /// so a SetOwner hook places nothing for a bed claimed before the mod was installed, or
+    /// claimed and then re-selected later. The player is left with vanilla's own m_spawnPointPin,
+    /// which Minimap.UpdateProfilePins re-derives from the profile with name "" and save: false,
+    /// so it has no label and cannot be renamed or edited. With ReplaceBedMarker on it even wears
+    /// our house icon, so it reads as a Home pin that has gone wrong.
     ///
-    /// A Postfix on Interact covers both branches with one patch, and asks the profile rather than
-    /// the bed which branch ran: after the call, this bed is home exactly when the profile's custom
-    /// spawn point is this bed's spawn point. Bed.IsMine and IsCurrent say the same thing but are
-    /// private; GetCustomSpawnPoint and GetSpawnPoint are public and mean it directly. Somebody
-    /// else's bed never matches, so a shared server puts nothing on your map.
+    /// A Postfix on Interact covers both branches, and asks the profile rather than the bed which
+    /// branch ran: after the call, this bed is home exactly when the profile's custom spawn point
+    /// is this bed's spawn point. Bed.IsMine and IsCurrent say the same thing but are private;
+    /// GetCustomSpawnPoint and GetSpawnPoint are public. Somebody else's bed never matches, so a
+    /// shared server puts nothing on your map.
     ///
-    /// Sleeping in the bed that is already your spawn also matches. That is correct - it is your
-    /// home - and dedupe makes the repeat a no-op.
+    /// Sleeping in the bed that is already your spawn also matches, which is correct, and dedupe
+    /// makes the repeat a no-op.
     [HarmonyPatch(typeof(Bed), "Interact")]
     internal static class Patch_Bed_Interact
     {
@@ -338,8 +329,7 @@ namespace CarturMapPins
                 return;
 
             // The spawn point rather than the bed's own transform: it is where the game will put
-            // you, which is the thing worth walking back to, and it is the position vanilla's own
-            // marker uses - so the two land on the same spot and read as one house.
+            // you, and the position vanilla's own marker uses, so the two land on the same spot.
             Vector3 spawn = __instance.GetSpawnPoint();
             if ((profile.GetCustomSpawnPoint() - spawn).sqrMagnitude > 0.01f)
                 return;
@@ -348,17 +338,14 @@ namespace CarturMapPins
         }
     }
 
-    /// Paints the colour, opacity and size a pin has been given.
+    /// Paints the colour and opacity a pin has been given.
     ///
     /// A Postfix on UpdatePins, because that is what undoes it: vanilla rewrites every pin's icon
     /// colour on each pass - white normally, grey when ticked - so a colour set once would last
-    /// until the next frame. It leaves scale alone, but doing both here keeps the whole appearance
-    /// in one place.
+    /// until the next frame. Scale is PinFade's, see below.
     ///
     /// Ticked pins are left to vanilla. The grey is how a ticked pin reads as done, and the
     /// dungeon tick depends on it.
-    ///
-    /// Costs nothing until a style exists: with none set the whole pass is one bool.
     [HarmonyPatch(typeof(Minimap), "UpdatePins")]
     internal static class Patch_Minimap_UpdatePins
     {
@@ -376,13 +363,10 @@ namespace CarturMapPins
                 if (pin?.m_iconElement == null)
                     continue;
 
-                // Size and whether it is drawn at all are PinFade's, which eases both from the
-                // frame hook rather than setting them here. Doing it in this pass too would fight
-                // it: UpdatePins runs only when the map moves, so a pin would jump on the frame
-                // the map moved and glide the rest of the time.
-                //
-                // Colour stays here, and has to: vanilla rewrites every pin's colour on each pass
-                // of this method, so anything set outside it lasts until the next one.
+                // Size and whether it is drawn at all are PinFade's, which eases both from the frame
+                // hook. Setting them in this pass too would fight it: UpdatePins runs only when
+                // the map moves, so a pin would jump on the frame the map moved and glide the rest
+                // of the time. Colour has to stay here, since vanilla rewrites it on each pass.
                 PinStyles.Style style = PinStyles.For(pin.m_pos);
 
                 // Dimmed rather than hidden: a search that removes pins cannot answer "where is
@@ -407,12 +391,12 @@ namespace CarturMapPins
                 }
 
                 // An emptied chest is still worth marking - it says the spot has been dealt with -
-                // but it is not worth the same weight as one you have not opened. Half opacity
-                // rather than a tick: ticking is vanilla's own "done" state and the dungeon sweep
-                // already uses it, so a chest reading as ticked would mean two things at once.
+                // but not at the weight of one you have not opened. Half opacity rather than a
+                // tick: ticking is vanilla's own "done" state and the dungeon sweep already uses
+                // it, so a ticked chest would mean two things at once.
                 //
-                // Applied last, and multiplied into whatever alpha the colour above left, so a pin
-                // you have faded by hand stays faded rather than being reset to half.
+                // Applied last and multiplied into whatever alpha the colour above left, so a pin
+                // you have faded by hand stays faded.
                 Minimap.PinType looted = PinPlacer.LootedChestType();
                 if (looted != Minimap.PinType.None && pin.m_type == looted)
                 {
@@ -450,17 +434,17 @@ namespace CarturMapPins
         /// Which boss this reveal is for, or null when it is not one of ours - a trader, Hildir's
         /// camps, or a discovery some other mod made without going through a runestone.
         ///
-        /// Both names are offered to the table because neither covers every boss on its own: the
+        /// Both names are offered to the table because neither covers every boss alone: the
         /// location name says "GDKing" where the boss prefab says "gd_king", and the Queen has no
-        /// altar location at all - she lives in the Infested Citadel, whose name says nothing
-        /// about her, so only the pin name identifies her.
+        /// altar location - she lives in the Infested Citadel, whose name says nothing about her,
+        /// so only the pin name identifies her.
         public static string BossFor(string pinName)
         {
             if (pinName == null || !ByPinName.TryGetValue(pinName, out string locationName))
                 return null;
 
-            // The location name is the stronger claim, so it is tried first - Match takes its
-            // second name ahead of its first.
+            // The location name is the stronger claim, so it goes second: Match tries its second
+            // name ahead of its first.
             string boss = Subtypes.Match(Subtypes.Bosses, pinName, locationName);
             if (boss == null)
                 Plugin.Log.LogInfo($"Revealed '{locationName}' as '{pinName}' - no boss matched, left to vanilla.");
@@ -481,9 +465,9 @@ namespace CarturMapPins
     ///
     /// A Prefix returning false, which this mod otherwise avoids: the pin the original adds is
     /// precisely the thing being replaced, so there is nothing for a Postfix to add to. Letting it
-    /// run and deleting its pin afterwards was the alternative, and it cannot tell vanilla's pin
-    /// from ours whenever a boss is left on the default Boss icon - same position, same name, same
-    /// type - so it would delete ours and leave the altar unmarked.
+    /// run and deleting its pin afterwards cannot tell vanilla's pin from ours whenever a boss is
+    /// left on the default Boss icon - same position, same name, same type - so it would delete
+    /// ours and leave the altar unmarked.
     ///
     /// Everything the original does apart from adding that pin is done here instead, so the toast
     /// and the map behave as before. Only the toast's little icon is dropped: Minimap.GetSprite is
@@ -537,23 +521,21 @@ namespace CarturMapPins
     ///
     /// Vanilla keeps these in a separate Dictionary&lt;Vector3, PinData&gt; (m_locationPins), refilled
     /// by UpdateLocationPins every 5s from ZoneSystem.GetLocationIcons - so this has to run after
-    /// each refill rather than once, and a Postfix on that method is exactly that moment.
+    /// each refill rather than once. The Postfix gates itself to the refill frame, see below.
     ///
     /// Deliberately NOT a Prefix returning false: that would suppress every location marker,
     /// including Haldor's and the Ashlands upgrade station, which we do not replace. Only pins
-    /// that coincide with one of our own BossAltar records are dropped.
-    ///
-    /// Until an altar is actually discovered and pinned by us, vanilla's marker is left alone -
-    /// so nothing disappears, it is only ever replaced by the named, saved version.
+    /// that coincide with one of our own records in a Replaced category are dropped, and until an
+    /// altar is discovered and pinned by us, vanilla's marker is left alone.
     [HarmonyPatch(typeof(Minimap), "UpdateLocationPins")]
     internal static class Patch_Minimap_UpdateLocationPins
     {
         private static readonly FieldInfo LocationPins = AccessTools.Field(typeof(Minimap), "m_locationPins");
 
         /// The countdown UpdateLocationPins throttles itself with. Read to tell a refill frame from
-        /// the hundreds of frames in between - see the Postfix.
-        /// A FieldRef rather than FieldInfo.GetValue, which boxed a float every frame. Null when
-        /// the field is gone, so the gate drops out as the Postfix says it will.
+        /// the hundreds of frames in between - see the Postfix. A FieldRef rather than
+        /// FieldInfo.GetValue, which boxes a float every frame. Null when the field is gone, so
+        /// the gate drops out as the Postfix says it will.
         private static readonly AccessTools.FieldRef<Minimap, float> LocationsTimer =
             AccessTools.Field(typeof(Minimap), "m_updateLocationsTimer") != null
                 ? AccessTools.FieldRefAccess<Minimap, float>("m_updateLocationsTimer")
@@ -579,9 +561,9 @@ namespace CarturMapPins
     [HarmonyPatch(typeof(TombStone), "GiveBoost")]
     internal static class Patch_TombStone_GiveBoost
     {
-        /// Harmony throws on a target it cannot find, and CreateAndPatchAll is wrapped now - so a
-        /// private method renamed by a game update would take every other patch down with it.
-        /// Prepare is how a patch declines instead.
+        /// Harmony throws on a target it cannot find, which would take every other patch down with
+        /// it if a game update renamed this private method. Prepare is how a patch declines
+        /// instead.
         private static bool Prepare()
         {
             if (AccessTools.Method(typeof(TombStone), "GiveBoost") != null)
@@ -599,10 +581,10 @@ namespace CarturMapPins
         }
     }
 
-    /// Categories where vanilla marks the same place we do. Traders are the second:
+    /// Categories where vanilla marks the same place we do: boss altars (see above) and traders.
         /// ZoneSystem.GetLocationIcons hands back every placed location flagged m_iconPlaced, so
         /// Haldor, Hildir and the Bog Witch each get an unnamed vanilla marker under our named,
-        /// saved one - two icons on one spot, and the crowding pass counts them as two things and
+        /// saved one - two icons on one spot, which the crowding pass counts as two things and
         /// shrinks both.
         private static readonly PinCategory[] Replaced =
         {
@@ -612,19 +594,16 @@ namespace CarturMapPins
 
         private static void Postfix(Minimap __instance)
         {
-            // The class comment above says m_locationPins is refilled every 5s and that a postfix
-            // on UpdateLocationPins "is exactly that moment". That reads as though this body runs
-            // every 5s. It does not, and that reading was wrong: the 5s throttle is the method's
-            // own first instructions - "m_updateLocationsTimer -= dt; if (> 0) return;" - while the
-            // game calls the method every frame (Minimap.Update -> UpdateDynamicPins). A Harmony
-            // postfix fires on the early return like any other, so everything below was walking the
-            // dictionary and asking PinRecord about every entry at frame rate.
+            // This Postfix runs every frame, not every 5s: the 5s throttle is the method's own first
+            // instructions - "m_updateLocationsTimer -= dt; if (> 0) return;" - while the game
+            // calls the method every frame (Minimap.Update -> UpdateDynamicPins), and a Harmony
+            // postfix fires on the early return like any other. Without a gate, everything below
+            // would walk the dictionary and ask PinRecord about every entry at frame rate.
             //
-            // The timer only ever goes up in the one place that does the refill, where it is reset
-            // to 5; every other frame it counts down. So a rise is a refill and nothing else.
-            // Reading the rise rather than testing for 5 keeps this working if a game update
-            // changes the interval. If the field is ever renamed the gate simply drops out and
-            // this runs per frame again - correct, just not cheap.
+            // The timer only goes up where the refill resets it to 5; every other frame it counts
+            // down, so a rise is a refill and nothing else. Reading the rise rather than testing
+            // for 5 keeps this working if a game update changes the interval. If the field is
+            // renamed the gate drops out and this runs per frame again - correct, just not cheap.
             if (LocationsTimer != null)
             {
                 float timer = LocationsTimer(__instance);
@@ -638,11 +617,11 @@ namespace CarturMapPins
             if (pins == null || pins.Count == 0)
                 return;
 
-            // The pins the map is actually drawing. An entry we dropped on an earlier refill keeps
-            // its key here on purpose (see the removal loop below), so it comes round again every
-            // 5s - and RemovePin sets m_pinUpdateRequired, which costs a full UpdatePins rebuild
-            // each time. Its PinData is out of m_pins, which is how an already-dropped one is told
-            // apart from a freshly added one.
+            // The pins the map is actually drawing. An entry dropped on an earlier refill keeps its
+            // key here on purpose (see the removal loop below), so it comes round again every 5s,
+            // and RemovePin sets m_pinUpdateRequired, which costs a full UpdatePins rebuild. Its
+            // PinData is out of m_pins, which is how an already-dropped one is told apart from a
+            // freshly added one.
             List<Minimap.PinData> live = MinimapAccess.GetPins(__instance);
 
             List<Vector3> drop = null;
@@ -669,10 +648,9 @@ namespace CarturMapPins
 
             // RemovePin only - the key stays in m_locationPins deliberately. Vanilla's refill is
             // "if (!m_locationPins.ContainsKey(key)) { AddPin; m_locationPins.Add; ZLog.Log }", so
-            // taking the key out told it this location was new again: it re-added the marker on the
-            // next tick, and the one after that, forever, with a log line and an m_pinUpdateRequired
-            // rebuild each time. Leaving the key means the marker is gone and stays gone. Vanilla's
-            // own first loop drops the key when the location stops being reported at all, so
+            // taking the key out would tell it this location is new again and it would re-add the
+            // marker on every tick, with a log line and an m_pinUpdateRequired rebuild each time.
+            // Vanilla's own first loop drops the key when the location stops being reported, so
             // nothing is leaked.
             foreach (Vector3 key in drop)
                 __instance.RemovePin(pins[key]);
