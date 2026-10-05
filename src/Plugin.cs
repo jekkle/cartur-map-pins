@@ -253,6 +253,13 @@ namespace CarturMapPins
                 "Surface camps and villages (Fuling villages, Greydwarf camps, Charred fortresses). These use the same generator as dungeons but have no interior.",
                 iconIndex: 42);   // village
             BindKinds(PinCategory.Camp, "Camp", Subtypes.Camps, iconSection: Sections.Of("Camp Types"));
+            // Ruins that never get a pin of their own - their chest carries the name and icon, so
+            // switching one off means those ruins stop being pinned at all. Bound before Landmarks:
+            // icon settings are keyed by name alone and the first binder wins, and Landmarks also has
+            // a "Dvergr Tower" (the intact towers) - bound after, the icon would move sections and
+            // drop anyone's customised tower icon.
+            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
+            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.BuriedChests);
             Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
                 "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
                 iconIndex: 45);   // stone circle; per-kind icons override it
@@ -290,10 +297,6 @@ namespace CarturMapPins
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1))));
 
-            // Ruins that never get a pin of their own - their chest carries the name and icon, so
-            // switching one off means those ruins stop being pinned at all.
-            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
-            BindKinds(PinCategory.Chest, "Chest Site", Subtypes.BuriedChests);
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
                 "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
                 iconIndex: 88);   // coins; per-trader icons override this
