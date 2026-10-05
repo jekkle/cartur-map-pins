@@ -876,8 +876,10 @@ namespace CarturMapPins
                 return 0;
 
             int renamed = 0;
-            foreach (Entry e in Entries)
+            bool stamped = false;
+            for (int i = 0; i < Entries.Count; i++)
             {
+                Entry e = Entries[i];
                 if (!e.Key.StartsWith("Spawner", StringComparison.OrdinalIgnoreCase))
                     continue;
 
@@ -891,19 +893,31 @@ namespace CarturMapPins
                 // record, so a pin the player renamed ("Camp", a portal) was taken for the
                 // spawner's own and became "Camp Spawner". Written is exactly what this mod last
                 // put on the pin: if the pin no longer reads that, a person changed it and it stays
-                // theirs, the same test Relabel uses. Records from before Written existed have none
-                // and are still repaired.
+                // theirs, the same test Relabel uses.
+                //
+                // Records from before Written existed have none, so the check above never stopped
+                // them, and a rename on one of those came back as "<name> Spawner" on every world
+                // load (Penitence, 1.8.1). They are repaired once and then stamped with what the
+                // pin now reads, which turns the check on for them from the next load.
                 if (!string.IsNullOrEmpty(e.Written) && pin.m_name != e.Written)
                     continue;
 
                 string repaired = Labels.CleanSpawnerLabel(pin.m_name);
-                if (repaired == pin.m_name)
-                    continue;
+                if (repaired != pin.m_name)
+                {
+                    pin.m_name = repaired;
+                    renamed++;
+                }
 
-                pin.m_name = repaired;
-                renamed++;
+                if (e.Written != repaired)
+                {
+                    Entries[i] = new Entry { Key = e.Key, Pos = e.Pos, Source = e.Source, Written = repaired };
+                    stamped = true;
+                }
             }
 
+            if (stamped)
+                _dirty = true;
             if (renamed > 0)
                 map.SaveMapData();
 
