@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.2
+
+- **Your own short labels.** Write `Pickable:Raspberry=R{qty}` or `Dungeon:Sunken Crypt=SC` in
+  `carturpins_labels.txt` and the map draws R5 and SC instead of the full names. `{qty}` is how
+  many pins are merged into the marker, `{name}` the normal name. Display only: the saved name,
+  search and hand-renamed pins are untouched, and pointing at a pin shows its full name. The file
+  is written for you, commented out, the first time you load a world. Requested by a player.
+- Dungeon, camp and landmark names now translate. They were saved as plain English, so no
+  translation file could reach them; pins already on your map are re-worded the next time the
+  game language changes.
+- Pointing at a pin shows its name again. The cursor was measured from the wrong corner of the
+  map, so the reveal never fired.
+
 ## 1.8.1
 
 - Changing a category's icon moves every pin of that kind, not just new ones.

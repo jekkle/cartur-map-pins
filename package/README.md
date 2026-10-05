@@ -55,6 +55,29 @@ drawing pins further than a set distance from your character, off by default.
 Chests you have emptied fade to half, so a chest you have been through reads as
 dealt with without losing its place.
 
+## Your own short labels
+
+If you keep a compact naming convention — R5, B7, SC, FC — write it in
+`BepInEx/config/carturpins_labels.txt`, one kind per line:
+
+```
+Pickable:Raspberry=R{qty}
+Dungeon:Sunken Crypt=SC
+Ore:Copper={qty} {name}
+```
+
+`{qty}` is how many pins of that kind are merged into the marker at the current zoom,
+and is left out when there is just one. `{name}` is the normal name in your language.
+The first time you load a world the file is written for you, every line commented
+out, listing the kinds already on your map; the key of any pin is also the first
+field of its line in the `.pins.txt` record. Changes apply the next time you load a
+world.
+
+Only what is drawn changes. The saved name stays, so search, the rename box and the
+pin list still read "Sunken Crypt". Pins you renamed yourself keep your name, and
+pointing at a pin shows its full name. The labels are yours alone: other players see
+them only if they use the same file.
+
 ## Death markers
 
 The game drops a marker where you died and never takes it away, so a long save ends
@@ -80,7 +103,10 @@ fades, so you can see where the copper is without losing the shape of the map.
   names overlap the rarer one is kept — CHEST appears forty times and says less
   than CRYPT. Point at a pin and its name always shows.
 - **Names are properly translated.** Stored as the game's own localisation tokens,
-  so a crypt reads "Burial Chambers" in your language.
+  so a crypt reads "Burial Chambers" in your language. Names the mod invents itself —
+  Sunken Crypt, Frost Cave, Fuling Village — translate through
+  `carturpins_names_<language>.txt`; copy `carturpins_names_english_template.txt` to
+  start one.
 - **Nothing is hardcoded to a prefab name.** What counts as ore, a beehive or a
   pickable is worked out at runtime from components, so it survives game updates
   and picks up modded content for free.
