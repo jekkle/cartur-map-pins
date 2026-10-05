@@ -710,7 +710,9 @@ namespace CarturMapPins
                 // Chamber don't share a marker. Unmatched names fall back to a prettified prefab
                 // name ("Crypt2" -> "Crypt") and get logged so the table can be extended.
                 subtype = Subtypes.Match(Subtypes.Dungeons, prefabName, generatorName);
-                label = subtype ?? Labels.ForLocation(prefabName);
+                // Token, not the bare subtype, or Localize has nothing to translate. The prefab
+                // fallback stays bare: it has no registered word, and Token would warn on it.
+                label = subtype != null ? Translations.Token(subtype) : Labels.ForLocation(prefabName);
                 WarnUnmatched("dungeon", $"{prefabName} (generator {generatorName ?? "none"})", subtype);
                 return true;
             }
@@ -726,7 +728,7 @@ namespace CarturMapPins
             if (subtype != null || loc.m_generator != null)
             {
                 category = PinCategory.Camp;
-                label = subtype ?? Labels.ForLocation(prefabName);
+                label = subtype != null ? Translations.Token(subtype) : Labels.ForLocation(prefabName);
                 WarnUnmatched("camp", $"{prefabName} (generator {generatorName ?? "none"})", subtype);
                 return true;
             }
@@ -778,7 +780,7 @@ namespace CarturMapPins
             if (subtype != null)
             {
                 category = PinCategory.Landmark;
-                label = subtype;
+                label = Translations.Token(subtype);
                 return true;
             }
 

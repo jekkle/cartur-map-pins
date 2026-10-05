@@ -124,6 +124,7 @@ namespace CarturMapPins
                 return;
 
             PinFade.Step(MinimapAccess.GetPins(__instance), Time.deltaTime);
+            LabelTemplates.Hover(__instance);
         }
     }
 

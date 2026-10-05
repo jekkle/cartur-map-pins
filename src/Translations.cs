@@ -97,6 +97,14 @@ namespace CarturMapPins
             return name;
         }
 
+        /// Token's test without the warning, for names that may never have had a word: a record
+        /// written before its label was tokenized holds the bare English.
+        public static bool IsRegistered(string name)
+        {
+            Build();
+            return !string.IsNullOrEmpty(name) && English.ContainsKey(Prefix + Key(name));
+        }
+
         /// Collects every name the mod can put on a pin.
         private static void Build()
         {

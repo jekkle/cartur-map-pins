@@ -19,7 +19,7 @@ namespace CarturMapPins
     internal static class LabelCrowding
     {
         /// How close the cursor has to be to a pin before its name is forced back on.
-        private const float RevealRadius = 60f;
+        internal const float RevealRadius = 60f;
 
         private static readonly List<Minimap.PinNameData> Shown = new List<Minimap.PinNameData>();
         private static readonly List<Minimap.PinData> Ordered = new List<Minimap.PinData>();
@@ -106,7 +106,7 @@ namespace CarturMapPins
                 // Under the cursor wins outright, including over an earlier label: pointing at a
                 // pin is asking what it is.
                 bool revealed = pin.m_iconElement != null &&
-                                Vector2.Distance(pin.m_iconElement.rectTransform.anchoredPosition, cursor) < RevealRadius;
+                                Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius;
 
                 if (revealed || !Collides(mine))
                 {
@@ -147,7 +147,7 @@ namespace CarturMapPins
                     continue;
 
                 if (!Crowding.OutOfSight(pin) && pin.m_iconElement != null &&
-                    Vector2.Distance(pin.m_iconElement.rectTransform.anchoredPosition, cursor) < RevealRadius)
+                    Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius)
                     continue;
 
                 name.PinNameGameObject.SetActive(false);
@@ -176,9 +176,13 @@ namespace CarturMapPins
             return false;
         }
 
-        /// The pointer, in the same space the labels are positioned in. Off-screen when there is
-        /// no canvas to convert against, which simply means nothing is revealed.
-        private static Vector2 CursorIn(UnityEngine.UI.Image icon)
+        /// The pointer in the icons' parent space, relative to the parent's pivot - so compare it
+        /// with an icon's localPosition, never its anchoredPosition, which is relative to the
+        /// icon's anchor. Measured on the large map: cursor (-168, -47) over an icon whose
+        /// anchoredPosition was (636, 387). Through 1.8.1 the reveal compared against
+        /// anchoredPosition and never fired. Off-screen when there is no canvas to convert
+        /// against, which simply means nothing is revealed.
+        internal static Vector2 CursorIn(UnityEngine.UI.Image icon)
         {
             var parent = icon != null ? icon.rectTransform.parent as RectTransform : null;
             if (parent == null)

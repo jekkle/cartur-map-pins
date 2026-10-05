@@ -49,6 +49,9 @@ namespace CarturMapPins
         private static readonly Dictionary<long, Minimap.PinData> Survivors =
             new Dictionary<long, Minimap.PinData>();
 
+        /// How many pins each survivor stands for, itself included. Same key as Survivors.
+        private static readonly Dictionary<long, int> Merged = new Dictionary<long, int>();
+
         /// Pins this pass decided not to draw - too far from the player, or a repeat of one drawn
         /// beside it. PinData has no equality of its own, so this is by identity, as wanted.
         private static readonly HashSet<Minimap.PinData> NotDrawn = new HashSet<Minimap.PinData>();
@@ -156,6 +159,7 @@ namespace CarturMapPins
             NameCounts.Clear();
             Winners.Clear();
             Survivors.Clear();
+            Merged.Clear();
             NotDrawn.Clear();
 
             Minimap map = Minimap.instance;
@@ -256,7 +260,11 @@ namespace CarturMapPins
                     // One icon per name per patch. A tin field is fifteen separate deposits and so
                     // fifteen separate pins, every one reading "Tin", and at map scale they are a
                     // single white blob you can neither count nor click.
-                    if (Survivors.TryGetValue(MergeKey(cell, name), out Minimap.PinData standing) &&
+                    long key = MergeKey(cell, name);
+                    Merged.TryGetValue(key, out int merged);
+                    Merged[key] = merged + 1;
+
+                    if (Survivors.TryGetValue(key, out Minimap.PinData standing) &&
                         !ReferenceEquals(standing, pin))
                     {
                         NotDrawn.Add(pin);
@@ -304,6 +312,10 @@ namespace CarturMapPins
             NameCounts.TryGetValue(pin.m_name ?? string.Empty, out int count);
             return count;
         }
+
+        /// How many same-name pins this one is drawn for, itself included; 1 when merging is off.
+        public static int MergedCount(Minimap.PinData pin) =>
+            Merged.TryGetValue(MergeKey(CellFor(pin), pin.m_name ?? string.Empty), out int count) ? count : 1;
 
         /// True when this pass decided not to draw this pin at all - out of range, or a repeat.
         public static bool OutOfSight(Minimap.PinData pin) => NotDrawn.Contains(pin);

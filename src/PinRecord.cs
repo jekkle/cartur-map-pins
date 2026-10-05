@@ -75,6 +75,9 @@ namespace CarturMapPins
             _dirty = false;
             // Per world: the baseline belongs to the records just dropped.
             LastWanted.Clear();
+            ByPosition.Clear();
+            // Re-read on the next world, so an edited template file needs no restart.
+            LabelTemplates.Reset();
         }
 
         /// Records the icon a kind was just given at placement, so a later icon change has a
@@ -1424,6 +1427,47 @@ namespace CarturMapPins
             return found;
         }
 
+        /// Record index by position, for the label pass. OwnPins matches every record against every
+        /// pin, which is fine for a command and too slow for something that runs whenever the map
+        /// moves. Rebuilt at the start of each pass rather than kept in step with the records, so
+        /// there is nothing to forget to invalidate. Pins sit exactly on their record's position
+        /// (RepairPositions keeps it so), which is what lets a rounded key stand in for the
+        /// half-metre test.
+        private static readonly Dictionary<long, int> ByPosition = new Dictionary<long, int>();
+
+        private static long PositionKey(Vector3 pos) =>
+            ((long)Mathf.RoundToInt(pos.x) << 32) ^ (uint)Mathf.RoundToInt(pos.z);
+
+        internal static void IndexByPosition()
+        {
+            EnsureLoaded();
+            ByPosition.Clear();
+            for (int i = 0; i < Entries.Count; i++)
+                ByPosition[PositionKey(Entries[i].Pos)] = i;
+        }
+
+        /// The record key ("Ore:Copper") of one of our pins that still carries the label we wrote.
+        /// Null for a hand-placed pin, a renamed one, and a record too old to say what it wrote,
+        /// since none of those can be told apart from a name the player chose.
+        internal static string AutoLabelKey(Minimap.PinData pin)
+        {
+            if (!pin.m_save || !ByPosition.TryGetValue(PositionKey(pin.m_pos), out int i) || i >= Entries.Count)
+                return null;
+
+            Entry e = Entries[i];
+            return !string.IsNullOrEmpty(e.Written) && pin.m_name == e.Written ? e.Key : null;
+        }
+
+        /// Every distinct record key in this world, sorted, for the label template file.
+        internal static List<string> Keys()
+        {
+            EnsureLoaded();
+            var keys = new SortedSet<string>(StringComparer.Ordinal);
+            foreach (Entry e in Entries)
+                keys.Add(e.Key);
+            return new List<string>(keys);
+        }
+
         /// Any saved pin within half a metre. With `ownKey`, only one carrying the icon that
         /// record's kind could have given it: callers that delete or claim a pin pass it, so a
         /// hand-placed pin of another icon standing on a record is not taken for ours. Callers
@@ -1461,8 +1505,10 @@ namespace CarturMapPins
         /// from, which is what Entry.Source is for.
         ///
         /// Three things are deliberately left alone:
-        ///   - a label with no '$' in it, because it was built from a prefab name and reads the
-        ///     same in every language - there is nothing to redo;
+        ///   - a label with no '$' in it and no registered word, because it was built from a
+        ///     prefab name and reads the same in every language - there is nothing to redo.
+        ///     Dungeon, camp and landmark pins placed by 1.7.0-1.8.1 carry the bare English of a
+        ///     registered name ("Abandoned House"), so those are given their token here;
         ///   - a pin whose name is not what we last wrote, because the player renamed it;
         ///   - a record from before 1.3.7, which has no Source to work from.
         public static int Relabel()
@@ -1478,10 +1524,15 @@ namespace CarturMapPins
                 Entry e = Entries[i];
                 if (string.IsNullOrEmpty(e.Source) || string.IsNullOrEmpty(e.Written))
                     continue;
-                if (e.Source.IndexOf('$') < 0)
-                    continue;
+                string source = e.Source;
+                if (source.IndexOf('$') < 0)
+                {
+                    if (!Translations.IsRegistered(source))
+                        continue;
+                    source = "$" + Translations.Prefix + Translations.Key(source);
+                }
 
-                string wanted = Labels.ForPin(e.Source);
+                string wanted = Labels.ForPin(source);
                 if (string.IsNullOrEmpty(wanted) || wanted == e.Written)
                     continue;
 
@@ -1494,7 +1545,7 @@ namespace CarturMapPins
                 // Without this the new wording sits in the map data while the map keeps drawing
                 // the old one until the world reloads.
                 PinEditor.RefreshLabel(pin);
-                Entries[i] = new Entry { Key = e.Key, Pos = e.Pos, Source = e.Source, Written = wanted };
+                Entries[i] = new Entry { Key = e.Key, Pos = e.Pos, Source = source, Written = wanted };
                 changed++;
             }
 
