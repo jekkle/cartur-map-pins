@@ -426,6 +426,13 @@ namespace CarturMapPins
             E("mistlands_giant", "Giant Skull", 51),  // "Giant Remains" is taken by the ore table
             E("mistlands_excavation", "Dvergr Excavation", 38),
             E("mistlands_lighthouse", "Lighthouse", 40),
+            // Intact guard towers have no chest (docs/location-reference.txt), so ChestSites never
+            // reaches them and only the ruined ones were pinned (GitHub #3, #8). Full names, because
+            // "mistlands_guardtower1_new" is not inside "mistlands_guardtower1_ruined_new" and the
+            // ruined ones must not pin a second time on top of their chest.
+            E("mistlands_guardtower1_new", "Dvergr Tower", 37),
+            E("mistlands_guardtower2_new", "Dvergr Tower", 37),
+            E("mistlands_guardtower3_new", "Dvergr Tower", 37),
             E("gammeltroll", "Petrified Troll", 125),
             E("leviathanlava", "Lava Leviathan", 128),
             E("ancientupgradestation", "Ancient Upgrade Station", 75),
