@@ -12,6 +12,10 @@
   game language changes.
 - Pointing at a pin shows its name again. The cursor was measured from the wrong corner of the
   map, so the reveal never fired.
+- Renamed spawner pins keep their name on maps from older versions. The 1.7.1 fix missed
+  pins recorded by older versions of the mod, so those still gained "Spawner" on every load.
+- Intact Dvergr guard towers get a pin under Landmarks (the Landmark category is off by
+  default, so switch it on to see them). Only the ruined ones were pinned before, through the chest inside them.
 
 ## 1.8.1
 
