@@ -11,7 +11,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.8.2";
+        public const string PluginVersion = "1.8.3";
 
         internal static ManualLogSource Log;
 
@@ -34,6 +34,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TrackBoats;
         public static ConfigEntry<bool> TrackCarts;
         public static ConfigEntry<bool> TrackTames;
+        public static ConfigEntry<bool> TrackWild;
         public static ConfigEntry<float> TrackForgetRadius;
         public static ConfigEntry<float> MapPickerRight;
         public static ConfigEntry<float> MapPickerBottom;
@@ -358,6 +359,9 @@ namespace CarturMapPins
             TrackTames = Config.Bind(Sections.Of("Tracking", "Tames"), "Tames", true,
                 new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle). Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
                     null, Attr(order: 4)));
+            TrackWild = Config.Bind(Sections.Of("Tracking", "Wild"), "Wild", true,
+                new ConfigDescription("Bears: pinned once you come within DiscoveryRadius of one, and the pin follows it while it is nearby. Out of range the pin stays where you last saw it. Bears roam rather than living at a fixed spot, so this is how to find one again for the trophy.",
+                    null, Attr(order: 4)));
             CartIcon = Config.Bind(Sections.Of("Tracking", "CartIcon"), "CartIcon", PinIcon.UtilCart,
                 new ConfigDescription("Icon for tracked carts.", null, IconAttr(order: 3)));
 
@@ -369,6 +373,8 @@ namespace CarturMapPins
                 BindTrackedIcon(Sections.Of("Boat Icons"), kind);
             foreach (Trackers.IconKind kind in Trackers.TameKinds)
                 BindTrackedIcon(Sections.Of("Tame Icons"), kind);
+            foreach (Trackers.IconKind kind in Trackers.WildKinds)
+                BindTrackedIcon(Sections.Of("Wild Icons"), kind);
 
             TrackForgetRadius = Config.Bind(Sections.Of("Tracking", "ForgetRadius"), "ForgetRadius", 32f,
                 new ConfigDescription("How close you must be to where a tracked thing was for the mod to accept that it is gone and drop its pin. Being far away is not evidence - most of the world is not loaded - so the pin is only removed when you are standing where it should be and it is not there.",

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.8.3
+
+- **Bears get a pin.** Bears roam rather than living somewhere fixed, so there is no spot to
+  pin ahead of time. Now a bear is pinned once you come within DiscoveryRadius of one, the pin
+  follows it while it is nearby, and stays where you last saw it once it is out of range - so
+  you can find it again for the trophy. Killed or gone when you get back, the pin goes too.
+  Switch: Tracking / Wild. Icon under Wild Icons. Requested on Nexus.
+
 ## 1.8.2
 
 - **Your own short labels.** Write `Pickable:Raspberry=R{qty}` or `Dungeon:Sunken Crypt=SC` in

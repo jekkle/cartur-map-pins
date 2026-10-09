@@ -92,6 +92,7 @@ namespace CarturMapPins
             { "Tracking",    "12. Tracking" },
             { "Boat Icons",  "12a. Boat Icons" },
             { "Tame Icons",  "12b. Tame Icons" },
+            { "Wild Icons",  "12c. Wild Icons" },
         };
 
         /// Display name back to the logical name it came from, for the migration. Built from the

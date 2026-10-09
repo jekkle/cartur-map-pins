@@ -30,7 +30,7 @@ namespace CarturMapPins
     internal static class Trackers
     {
         /// What kind of thing a tracked pin is following. Stored in the file, so the names matter.
-        private enum Kind { Boat, Cart, Tame }
+        private enum Kind { Boat, Cart, Tame, Wild }
 
         private sealed class Tracked
         {
@@ -97,6 +97,18 @@ namespace CarturMapPins
             K("Hen", "Hen", PinIcon.CreatureHen),
         };
 
+        /// Wild creatures worth hunting down, pinned once you have been within DiscoveryRadius of
+        /// one and followed while the game has it loaded. Bears spawn from the world spawn tables,
+        /// not from a spawner or a location, so there is no fixed spot to pin - the only way to
+        /// find one again is to remember where it was seen. Prefab names read from the game's
+        /// ZNetScene (docs/prefab-reference.txt). No bear art on the sheet yet, so the default is
+        /// the exclamation glyph and the label says what it is. Requested on Nexus (Velkia).
+        internal static readonly IconKind[] WildKinds =
+        {
+            K("Bjorn", "Bear", PinIcon.UtilExclaim),
+            K("Bjorn_sleeping", "Bear (sleeping)", PinIcon.UtilExclaim),
+        };
+
         private static readonly FieldInfo VagonInstances =
             AccessTools.Field(typeof(Vagon), "m_instances");
 
@@ -135,7 +147,8 @@ namespace CarturMapPins
             if (Minimap.instance == null || Player.m_localPlayer == null)
                 return;
 
-            if (!Plugin.TrackBoats.Value && !Plugin.TrackCarts.Value && !Plugin.TrackTames.Value)
+            if (!Plugin.TrackBoats.Value && !Plugin.TrackCarts.Value && !Plugin.TrackTames.Value &&
+                !Plugin.TrackWild.Value)
             {
                 DropAllPins();
                 return;
@@ -163,6 +176,7 @@ namespace CarturMapPins
                 ScanShips();
                 ScanCarts();
                 ScanTames();
+                ScanWild();
                 Sweep();
 
                 if (_dirty)
@@ -282,6 +296,47 @@ namespace CarturMapPins
                 Note(Kind.Tame, Plugin.TrackedIconFor(Utils.GetPrefabName(c.gameObject), PinIcon.UtilStar),
                      c.GetComponent<ZNetView>(), c.transform, c.transform.position, label);
             }
+        }
+
+        /// A wild creature is first pinned only from inside DiscoveryRadius, like every other
+        /// auto pin - the game loads creatures well past sight range and pinning those would hand
+        /// out bears nobody has seen. Once known it follows while loaded, and Sweep drops it when
+        /// you stand where it was and it is gone (killed, or wandered off).
+        private static void ScanWild()
+        {
+            if (!Plugin.TrackWild.Value)
+                return;
+
+            Vector3 here = Player.m_localPlayer.transform.position;
+            float r = Plugin.DiscoveryRadius.Value;
+            foreach (Character c in Character.GetAllCharacters())
+            {
+                if (c == null || c.IsDead() || c.IsTamed())
+                    continue;
+
+                string prefab = Utils.GetPrefabName(c.gameObject);
+                if (!IsWildKind(prefab))
+                    continue;
+
+                ZNetView nview = c.GetComponent<ZNetView>();
+                if (nview == null || !nview.IsValid())
+                    continue;
+
+                bool known = Entries.ContainsKey(nview.GetZDO().m_uid.ToString());
+                if (!known && (c.transform.position - here).sqrMagnitude > r * r)
+                    continue;
+
+                Note(Kind.Wild, Plugin.TrackedIconFor(prefab, PinIcon.UtilExclaim), nview, c.transform,
+                     c.transform.position, c.m_name);
+            }
+        }
+
+        private static bool IsWildKind(string prefab)
+        {
+            foreach (IconKind k in WildKinds)
+                if (string.Equals(k.Prefab, prefab, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
         }
 
         private static void Note(Kind kind, PinIcon icon, ZNetView nview, Transform live, Vector3 pos, string label)
@@ -409,6 +464,7 @@ namespace CarturMapPins
             {
                 case Kind.Boat: return Plugin.TrackBoats.Value;
                 case Kind.Cart: return Plugin.TrackCarts.Value;
+                case Kind.Wild: return Plugin.TrackWild.Value;
                 default: return Plugin.TrackTames.Value;
             }
         }
