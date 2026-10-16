@@ -44,6 +44,11 @@ namespace CarturMapPins
         /// not, so otherwise both would act on one wheel tick.
         public static bool PointerOverPanel() => IconGrid.PointerOver(_panel, _panelRect, _canvasCamera);
 
+        /// The picker or the search bar, for the hover check (PinHover): a pin behind either is not
+        /// the one being pointed at.
+        public static bool PointerOverUi() =>
+            PointerOverPanel() || IconGrid.PointerOver(_searchBar, _searchRect, _canvasCamera);
+
         /// MapPicker switched in game. Build reads the setting once, when the map is first made, so
         /// without this turning it off does nothing until a restart (KARAKUL47 asked how to hide it).
         public static void SetVisible(bool visible)
@@ -57,6 +62,19 @@ namespace CarturMapPins
             _panel.SetActive(visible);
             if (_searchBar != null)
                 _searchBar.SetActive(visible);
+
+            // The search is part of the hidden UI: left set, it would keep dimming pins and hiding
+            // labels above a search bar nobody can see or clear. Clearing the box fires its
+            // listener, which writes PinFilter.Text and asks for a redraw; PinFilter.Text is also
+            // cleared directly in case the listener does not run.
+            if (!visible)
+            {
+                if (_searchInput != null)
+                    _searchInput.text = string.Empty;
+                PinFilter.Text = string.Empty;
+                if (Minimap.instance != null)
+                    PinUpdateRequired?.SetValue(Minimap.instance, true);
+            }
         }
 
         public static void Build(Minimap map)
@@ -70,9 +88,6 @@ namespace CarturMapPins
 
             _selectIcon = AccessTools.Method(typeof(Minimap), "SelectIcon", new[] { typeof(Minimap.PinType) });
             _selectedType = AccessTools.Field(typeof(Minimap), "m_selectedType");
-            // Private, and a thin forwarder onto GetClosestPin(pos, PinInteractRadius, true), which
-            // is fine to call since it applies vanilla's own cursor-to-pin radius.
-            _closestPinToCursor = AccessTools.Method(typeof(Minimap), "GetClosestPinToCursor");
             if (_selectIcon == null || _selectedType == null)
             {
                 Plugin.Log.LogWarning("Minimap.SelectIcon/m_selectedType not found - map icon picker disabled.");
@@ -221,6 +236,8 @@ namespace CarturMapPins
         }
 
         private static GameObject _searchBar;
+        private static RectTransform _searchRect;
+        private static TMP_InputField _searchInput;
 
         /// The search box, across the top of the map rather than inside the picker: it searches
         /// pins, not icons, and the top centre is where a search box is looked for.
@@ -243,6 +260,7 @@ namespace CarturMapPins
             _searchBar = new GameObject("CarturPinSearch");
             _searchBar.transform.SetParent(map.m_largeRoot.transform, false);
             RectTransform bar = _searchBar.AddComponent<RectTransform>();
+            _searchRect = bar;
             bar.anchorMin = new Vector2(0.5f, 1f);
             bar.anchorMax = new Vector2(0.5f, 1f);
             bar.pivot = new Vector2(0.5f, 1f);
@@ -253,6 +271,7 @@ namespace CarturMapPins
             backing.color = new Color(0f, 0f, 0f, 0.6f);
 
             TMP_InputField input = UnityEngine.Object.Instantiate(source, _searchBar.transform);
+            _searchInput = input;
             input.gameObject.name = "CarturPinFilter";
             input.gameObject.SetActive(true);
 
@@ -308,7 +327,12 @@ namespace CarturMapPins
                 IconGrid.SetSelected(_highlights[i], i == index);
         }
 
-        private static MethodInfo _closestPinToCursor;
+        /// Private, and a thin forwarder onto GetClosestPin(pos, PinInteractRadius, true), which
+        /// is fine to call since it applies vanilla's own cursor-to-pin radius. Resolved here, not
+        /// in Build: Build returns early when MapPicker is off, and shift-click editing does not
+        /// depend on the picker.
+        private static readonly MethodInfo _closestPinToCursor =
+            AccessTools.Method(typeof(Minimap), "GetClosestPinToCursor");
 
         /// Shift-click an existing pin to open the editor on it, instead of vanilla's plain
         /// left-click which ticks the pin off.

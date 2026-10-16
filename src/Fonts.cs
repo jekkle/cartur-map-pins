@@ -40,13 +40,20 @@ namespace CarturMapPins
                 if (_font != null)
                     return _font;
 
-                _font = FromMap() ?? AnyLoaded();
-                if (_font == null && !_warned)
+                // The map's own face is the one worth keeping. AnyLoaded is only a stopgap and may be
+                // an arbitrary font, so it is returned without being cached - once the map UI exists
+                // the right font replaces it.
+                _font = FromMap();
+                if (_font != null)
+                    return _font;
+
+                TMP_FontAsset fallback = AnyLoaded();
+                if (fallback == null && !_warned)
                 {
                     _warned = true;
                     Plugin.Log.LogWarning("No TMP font asset found - this mod's labels will not draw.");
                 }
-                return _font;
+                return fallback;
             }
         }
 

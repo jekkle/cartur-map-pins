@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using TMPro;
+using UnityEngine;
 
 namespace CarturMapPins
 {
@@ -25,8 +26,17 @@ namespace CarturMapPins
                 Fields.Add(field);
         }
 
-        /// True while any of them has focus. Destroyed fields are dropped as they are found -
-        /// the map is rebuilt on every world load, and its fields go with it.
+        /// The last frame a registered field was seen focused.
+        private static int _lastFocusedFrame = -10;
+
+        /// True while any of them has focus, and for one frame after. Vanilla's InTextInput answers
+        /// from m_wasFocused, which stays true for 0.1 s after its field closes (HidePinTextInput,
+        /// UpdateNameInput) precisely so the Esc that closed the field is not also read by
+        /// Minimap.Update as "close the map". A live isFocused is already false on that frame
+        /// (TMP drops focus on Esc), so our fields get the same grace, one frame.
+        ///
+        /// Destroyed fields are dropped as they are found - the map is rebuilt on every world
+        /// load, and its fields go with it.
         public static bool Active
         {
             get
@@ -39,9 +49,12 @@ namespace CarturMapPins
                         continue;
                     }
                     if (Fields[i].isFocused)
+                    {
+                        _lastFocusedFrame = Time.frameCount;
                         return true;
+                    }
                 }
-                return false;
+                return Time.frameCount - _lastFocusedFrame <= 1;
             }
         }
 

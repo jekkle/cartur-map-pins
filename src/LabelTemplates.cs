@@ -30,6 +30,11 @@ namespace CarturMapPins
         /// Record key ("Ore:Copper") -> template. Null until read for this world.
         private static Dictionary<string, string> _templates;
 
+        /// PinRecord.Count when the file was last found missing and no starter could be written.
+        /// While it is unchanged Load returns at once instead of asking the disk on every pass; a
+        /// changed count means the record may now list keys, so it tries again.
+        private static int _missingAtCount = -1;
+
         /// Pins given a template on the last pass; the hover check walks only these.
         private static readonly List<Minimap.PinData> Templated = new List<Minimap.PinData>();
 
@@ -39,6 +44,7 @@ namespace CarturMapPins
         public static void Reset()
         {
             _templates = null;
+            _missingAtCount = -1;
             _hovered = null;
             Templated.Clear();
         }
@@ -114,13 +120,19 @@ namespace CarturMapPins
             if (_templates != null)
                 return _templates;
 
+            if (PinRecord.Count == _missingAtCount)
+                return null;
+
             string path = Path.Combine(Paths.ConfigPath, FileName);
             if (!File.Exists(path))
             {
                 // Not cached until the starter is written: the record that lists the keys may not
                 // be loaded on the first pass, and a file written then would list nothing.
                 if (!WriteStarter(path))
+                {
+                    _missingAtCount = PinRecord.Count;
                     return null;
+                }
                 _templates = new Dictionary<string, string>();
                 return _templates;
             }

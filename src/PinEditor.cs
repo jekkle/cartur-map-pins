@@ -35,6 +35,10 @@ namespace CarturMapPins
         private static Minimap _map;
         private static int _pending = -1;
 
+        /// What the name box was filled with on Open. Confirm writes a name only when the box no
+        /// longer says this.
+        private static string _shownName = string.Empty;
+
         private static PinStyles.Style _style = PinStyles.Default;
         private static readonly List<Image> _swatches = new List<Image>();
         private static Slider _sizeSlider;
@@ -61,8 +65,12 @@ namespace CarturMapPins
 
             _target = pin;
 
+            // The localized name, not the raw one: a vanilla pin's m_name is a token such as
+            // "$location_x", which the box would show as code and Confirm would then strip to
+            // " location_x" even when only the colour or icon was changed.
+            _shownName = Labels.Localize(pin.m_name ?? string.Empty);
             if (_nameInput != null)
-                _nameInput.text = pin.m_name ?? string.Empty;
+                _nameInput.text = _shownName;
 
             // Start on the pin's current icon, so the gold border means "this is what it is"
             // before it means "this is what you picked".
@@ -95,7 +103,7 @@ namespace CarturMapPins
             {
                 // No UI element yet (off-screen, or not drawn this frame): use the cursor, which is
                 // where the click just happened.
-                _panelRect.position = ZInput.pointerPosition + new Vector3(GapFromPin, 0f, 0f);
+                _panelRect.position = LabelCrowding.Pointer + new Vector3(GapFromPin, 0f, 0f);
             }
             else
             {
@@ -512,9 +520,11 @@ namespace CarturMapPins
             {
                 // The three characters vanilla's OnPinTextEntered strips: $ opens a localisation
                 // token and < > open rich text, and the label would render either.
-                string name = (_nameInput.text ?? string.Empty)
-                    .Replace('$', ' ').Replace('<', ' ').Replace('>', ' ');
-                if (name != _target.m_name)
+                string typed = _nameInput.text ?? string.Empty;
+                string name = typed.Replace('$', ' ').Replace('<', ' ').Replace('>', ' ');
+                // Only when the player changed the text: untouched, the box holds the localized
+                // form of m_name, and writing that back would replace a token with its translation.
+                if (typed != _shownName && name != _target.m_name)
                 {
                     _target.m_name = name;
                     RefreshLabel(_target);
@@ -566,6 +576,20 @@ namespace CarturMapPins
                 return;
             for (int i = 0; i < _highlights.Count; i++)
                 IconGrid.SetSelected(_highlights[i], i == _pending);
+        }
+    }
+
+    /// The editor is a child of m_largeRoot, which vanilla deactivates when the map leaves Large
+    /// mode (SetMapMode), but the panel's own active flag stays true. Reopening the map showed it
+    /// again, still pointing at a pin that may have been deleted meanwhile. Closing it here ends
+    /// that. Postfix on the public SetMapMode, which every map open and close goes through.
+    [HarmonyPatch(typeof(Minimap), nameof(Minimap.SetMapMode))]
+    internal static class Patch_Minimap_SetMapMode
+    {
+        private static void Postfix(Minimap __instance)
+        {
+            if (__instance.m_mode != Minimap.MapMode.Large)
+                PinEditor.Close();
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using HarmonyLib;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -22,16 +23,36 @@ namespace CarturMapPins
         internal const float RevealRadius = 60f;
 
         private static readonly List<Minimap.PinNameData> Shown = new List<Minimap.PinNameData>();
-        private static readonly List<Minimap.PinData> Ordered = new List<Minimap.PinData>();
+        private static readonly List<Ranked> Ordered = new List<Ranked>();
         private static readonly Dictionary<string, int> NameCounts = new Dictionary<string, int>();
 
-        /// Cached, because sorting with a lambda allocates a comparer every pass otherwise.
-        private static readonly Comparison<Minimap.PinData> ByRarity = (a, b) =>
+        /// A label with its rarity read once, so the comparator does no dictionary lookups.
+        private struct Ranked
         {
-            NameCounts.TryGetValue(a.m_name ?? string.Empty, out int countA);
-            NameCounts.TryGetValue(b.m_name ?? string.Empty, out int countB);
-            return countA.CompareTo(countB);
+            public Minimap.PinData Pin;
+            public int Rarity;
+        }
+
+        /// Cached, because sorting with a lambda allocates a comparer every pass otherwise.
+        ///
+        /// List.Sort is unstable and the old comparer returned 0 for every tie, so equally rare
+        /// names (most of them) claimed space in a different order from one pass to the next and
+        /// the surviving label flickered. Ties fall back to world position, a property of the pin,
+        /// the same rule Crowding.Precedes uses.
+        private static readonly Comparison<Ranked> ByRarity = (a, b) =>
+        {
+            int byRarity = a.Rarity.CompareTo(b.Rarity);
+            if (byRarity != 0)
+                return byRarity;
+            int byX = a.Pin.m_pos.x.CompareTo(b.Pin.m_pos.x);
+            return byX != 0 ? byX : a.Pin.m_pos.z.CompareTo(b.Pin.m_pos.z);
         };
+
+        /// Vanilla's CreateMapNamePin starts DelayActivation(go, 1f): the new label is made
+        /// inactive and SetActive(true)d one second later (read from the Minimap decompile), which
+        /// undoes any hiding Apply did to it in between. Set when a label is created; the Update
+        /// postfix asks for one more pin update once it has passed, and that pass hides it again.
+        internal static float RecheckAt;
 
         public static void Apply(List<Minimap.PinData> pins)
         {
@@ -65,7 +86,8 @@ namespace CarturMapPins
             // floating over the map, whatever the collision setting says.
             HideOutOfSight(pins);
 
-            if (!Plugin.HideCollidingLabels.Value && !PinFilter.Active)
+            bool hideColliding = Plugin.HideCollidingLabels.Value;
+            if (!hideColliding && !PinFilter.Active)
                 return;
 
             foreach (Minimap.PinData pin in pins)
@@ -86,20 +108,28 @@ namespace CarturMapPins
 
                 NameCounts.TryGetValue(pin.m_name, out int count);
                 NameCounts[pin.m_name] = count + 1;
-                Ordered.Add(pin);
+                Ordered.Add(new Ranked { Pin = pin });
             }
 
             if (Ordered.Count == 0)
                 return;
 
+            for (int i = 0; i < Ordered.Count; i++)
+            {
+                Ranked ranked = Ordered[i];
+                ranked.Rarity = NameCounts[ranked.Pin.m_name];
+                Ordered[i] = ranked;
+            }
+
             // Rarest first, so the name that says the most claims its space before the ones that
             // repeat all over the map get a chance to sit on it.
             Ordered.Sort(ByRarity);
 
-            Vector2 cursor = CursorIn(Ordered[0].m_iconElement);
+            Vector2 cursor = CursorIn(Ordered[0].Pin.m_iconElement);
 
-            foreach (Minimap.PinData pin in Ordered)
+            foreach (Ranked ranked in Ordered)
             {
+                Minimap.PinData pin = ranked.Pin;
                 Minimap.PinNameData name = pin.m_NamePinData;
                 Rect mine = RectOf(name.PinNameRectTransform);
 
@@ -108,7 +138,9 @@ namespace CarturMapPins
                 bool revealed = pin.m_iconElement != null &&
                                 Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius;
 
-                if (revealed || !Collides(mine))
+                // Collides only when collision hiding is on: an active search alone must dim
+                // non-matches, not also hide labels that overlap.
+                if (revealed || !hideColliding || !Collides(mine))
                 {
                     Shown.Add(name);
                     continue;
@@ -194,10 +226,16 @@ namespace CarturMapPins
                 : null;
 
             return RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                       parent, ZInput.pointerPosition, camera, out Vector2 local)
+                       parent, Pointer, camera, out Vector2 local)
                 ? local
                 : new Vector2(float.MaxValue, float.MaxValue);
         }
+
+        /// Where the pointer is. On a gamepad the mouse position is whatever it was when the mouse
+        /// was last used, so vanilla uses the screen centre instead (Minimap.UpdateBiome and the
+        /// JoyButtonA handler in Minimap.Update, read from the decompile).
+        internal static Vector3 Pointer =>
+            ZInput.IsMouseActive() ? ZInput.pointerPosition : new Vector3(Screen.width / 2, Screen.height / 2);
 
         private static Rect RectOf(RectTransform rt)
         {
@@ -205,5 +243,14 @@ namespace CarturMapPins
             Vector2 size = rt.rect.size;
             return new Rect(pos.x - size.x * 0.5f, pos.y - size.y * 0.5f, size.x, size.y);
         }
+    }
+
+    /// Stamps the time a label was made, so LabelCrowding can hide it again after vanilla's
+    /// DelayActivation shows it. Time.time because DelayActivation waits on WaitForSeconds, which
+    /// runs on scaled time.
+    [HarmonyPatch(typeof(Minimap), "CreateMapNamePin")]
+    internal static class Patch_Minimap_CreateMapNamePin
+    {
+        private static void Postfix() => LabelCrowding.RecheckAt = Time.time + 1.1f;
     }
 }

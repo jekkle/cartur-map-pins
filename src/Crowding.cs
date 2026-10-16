@@ -65,7 +65,8 @@ namespace CarturMapPins
             return ((long)x << 32) ^ (uint)z;
         }
 
-        private static long MergeKey(long cell, string name) => cell * 31 + name.GetHashCode();
+        private static long MergeKey(long cell, string name, Minimap.PinType type) =>
+            (cell * 31 + name.GetHashCode()) * 31 + (int)type;
 
         /// Which of two pins standing in the same place is kept, when nothing else separates them.
         ///
@@ -187,7 +188,9 @@ namespace CarturMapPins
             float smallest = float.MaxValue;
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin?.m_iconElement == null || !pin.m_iconElement.gameObject.activeInHierarchy)
+                // An area pin's icon is as wide as its world radius, not an icon.
+                if (pin?.m_iconElement == null || pin.m_worldSize > 0f ||
+                    !pin.m_iconElement.gameObject.activeInHierarchy)
                     continue;
                 float width = pin.m_iconElement.rectTransform.rect.width;
                 if (width > 1f && width < smallest)
@@ -213,7 +216,10 @@ namespace CarturMapPins
             // stands in that patch.
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin == null)
+                // Already in NotDrawn means hidden by the hide list: it must not win a patch of
+                // ground and then leave the pins it replaced with nothing drawn. Area pins are
+                // sized from a world radius and take no part in merging or crowding.
+                if (pin == null || pin.m_worldSize > 0f || NotDrawn.Contains(pin))
                     continue;
 
                 if (IsVanillaSpawnDuplicate(pin))
@@ -235,10 +241,12 @@ namespace CarturMapPins
                     }
                 }
 
-                if (!merging)
+                // Unnamed pins are never merged: with nothing to tell them apart, two different
+                // hand pins in one patch would collapse into one.
+                if (!merging || string.IsNullOrEmpty(pin.m_name))
                     continue;
 
-                long key = MergeKey(CellFor(pin), pin.m_name ?? string.Empty);
+                long key = MergeKey(CellFor(pin), pin.m_name, pin.m_type);
                 if (!Survivors.TryGetValue(key, out Minimap.PinData standing) || Precedes(pin, standing))
                     Survivors[key] = pin;
             }
@@ -249,18 +257,18 @@ namespace CarturMapPins
             // Pass two: the repeats step aside, and what is left is counted.
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin == null || NotDrawn.Contains(pin))
+                if (pin == null || pin.m_worldSize > 0f || NotDrawn.Contains(pin))
                     continue;
 
                 string name = pin.m_name ?? string.Empty;
                 long cell = CellFor(pin);
 
-                if (merging)
+                if (merging && name.Length > 0)
                 {
                     // One icon per name per patch. A tin field is fifteen separate deposits and so
                     // fifteen separate pins, every one reading "Tin", and at map scale they are a
                     // single white blob you can neither count nor click.
-                    long key = MergeKey(cell, name);
+                    long key = MergeKey(cell, name, pin.m_type);
                     Merged.TryGetValue(key, out int merged);
                     Merged[key] = merged + 1;
 
@@ -290,7 +298,7 @@ namespace CarturMapPins
             // noticing - CRYPT goes down with the forty CHESTs standing around it.
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin == null || NotDrawn.Contains(pin))
+                if (pin == null || pin.m_worldSize > 0f || NotDrawn.Contains(pin))
                     continue;
 
                 long cell = CellFor(pin);
@@ -315,7 +323,8 @@ namespace CarturMapPins
 
         /// How many same-name pins this one is drawn for, itself included; 1 when merging is off.
         public static int MergedCount(Minimap.PinData pin) =>
-            Merged.TryGetValue(MergeKey(CellFor(pin), pin.m_name ?? string.Empty), out int count) ? count : 1;
+            !string.IsNullOrEmpty(pin.m_name) &&
+            Merged.TryGetValue(MergeKey(CellFor(pin), pin.m_name, pin.m_type), out int count) ? count : 1;
 
         /// True when this pass decided not to draw this pin at all - out of range, or a repeat.
         public static bool OutOfSight(Minimap.PinData pin) => NotDrawn.Contains(pin);
@@ -325,6 +334,9 @@ namespace CarturMapPins
         {
             if (pin == null)
                 return _zoom;
+            // Area pins (the raid circle) are sized from a world radius; shrinking them lies about the area.
+            if (pin.m_worldSize > 0f)
+                return 1f;
 
             long cell = CellFor(pin);
             if (!Counts.TryGetValue(cell, out int count) || count <= 1)

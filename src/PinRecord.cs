@@ -67,6 +67,10 @@ namespace CarturMapPins
         /// would keep the first world's records in memory and write them over its own file.
         public static void Unload()
         {
+            // A change made since the last Flush would be lost with the world otherwise.
+            // Save() is a no-op when no file is resolved yet (as on the first Load).
+            if (_dirty)
+                Save();
             Entries.Clear();
             _path = null;
             _key = null;
@@ -76,6 +80,7 @@ namespace CarturMapPins
             // Per world: the baseline belongs to the records just dropped.
             LastWanted.Clear();
             ByPosition.Clear();
+            TickedByMod.Clear();
             // Re-read on the next world, so an edited template file needs no restart.
             LabelTemplates.Reset();
         }
@@ -323,6 +328,12 @@ namespace CarturMapPins
             return dropped;
         }
 
+        /// Dungeon pins this mod ticked itself, this session, by position. The pin's m_checked is the
+        /// player's own click state as much as ours, so without this the sweep could not tell a pin
+        /// it ticked from one the player ticked by hand, and unticked both whenever loot was left.
+        /// Not saved: after a restart a mod-ticked pin stays ticked, the safe side to err on.
+        private static readonly HashSet<long> TickedByMod = new HashSet<long>();
+
         /// Ticks or unticks our pin of this category near a position, and says whether anything
         /// changed, so the caller can log the moment rather than every time it looks.
         ///
@@ -349,8 +360,20 @@ namespace CarturMapPins
                     continue;
 
                 Minimap.PinData pin = FindPinAt(map, e.Pos);
-                if (pin == null || pin.m_checked == value)
+                if (pin == null)
                     continue;
+
+                // Only a tick the mod put there may be taken off. A pin already unticked has
+                // nothing left for us to own; one the player ticked was never ours.
+                long posKey = PositionKey(e.Pos);
+                if (!value && !pin.m_checked)
+                    TickedByMod.Remove(posKey);
+                if (pin.m_checked == value || (!value && !TickedByMod.Contains(posKey)))
+                    continue;
+                if (value)
+                    TickedByMod.Add(posKey);
+                else
+                    TickedByMod.Remove(posKey);
 
                 // m_checked is what saves and what UpdatePins reads; the element is the tick
                 // already drawn on screen, a GameObject rather than a graphic, so it is shown or
@@ -371,9 +394,11 @@ namespace CarturMapPins
         /// the map itself, not only in the editor. Localize turns that into "Wood chest" in the
         /// player's language.
         ///
-        /// Safe to run unasked, and on pins the mod did not place: a name containing a dollar sign
-        /// is an unresolved token, and nobody types one. A name Localize does not change is left
-        /// as it was.
+        /// Runs on pins the mod did not place, so it must not damage a hand-typed name that happens
+        /// to hold a dollar sign ("Stash $5"). Localization.Translate answers an unknown token with
+        /// "[" + word + "]", so "Stash $5" would become "Stash [5]". A result with more "[" than
+        /// the name had means some token did not resolve, and the name is left exactly as it was.
+        /// A name Localize does not change is left as it was too.
         public static int LocalizeNames()
         {
             EnsureLoaded();
@@ -393,6 +418,8 @@ namespace CarturMapPins
 
                 string resolved = Labels.Localize(pin.m_name);
                 if (string.IsNullOrEmpty(resolved) || resolved == pin.m_name)
+                    continue;
+                if (resolved.Split('[').Length > pin.m_name.Split('[').Length)
                     continue;
 
                 pin.m_name = resolved;
@@ -826,8 +853,9 @@ namespace CarturMapPins
             EnsureLoaded();
             if (!_dirty)
                 return;
-            _dirty = false;
-            Save();
+            // Cleared only once the write succeeded, so a failed one is retried next tick.
+            if (Save())
+                _dirty = false;
         }
 
         /// Removes every pin we created from the live map, and clears the record.
@@ -1162,13 +1190,16 @@ namespace CarturMapPins
 
                 foreach (Minimap.PinData pin in pins)
                 {
-                    if (pin == null || !pin.m_save || !OursByIcon(e.Key, pin.m_type))
+                    // m_ownerID != 0 is a friend's shared pin; adopting it would let the sweeps
+                    // delete it. Distance is tested before OursByIcon, which parses the key's
+                    // category on every call, so only the few pins in range pay for it.
+                    if (pin == null || !pin.m_save || pin.m_ownerID != 0L)
                         continue;
 
                     float dx = pin.m_pos.x - e.Pos.x;
                     float dz = pin.m_pos.z - e.Pos.z;
                     float sqr = dx * dx + dz * dz;
-                    if (sqr > best || ClaimedByAnother(pin.m_pos, i))
+                    if (sqr > best || !OursByIcon(e.Key, pin.m_type) || ClaimedByAnother(pin.m_pos, i))
                         continue;
 
                     best = sqr;
@@ -1486,7 +1517,8 @@ namespace CarturMapPins
 
             foreach (Minimap.PinData pin in pins)
             {
-                if (!pin.m_save)
+                // m_ownerID != 0 is a friend's shared pin (Minimap.AddSharedMapData); never ours.
+                if (!pin.m_save || pin.m_ownerID != 0L)
                     continue;
                 if (ownKey != null && !OursByIcon(ownKey, pin.m_type))
                     continue;
@@ -1563,10 +1595,14 @@ namespace CarturMapPins
             return changed;
         }
 
-        private static void Save()
+        private static bool _warnedWrite;
+
+        /// False only when a write was attempted and failed. Nothing-to-write-to counts as done,
+        /// since retrying cannot change it.
+        private static bool Save()
         {
             if (string.IsNullOrEmpty(_path) || _readFailed)
-                return;
+                return true;
 
             try
             {
@@ -1584,10 +1620,16 @@ namespace CarturMapPins
                     File.Replace(temp, _path, null);
                 else
                     File.Move(temp, _path);
+                _warnedWrite = false;
+                return true;
             }
             catch (Exception e)
             {
-                Plugin.Log.LogWarning($"Could not write pin record: {e.Message}");
+                // Flush retries every tick until a write lands, so warn once per failure streak.
+                if (!_warnedWrite)
+                    Plugin.Log.LogWarning($"Could not write pin record (retrying quietly): {e.Message}");
+                _warnedWrite = true;
+                return false;
             }
         }
     }

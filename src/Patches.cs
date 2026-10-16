@@ -42,8 +42,13 @@ namespace CarturMapPins
 
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin == null || !pin.m_save)
-                    continue;                       // already not shared; nothing to restore later
+                // Root cause (read): vanilla GetSharedMapData rebuilds the table's pin list only from
+                // m_pins and AddSharedMapData then deletes any table pin missing from it for every
+                // reader (Minimap.cs 2673, 2742+). A pin with an owner ID is another player's pin,
+                // read off a table; withholding it would delete it from the table for everyone.
+                // Only locally owned pins (m_ownerID 0) may be withheld.
+                if (pin == null || !pin.m_save || pin.m_ownerID != 0L)
+                    continue;                       // already not shared, or not ours; nothing to restore later
                 if (mine != null && !mine.Contains(pin))
                     continue;                       // hand-placed, and this mode shares those
 
@@ -181,8 +186,13 @@ namespace CarturMapPins
             {
                 // Pickable.Awake destroys stale one-shot pickables, so without this we can pin
                 // something that is about to delete itself.
+                //
+                // Root cause (read): this runs in the AddInstance postfix, before Pickable.Awake has
+                // set m_picked, so CanBePicked() only saw the prefab's default. Awake takes the
+                // picked state from the ZDO, falling back to m_defaultPicked (Pickable.cs 86); read
+                // it the same way.
                 Pickable pickable = go.GetComponent<Pickable>();
-                if (pickable != null && !pickable.CanBePicked())
+                if (pickable != null && zdo.GetBool(ZDOVars.s_picked, pickable.m_defaultPicked))
                 {
                     Tally(ref _skippedPicked);
                     return;
@@ -359,6 +369,9 @@ namespace CarturMapPins
             LabelTemplates.Apply(pins);
             LabelCrowding.Apply(pins);
 
+            // Loop-invariant: it reads config, so resolve it once per pass rather than once per pin.
+            Minimap.PinType looted = PinPlacer.LootedChestType();
+
             foreach (Minimap.PinData pin in pins)
             {
                 if (pin?.m_iconElement == null)
@@ -398,7 +411,6 @@ namespace CarturMapPins
                 //
                 // Applied last and multiplied into whatever alpha the colour above left, so a pin
                 // you have faded by hand stays faded.
-                Minimap.PinType looted = PinPlacer.LootedChestType();
                 if (looted != Minimap.PinType.None && pin.m_type == looted)
                 {
                     Color faded = pin.m_iconElement.color;
@@ -651,9 +663,22 @@ namespace CarturMapPins
         }
 
         /// A Prefix, because the grave is destroyed moments later and its position is wanted now.
+        ///
+        /// Root cause (read): GiveBoost runs on whichever machine owns the tombstone's ZNetView, not
+        /// on the player who died. The grave records its player in ZDOVars.s_owner, and
+        /// TombStone.IsOwner compares that to the local profile's player ID (TombStone.cs 172), so
+        /// do the same: only the dead player's own client clears the death pin.
         private static void Prefix(TombStone __instance)
         {
-            if (__instance != null)
+            if (__instance == null)
+                return;
+
+            ZNetView nview = __instance.GetComponent<ZNetView>();
+            if (nview == null || !nview.IsValid())
+                return;
+
+            long owner = nview.GetZDO().GetLong(ZDOVars.s_owner, 0L);
+            if (owner == Game.instance.GetPlayerProfile().GetPlayerID())
                 PinPlacer.ClearDeathPin(__instance.transform.position);
         }
     }

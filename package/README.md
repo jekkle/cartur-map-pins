@@ -1,64 +1,46 @@
 # Cartur's Map Pins
 
-Pins the world onto your map as you explore it, labelled, so you can find your way
-back to things without writing them down.
+Pins things onto your map as you come across them, with a name and an icon, so you can find your way back without writing anything down.
 
-![A Meadows map with pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-overview.jpg)
+![A map with pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-overview.jpg)
 
-Walk near an ore deposit, a crypt entrance, a wild beehive, an abandoned chest —
-it lands on your map with a name on it. Pins are saved to your character like
-hand-placed ones, and they stay put after you clear the node so you can tick them
-off yourself.
+## What it does
 
-## What gets pinned
+Walk within `DiscoveryRadius` (60 metres by default) of an ore deposit, a crypt entrance, a wild beehive or an abandoned chest and it lands on your map with a name on it. The pins are saved with your character like hand-placed ones. They stay after you clear the node, so you can cross them off yourself, with a few exceptions listed below.
 
-Ore deposits · dungeon and cave entrances · Fuling villages, Greydwarf camps and
-Charred fortresses · wild beehives · runestones · abandoned chests · named
-minibosses · leviathans · traders · maypoles · your bed, as home · spawners ·
-wisp fountains · high-value pickables · boss altars · Deep North dungeons by name.
-
-Every category is a switch. Berries, mushrooms, crops and surface flint are **off
-by default** — they would carpet the map and bloat your save.
+The pinned categories are ore deposits, dungeon and cave entrances, camps and villages (Fuling villages, Charred fortresses, abandoned villages and farms, the Deep North village), wild beehives, runestones, abandoned chests, buried chests, named minibosses, leviathans, traders, maypoles, boss altars, high-value pickables and your bed, marked as home. Every category has its own switch. Some are off in a fresh install: landmarks (wells, shipwrecks, stone circles and similar), lore runestones, spawners, wisp spawners, and Greydwarf camps. Within pickables, only the high-value group is on. Berries and mushrooms, crops and herbs, branches, stones and flint, and unrecognised pickables are off, because they would cover the map and bloat your save. Vanilla already marks boss altars with an unnamed icon that is not saved. This mod's pin replaces it rather than sitting on top.
 
 ![Ore pins coloured by what the ore is](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-close.jpg)
 
+Some pins follow the thing instead of marking a spot. Your boats and carts, tames you have named, anything you can ride, and bears are tracked. When the game does not have the thing loaded, the pin stays where you last saw it. Unnamed livestock is not tracked. These are under `Tracking` in the config.
+
+A few pins tidy themselves. An ore pin is removed once the deposit is mined out, since deposits never respawn. A looted chest switches to an open-chest icon and fades to half opacity, and goes back if the chest is refilled. A dungeon pin is ticked off once every chest inside is empty and every mud pile is mined. When you loot your grave, its death marker is removed too.
+
 ## Changing a pin's icon
 
-**Shift-click any pin** to open an editor beside it: rename it, pick a different
-icon, choose a colour, set its size and opacity. Works on pins this mod placed and
-on pins you placed yourself.
+Shift-click any pin on the large map to open an editor beside it. You can rename the pin, pick a different icon, choose a colour, and set its size and opacity. It works on pins this mod placed and on ones you placed by hand. There are 158 icons, and every category and kind of thing takes its own.
 
 ![The icon picker](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icon-picker.jpg)
 
-There is also an icon grid on the large map, next to vanilla's own pin buttons, for
-choosing what a hand-placed pin will look like. Drag the small gold square in its
-top left corner to move the whole panel, and it stays where you put it. Only the
-square drags, so clicking an icon still picks the icon.
+There is also an icon grid on the large map next to vanilla's pin buttons, for choosing what a hand-placed pin will look like. Drag the small gold square in its top left corner to move the panel. It stays where you put it. Only the square drags, so clicking an icon still picks the icon.
+
+![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icons-all.png)
 
 ## Keeping the map readable
 
-A world you have played for a while fills up, and an ore field is a dozen separate
-deposits — so it was a dozen identical pins in one white blob. Pins with the same
-name standing on the same patch of ground now draw as one. Zoom in and they
-separate again. Nothing is deleted: every pin is still on the map, still saved and
-still searchable.
+An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
 
-Pins are full size until the map is 15% zoomed out and shrink to 60% at the
-whole-world view, and names stop being drawn past 20% out. Both points are
-settings, and both can be turned off. Sizes glide and pins fade rather than popping
-in and out.
+Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is 20% zoomed out. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
 
-There is also a switch to draw pins with **no names at all**, if you want the map to
-read as icons — the names stay searchable, they are just not drawn. And one to stop
-drawing pins further than a set distance from your character, off by default.
+You can draw pins with no names at all, so the map reads as icons. The names stay searchable, they just are not drawn. You can also stop drawing pins further than a set distance from your character. That is off by default. The `HiddenPins` setting takes a list of names to hide without deleting the pins, and its settings row has a list to pick from your own map.
 
-Chests you have emptied fade to half, so a chest you have been through reads as
-dealt with without losing its place.
+Type in the search box across the top of the map and everything that does not match fades, so you can see where the copper is without losing the shape of the map.
+
+![The search box](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/search-bar.jpg)
 
 ## Your own short labels
 
-If you keep a compact naming convention — R5, B7, SC, FC — write it in
-`BepInEx/config/carturpins_labels.txt`, one kind per line:
+If you keep a compact naming convention such as R5, B7, SC or FC, write it in `BepInEx/config/carturpins_labels.txt`, one kind per line:
 
 ```
 Pickable:Raspberry=R{qty}
@@ -66,60 +48,25 @@ Dungeon:Sunken Crypt=SC
 Ore:Copper={qty} {name}
 ```
 
-`{qty}` is how many pins of that kind are merged into the marker at the current zoom,
-and is left out when there is just one. `{name}` is the normal name in your language.
-The first time you load a world the file is written for you, every line commented
-out, listing the kinds already on your map; the key of any pin is also the first
-field of its line in the `.pins.txt` record. Changes apply the next time you load a
-world.
+`{qty}` is how many pins of that kind are merged into the marker at the current zoom, and is left out when there is just one. `{name}` is the normal name in your language. The first time you load a world the file is written for you with every line commented out, listing the kinds already on your map. The key of any pin is also the first field of its line in the `.pins.txt` record. Changes apply the next time you load a world.
 
-Only what is drawn changes. The saved name stays, so search, the rename box and the
-pin list still read "Sunken Crypt". Pins you renamed yourself keep your name, and
-pointing at a pin shows its full name. The labels are yours alone: other players see
-them only if they use the same file.
+Only what is drawn changes. The saved name stays, so search, the rename box and the pin list still read "Sunken Crypt". Pins you renamed yourself keep your name, and pointing at a pin shows its full name. The labels are yours alone. Other players only see them if they use the same file.
 
-## Death markers
+## Names and languages
 
-The game drops a marker where you died and never takes it away, so a long save ends
-up with markers for graves that are long gone. Loot the grave and its marker goes
-with it.
+Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through `carturpins_names_<language>.txt`. Copy `carturpins_names_english_template.txt` to start one.
 
-## Finding a pin
-
-Type in the search box across the top of the map. Everything that doesn't match
-fades, so you can see where the copper is without losing the shape of the map.
-
-![Searching pins](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/search-bar.jpg)
-
-## Notable bits
-
-- **158 icons to pick from.** Every category and kind takes its own.
-- **Emptied chests change icon.** Loot a chest and its pin switches to a looted
-  marker. Refill it and it switches back.
-- **Mined-out ore pins remove themselves.** Deposits never respawn, so a pin on a
-  worked-out node is a walk to an empty hole.
-- **Dungeons tick off** once every chest is empty and every mud pile mined.
-- **Crowded pins get out of each other's way.** Stacked pins shrink, and where two
-  names overlap the rarer one is kept — CHEST appears forty times and says less
-  than CRYPT. Point at a pin and its name always shows.
-- **Names are properly translated.** Stored as the game's own localisation tokens,
-  so a crypt reads "Burial Chambers" in your language. Names the mod invents itself —
-  Sunken Crypt, Frost Cave, Fuling Village — translate through
-  `carturpins_names_<language>.txt`; copy `carturpins_names_english_template.txt` to
-  start one.
-- **Nothing is hardcoded to a prefab name.** What counts as ore, a beehive or a
-  pickable is worked out at runtime from components, so it survives game updates
-  and picks up modded content for free.
-
-![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icons-all.png)
+What counts as ore, a beehive or a pickable is worked out at runtime from components rather than from a list of prefab names, which is why it should survive game updates and pick up modded content. Player-built beehives and containers are never pinned.
 
 ## Settings
 
-`BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
+Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `DiscoveryRadius` | 60 | Metres. How close you must get before something pins. |
+| `AutoPinning` | true | Place pins automatically. Off pauses it without touching any category switch. |
+| `AutoPinningKey` | F8 | Key that toggles `AutoPinning` in game. |
 | `ShowPinLabels` | true | Draw the name under each pin. |
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
 | `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
@@ -128,40 +75,28 @@ fades, so you can see where the copper is without losing the shape of the map.
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
 | `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
+| `PinSharing` | Everything | What a cartography table publishes: Everything, HandPlacedOnly or Nothing. |
 | `Ore / TintByType` | true | Colour ore pins by what the ore is. |
 | `Ore / ForgetMined` | true | Remove an ore pin once its deposit is mined out. |
 | `Chest / LootedIcon` | Chest open | Icon an emptied chest switches to. |
 | `Dungeon / TickWhenLooted` | true | Tick a dungeon off once it is cleared. |
-| `Home / ReplaceBedMarker` | true | Mark your bed as home. |
+| `Home / ReplaceBedMarker` | true | Give vanilla's spawn marker the same house icon. |
 | `CustomIcons / MapPicker` | true | Show the icon grid on the large map. |
-| `General / ApplyPreset` | None | Sets every switch at once — see below. |
-| `General / ResetPins` | No | Starts a world's pins over — see below. |
+| `Tracking / Boats`, `Carts`, `Tames`, `Wild` | true | Pins that follow boats, carts, named tames and rideables, and bears. |
+| `General / ApplyPreset` | None | Sets every switch at once, see below. |
+| `General / ResetPins` | No | Starts a world's pins over, see below. |
 
-Per category there is also `Enabled`, an icon, and a `MinimumSpacing` — how far
-apart two of the same thing must be to earn separate pins.
+Each category also has `Enabled`, an `Icon`, and a `MinimumSpacing` (under Advanced), which is how far apart two of the same thing must be to earn separate pins.
 
-**Most of the list is hidden until you ask for it.** There is a switch and an icon
-for every kind of thing this mod knows about, about 290 settings on their own. They
-sit behind the **Advanced** tick box, leaving the seventeen categories in view.
+Most of the list is hidden until you tick Advanced in the config manager. There is a switch and an icon for every kind of thing the mod knows about, several hundred settings, and the seventeen categories are what you see otherwise.
 
-**`ApplyPreset`** sets every switch at once. *Minimal* pins the few things worth
-walking back to, *Everything* turns it all on, *Defaults* restores a fresh install.
-It is a button, not a state — it returns to None once applied.
-
-**Boss altars are off by default.** Vanilla already pins them, more weakly. Turn
-this on for a proper named pin, or leave it off to avoid two markers stacked.
+`ApplyPreset` sets every switch at once. Minimal keeps ore, dungeons, chests, boss altars, minibosses and home. Everything turns it all on. Defaults restores a fresh install. It is a button rather than a state, and returns to None once applied. It changes what gets pinned from then on, and pins already on the map stay.
 
 ## Starting a world's pins over
 
-`General / ResetPins` removes every pin this mod placed and forgets them, so each
-is pinned again as you rediscover it.
+`General / ResetPins` removes every pin this mod placed and forgets them, so each is pinned again as you rediscover it. Pins you placed by hand are untouched, and so is any colour or size you set through the editor. Locations come back within seconds. Ore, chests and beehives reappear when their part of the world next loads.
 
-Pins you placed by hand are untouched, and so is any colour or size you set through
-the editor. Locations come back within seconds; ore, chests and beehives reappear
-when their part of the world next loads.
-
-It is a spelled-out dropdown rather than a tick box on purpose — a stray click here
-would throw away a map somebody spent a long time filling in.
+It is a spelled-out dropdown rather than a tick box on purpose, because a stray click here would throw away a map somebody spent a long time filling in.
 
 ## Commands
 
@@ -172,32 +107,25 @@ would throw away a map somebody spent a long time filling in.
 | `carturpins_count` | How many are on record. |
 | `carturpins_forget_missing` | Forgets records whose pin is gone, so those places can be pinned again. |
 | `carturpins_dedupe` | Removes leftover duplicate pins no record points at. Counts only, unless you pass `yes`. |
-| `carturpins_zoom` | Prints the zoom and sizing numbers behind what is drawn. For working out why the map looks the way it does. |
+| `carturpins_zoom` | Prints the zoom and sizing numbers behind what is drawn. |
 
-## If you use badgers Valheim Skies
+## Compatibility and known issues
 
-That mod opens its menu on a hotkey without checking whether you are typing, so a
-letter typed into the search box fires it. There is an optional download on this
-page that fixes it — install it only if you use that mod.
+Client-side. The server does not need it and neither do the people you play with. With `PinSharing` left on Everything, a cartography table publishes the pins this mod placed along with your own.
+
+Pairs with Cartur's Compass and Clock, which puts these pins on a compass bar.
+
+Badger's Valheim Skies opens its menu on a hotkey without checking whether you are typing, so a letter typed into the search box fires it. The Nexus page for this mod has an optional download that fixes that. Install it only if you use that mod.
 
 ## Install
 
-Use a mod manager (r2modman / Thunderstore / Gale) and it pulls in BepInEx for you.
-Manually: drop `CarturMapPins.dll` into `BepInEx/plugins`.
-
-Client-side. The server doesn't need it and neither do the people you play with.
-
-Pin names come out in the language you play in, and are re-worded if you change it.
-A pin you have renamed yourself is left alone.
-
-Pairs with **Cartur's Compass and Clock**, which puts these same pins on a compass
-bar and drops the ones you've ticked off.
+Use a mod manager (r2modman, Thunderstore or Gale) and it pulls in BepInEx for you. To install by hand, drop `CarturMapPins.dll` into `BepInEx/plugins`.
 
 ---
 
 *Free, and always will be. If it improved your game you can [tip me on Patreon](https://www.patreon.com/c/cartur).*
 
-**[Discord](https://discord.gg/nd5RqpwNkz)** — bug reports, install help, and mod requests.
+**[Discord](https://discord.gg/nd5RqpwNkz)**: bug reports, install help, and mod requests.
 Bug reports get their own thread so nothing is lost in a chat scroll, and requests are voted on.
 
 **More from Cartur:**
@@ -209,5 +137,4 @@ Bug reports get their own thread so nothing is lost in a chat scroll, and reques
 [UI HUD](https://thunderstore.io/c/valheim/p/Cartur/Carturs_UI_HUD/) ·
 [Waste Management](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Waste_Management/) ·
 [Feeding Trough](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Feeding_Trough/) ·
-[Build Camera](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Build_Camera/) ·
 [Combat Text](https://thunderstore.io/c/valheim/p/Cartur/Carturs_Combat_Text/)

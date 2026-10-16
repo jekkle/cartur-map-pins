@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
 using HarmonyLib;
@@ -531,7 +532,10 @@ namespace CarturMapPins
                         continue;
                     if (!Enum.TryParse(parts[2], out PinIcon icon))
                         icon = PinIcon.UtilStar;
-                    if (!float.TryParse(parts[3], out float x) || !float.TryParse(parts[4], out float z))
+                    // Invariant, matching Save: a comma-decimal locale would otherwise write "12,5"
+                    // and fail to read it back the way a dot-decimal one reads "12.5".
+                    if (!float.TryParse(parts[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ||
+                        !float.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
                         continue;
 
                     Entries[parts[0]] = new Tracked
@@ -564,9 +568,17 @@ namespace CarturMapPins
                 foreach (KeyValuePair<string, Tracked> pair in Entries)
                 {
                     Tracked t = pair.Value;
-                    lines.Add($"{pair.Key}|{t.Kind}|{t.Icon}|{t.Pos.x:F1}|{t.Pos.z:F1}|{t.Label}");
+                    lines.Add(string.Format(CultureInfo.InvariantCulture, "{0}|{1}|{2}|{3:F1}|{4:F1}|{5}",
+                        pair.Key, t.Kind, t.Icon, t.Pos.x, t.Pos.z, t.Label));
                 }
-                File.WriteAllLines(_path, lines.ToArray());
+                // Written beside and swapped in, as PinRecord.Save does, so a crash mid-write
+                // leaves the old file whole instead of a truncated one.
+                string temp = _path + ".tmp";
+                File.WriteAllLines(temp, lines.ToArray());
+                if (File.Exists(_path))
+                    File.Replace(temp, _path, null);
+                else
+                    File.Move(temp, _path);
             }
             catch (Exception e)
             {

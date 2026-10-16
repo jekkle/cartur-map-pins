@@ -53,6 +53,16 @@ namespace CarturMapPins
         {
             PendingQueue.Clear();
             _relabelled = false;
+            // Ore miss counts and the sweep timer belong to the world just left. Carried into the
+            // next one, a stale count of 2 lets a single missed sweep delete a live deposit's pin.
+            _oreMisses.Clear();
+            _oreSweepAt = -1f;
+        }
+
+        private static void MigrationStep(string name, System.Action step)
+        {
+            try { step(); }
+            catch (System.Exception e) { Plugin.Log.LogWarning($"{name} step failed, carrying on: {e.Message}"); }
         }
 
         public static void Tick(float dt)
@@ -70,35 +80,56 @@ namespace CarturMapPins
             if (!_relabelled)
             {
                 _relabelled = true;
-                int fixedUp = PinRecord.RelabelSpawners();
-                if (fixedUp > 0)
-                    Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
+
+                // Each step runs alone. _relabelled is already true, so one throw in an early step
+                // used to skip every later one for the whole session; now it logs and the rest run.
+                MigrationStep("Spawner rename", () =>
+                {
+                    int fixedUp = PinRecord.RelabelSpawners();
+                    if (fixedUp > 0)
+                        Plugin.Log.LogInfo($"Renamed {fixedUp} spawner pin(s) placed by an older version.");
+                });
 
                 // Logged even when it changes nothing, so "no line in the log" cannot be mistaken
                 // for "the migration never ran" when checking whether an upgrade repaired a map.
-                int repointed = PinRecord.MigrateIcons();
-                Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
+                MigrationStep("Icon migration", () =>
+                {
+                    int repointed = PinRecord.MigrateIcons();
+                    Plugin.Log.LogInfo($"Icon migration: repointed {repointed} of {PinRecord.Count} recorded pin(s).");
+                });
 
-                int named = PinRecord.LocalizeNames();
-                if (named > 0)
-                    Plugin.Log.LogInfo($"Resolved the name on {named} pin(s) that still read as a $token.");
+                MigrationStep("Name resolve", () =>
+                {
+                    int named = PinRecord.LocalizeNames();
+                    if (named > 0)
+                        Plugin.Log.LogInfo($"Resolved the name on {named} pin(s) that still read as a $token.");
+                });
 
                 // Before anything else that looks a pin up by its record: the others all use the
                 // same half-metre match and are just as blind to a record that has drifted.
-                int repaired = PinRecord.RepairPositions();
-                if (repaired > 0)
-                    Plugin.Log.LogInfo($"Moved {repaired} record(s) onto the pin they describe.");
+                MigrationStep("Record repair", () =>
+                {
+                    int repaired = PinRecord.RepairPositions();
+                    if (repaired > 0)
+                        Plugin.Log.LogInfo($"Moved {repaired} record(s) onto the pin they describe.");
+                });
 
                 // After LocalizeNames, which is the one-off repair of pins left holding a raw
                 // "$token"; this is the ongoing one - pins written correctly in a language the
                 // player has since changed away from.
-                int reworded = PinRecord.Relabel();
-                if (reworded > 0)
-                    Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
+                MigrationStep("Re-word", () =>
+                {
+                    int reworded = PinRecord.Relabel();
+                    if (reworded > 0)
+                        Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
+                });
 
-                int adopted = PinRecord.AdoptSubtypeIcons();
-                if (adopted > 0)
-                    Plugin.Log.LogInfo($"Moved {adopted} pin(s) from a generic icon onto their own kind's.");
+                MigrationStep("Subtype adopt", () =>
+                {
+                    int adopted = PinRecord.AdoptSubtypeIcons();
+                    if (adopted > 0)
+                        Plugin.Log.LogInfo($"Moved {adopted} pin(s) from a generic icon onto their own kind's.");
+                });
             }
 
             Vector3 playerPos = player.transform.position;
@@ -264,20 +295,23 @@ namespace CarturMapPins
                 Minimap.PinType unlooted = site != null ? IconFor(PinCategory.Chest, site, chestSettings) : normalType;
                 Minimap.PinType wanted = empty ? lootedType : unlooted;
 
-                // Our record is the authority on whether a pin here is ours, not the icon it
-                // carries. Matching on icon alone would strand a chest pin left on a previous
-                // version's looted icon: invisible to this sweep and never corrected.
-                bool recorded = PinRecord.HasCategoryNear(PinCategory.Chest, pos, 3f);
-
                 Minimap.PinData match = null;
                 foreach (Minimap.PinData pin in pins)
                 {
-                    if (!pin.m_save)
+                    // A friend's shared pin (m_ownerID != 0) is not ours to flip or repoint.
+                    if (!pin.m_save || pin.m_ownerID != 0L)
                         continue;
                     if (DistanceXZ(pin.m_pos, pos) > 3f)
                         continue;
+                    // Our record is the authority on whether a pin here is ours, not the icon it
+                    // carries: a chest pin left on a previous version's looted icon is invisible to
+                    // an icon match and would never be corrected. But "a record within 3m and any
+                    // custom icon" also took a hand-placed custom-icon pin standing beside a
+                    // recorded chest, so the record has to sit on this very pin (half a metre,
+                    // the match every other record lookup uses).
                     bool ours = pin.m_type == normalType || pin.m_type == lootedType || pin.m_type == unlooted ||
-                                (recorded && CustomIcons.IsCustom(pin.m_type));
+                                (CustomIcons.IsCustom(pin.m_type) &&
+                                 PinRecord.HasCategoryNear(PinCategory.Chest, pin.m_pos, 0.5f));
                     if (!ours)
                         continue;
                     match = pin;
@@ -579,7 +613,17 @@ namespace CarturMapPins
                 if (p.Category == PinCategory.Pickable && OnCultivatedGround(p.Pos))
                     continue;
 
-                TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
+                // An entry that throws is dropped, not requeued: it is absent from Requeue, so it
+                // goes with this pass. Left to propagate, the whole queue would be retried at the
+                // next tick and fail on the same entry forever, starving everything behind it.
+                try
+                {
+                    TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
+                }
+                catch (System.Exception e)
+                {
+                    Plugin.Log.LogWarning($"Dropped a {p.Category} pin that threw while placing: {e.Message}");
+                }
             }
 
 #if DIAGNOSTICS
@@ -1289,7 +1333,9 @@ namespace CarturMapPins
 
             foreach (Minimap.PinData pin in pins)
             {
-                if (pin == null || pin.m_type != pinType)
+                // m_ownerID != 0 is a pin a friend shared (Minimap.AddSharedMapData sets it); it is
+                // not ours to adopt into the record, and the sweeps would later delete it.
+                if (pin == null || pin.m_type != pinType || pin.m_ownerID != 0L)
                     continue;
                 float dx = pin.m_pos.x - pos.x;
                 float dz = pin.m_pos.z - pos.z;

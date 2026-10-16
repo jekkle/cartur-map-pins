@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
 
@@ -13,7 +14,7 @@ namespace CarturMapPins
     /// reads as flicker.
     ///
     /// No table of pins is kept: it would have to be pruned every pass and would leak if pruning
-    /// missed something.
+    /// missed something. (The weak marker-to-CanvasGroup cache below holds nothing alive.)
     ///
     ///  - Scale lives on the transform. Vanilla sets a pin's pixel size once, when the marker is
     ///    built (SetSizeWithCurrentAnchors), and never touches localScale, so the current value is
@@ -34,6 +35,9 @@ namespace CarturMapPins
         /// Below this a pin is not worth drawing, and the Image is switched off so it costs
         /// nothing. Not zero: an exponential approach never quite arrives.
         private const float Invisible = 0.02f;
+
+        private static readonly ConditionalWeakTable<UnityEngine.UI.Image, CanvasGroup> Groups =
+            new ConditionalWeakTable<UnityEngine.UI.Image, CanvasGroup>();
 
         public static void Step(List<Minimap.PinData> pins, float dt)
         {
@@ -60,11 +64,15 @@ namespace CarturMapPins
                 if (fresh && wantedAlpha <= 0f)
                     group.alpha = 0f;
 
-                group.alpha = Mathf.Lerp(group.alpha, wantedAlpha, t);
-                if (group.alpha > 1f - Invisible)
-                    group.alpha = 1f;
+                // Written only when it moved: a settled map has every pin at its target, and a
+                // CanvasGroup.alpha write marks the canvas dirty even for the same value.
+                float alpha = Mathf.Lerp(group.alpha, wantedAlpha, t);
+                if (alpha > 1f - Invisible)
+                    alpha = 1f;
+                if (!Mathf.Approximately(group.alpha, alpha))
+                    group.alpha = alpha;
 
-                bool visible = group.alpha > Invisible;
+                bool visible = alpha > Invisible;
                 if (pin.m_iconElement.enabled != visible)
                     pin.m_iconElement.enabled = visible;
 
@@ -84,9 +92,14 @@ namespace CarturMapPins
         /// lookup.
         private static float ScaleFor(Minimap.PinData pin)
         {
+            // An area pin (the raid circle) is sized by vanilla from a world radius, so a zoom or
+            // crowding shrink would draw it at a fraction of its real extent.
+            if (pin.m_worldSize > 0f)
+                return 1f;
+
             PinStyles.Style style = PinStyles.For(pin.m_pos);
             float chosen = style.IsDefault ? 1f : Mathf.Clamp(style.Size, 0.4f, 3f);
-            return chosen * Crowding.ScaleFor(pin);
+            return chosen * Crowding.ScaleFor(pin) * PinHover.ScaleFor(pin);
         }
 
         /// The icon's CanvasGroup, adding one at zero the first time. `fresh` says it was just
@@ -94,12 +107,28 @@ namespace CarturMapPins
         /// in - the pin itself carries no such flag.
         private static CanvasGroup GroupFor(UnityEngine.UI.Image icon, out bool fresh)
         {
+            // Weak keys, so a destroyed marker's entry goes with it and nothing needs pruning;
+            // this runs per marker per frame and GetComponent there is a native call each time.
+            if (Groups.TryGetValue(icon, out CanvasGroup cached))
+            {
+                if (cached != null)
+                {
+                    fresh = false;
+                    return cached;
+                }
+                Groups.Remove(icon);
+            }
+
             CanvasGroup group = icon.GetComponent<CanvasGroup>();
             fresh = group == null;
             if (!fresh)
+            {
+                Groups.Add(icon, group);
                 return group;
+            }
 
             group = icon.gameObject.AddComponent<CanvasGroup>();
+            Groups.Add(icon, group);
             group.alpha = 0f;
             // The map finds pins by position, not through the event system, so the group must not
             // start blocking raycasts.
@@ -123,7 +152,17 @@ namespace CarturMapPins
             if (__instance.m_mode == Minimap.MapMode.None)
                 return;
 
-            PinFade.Step(MinimapAccess.GetPins(__instance), Time.deltaTime);
+            // One pass after a label's 1 s DelayActivation has re-shown it; see
+            // LabelCrowding.RecheckAt.
+            if (LabelCrowding.RecheckAt > 0f && Time.time >= LabelCrowding.RecheckAt)
+            {
+                LabelCrowding.RecheckAt = 0f;
+                MinimapAccess.RequestPinUpdate(__instance);
+            }
+
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
+            PinHover.Find(__instance, pins);
+            PinFade.Step(pins, Time.deltaTime);
             LabelTemplates.Hover(__instance);
         }
     }

@@ -14,18 +14,25 @@ namespace CarturMapPins
     {
         private static readonly List<Container> Live = new List<Container>();
 
+        /// Alongside the list so Add is a hash lookup rather than a scan per spawned chest.
+        private static readonly HashSet<Container> Seen = new HashSet<Container>();
+
 #if DIAGNOSTICS
         public static int Count => Live.Count;
 #endif
 
         public static void Add(Container container)
         {
-            if (container == null || Live.Contains(container))
+            if (container == null || !Seen.Add(container))
                 return;
             Live.Add(container);
         }
 
-        public static void Clear() => Live.Clear();
+        public static void Clear()
+        {
+            Live.Clear();
+            Seen.Clear();
+        }
 
         /// Live containers, with unloaded ones pruned as we go. Unity nulls a destroyed
         /// component's reference, so a simple null check is enough to drop anything the game has
@@ -36,6 +43,7 @@ namespace CarturMapPins
             {
                 if (Live[i] == null)
                 {
+                    Seen.Remove(Live[i]);
                     Live.RemoveAt(i);
                     continue;
                 }

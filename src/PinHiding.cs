@@ -85,7 +85,7 @@ namespace CarturMapPins
                 // Also the drawn name: a pin renamed by hand has an identity that no longer says
                 // what the player calls it, and the hide list is typed by name.
                 if (Matches(IdentityOf(pin)) ||
-                    (!string.IsNullOrEmpty(pin.m_name) && Matches(pin.m_name.ToLowerInvariant())))
+                    (!string.IsNullOrEmpty(pin.m_name) && Matches(pin.m_name)))
                     HiddenPins.Add(pin);
             }
         }
@@ -93,7 +93,8 @@ namespace CarturMapPins
         public static bool IsHidden(Minimap.PinData pin) =>
             HiddenPins.Count > 0 && HiddenPins.Contains(pin);
 
-        /// What this pin is, as one lower-case string to search.
+        /// What this pin is, as one string to search. Matches compares ignoring case, so none of
+        /// these is lower-cased per pin per pass.
         ///
         /// The record's key and source first, because they are English whatever the game is set
         /// to. The drawn name is the fallback for a pin with no record, and the one part a
@@ -103,7 +104,7 @@ namespace CarturMapPins
             if (Identities.TryGetValue(KeyFor(pin.m_pos), out string identity))
                 return identity;
 
-            return pin.m_name == null ? string.Empty : pin.m_name.ToLowerInvariant();
+            return pin.m_name ?? string.Empty;
         }
 
         private static bool Matches(string identity)
@@ -116,7 +117,7 @@ namespace CarturMapPins
                 bool all = true;
                 foreach (string word in words)
                 {
-                    if (identity.IndexOf(word, System.StringComparison.Ordinal) >= 0)
+                    if (identity.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0)
                         continue;
                     all = false;
                     break;

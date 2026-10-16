@@ -30,7 +30,13 @@ namespace CarturMapPins
         private static bool _asking;
 
         /// Per world: the baseline is primed again against the next world's records.
-        public static void Reset() => _primed = false;
+        /// _asking is cleared too: a popup destroyed with the world never calls either callback,
+        /// which would leave _asking true and silence every later change.
+        public static void Reset()
+        {
+            _primed = false;
+            _asking = false;
+        }
 
         public static void Watch(ConfigEntry<PinIcon> entry)
         {

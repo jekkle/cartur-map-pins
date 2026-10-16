@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.8.4
+
+- The pin under the cursor on the large map grows a little and draws on top of its neighbours, so you can see which one you are about to click.
+- PinSharing set to Nothing no longer takes other players' pins off the cartography table. Only your own pins are held back now.
+- A pin you named with a dollar sign in it ("Stash $5") keeps its name. It used to become "Stash [5]".
+- Changing only the colour or icon of a vanilla pin in the editor no longer rewrites its name.
+- The raid circle keeps its real size when the map is zoomed out.
+- Labels you hid stay hidden. The game used to switch them back on a second after the map opened.
+- Pins shared by friends are no longer treated as yours, so your own pin is still placed next to theirs.
+- Dungeon sweeps only untick pins the mod ticked, never ones you ticked yourself.
+- Death markers are only cleared for the player who died.
+- Two unnamed pins with different icons in the same spot are both drawn.
+- The pin editor closes with the map.
+- Tracked boats and carts are saved in a way that survives a crash and reads the same in every language.
+- Smaller fixes: one broken patch no longer switches off the rest of the mod, the mod no longer loads on dedicated servers, and a few per-frame allocations are gone.
+- The README is rewritten and checked against the code.
+
 ## 1.8.3
 
 - **Bears get a pin.** Bears roam rather than living somewhere fixed, so there is no spot to

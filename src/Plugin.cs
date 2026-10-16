@@ -6,12 +6,16 @@ using HarmonyLib;
 
 namespace CarturMapPins
 {
+    // Root cause (read): nothing here is meant to run server-side - every patch targets Minimap, the
+    // map UI or the local player - yet the plugin loaded on valheim_server and ran the AddInstance
+    // postfix for every object the server spawned.
+    [BepInProcess("valheim.exe")]
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public class Plugin : BaseUnityPlugin
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.8.3";
+        public const string PluginVersion = "1.8.4";
 
         internal static ManualLogSource Log;
 
@@ -425,14 +429,23 @@ namespace CarturMapPins
             // resolves against the game installed today, so this catches nothing now; it is for
             // the update that renames one of them, where the honest outcome is this mod not
             // working and the rest of the game starting.
-            try
+            //
+            // Patched class by class: CreateAndPatchAll throws on the first unresolvable target and
+            // abandons every class after it, so one renamed method would disable the whole mod.
+            // Here a failure costs only its own class.
+            Harmony harmony = new Harmony(PluginGuid);
+            foreach (System.Type type in AccessTools.GetTypesFromAssembly(typeof(Plugin).Assembly))
             {
-                Harmony.CreateAndPatchAll(typeof(Plugin).Assembly, PluginGuid);
-            }
-            catch (System.Exception e)
-            {
-                Log.LogWarning($"Patching failed - the mod will do nothing this session: {e}");
-                return;
+                if (!type.IsDefined(typeof(HarmonyPatch), true))
+                    continue;
+                try
+                {
+                    harmony.CreateClassProcessor(type).Patch();
+                }
+                catch (System.Exception e)
+                {
+                    Log.LogWarning($"Patch {type.Name} failed - its feature is off, the rest still works: {e}");
+                }
             }
             RegisterCommands();
 
