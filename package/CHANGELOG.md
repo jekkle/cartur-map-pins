@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.5
+
+- **Berry bushes that were already picked when you arrived now get a pin.** They were skipped, and nothing pinned them after they regrew. Reported on Nexus (lingonberries). Please report it if a berry bush still won't pin.
+- **The two config files are written on first launch.** `carturpins_names_english_template.txt` (for translating names) and `carturpins_labels.txt` (short labels) are now in `BepInEx/config` before you load a world. The README says where they are and which one is for translation. Asked on Nexus.
+- The `BerriesAndMushrooms` setting now lists every berry it covers, lingonberry and vineberry included. It is off by default.
+
 ## 1.8.4
 
 - The pin under the cursor on the large map grows a little and draws on top of its neighbours, so you can see which one you are about to click.

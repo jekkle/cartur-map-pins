@@ -30,11 +30,6 @@ namespace CarturMapPins
         /// Record key ("Ore:Copper") -> template. Null until read for this world.
         private static Dictionary<string, string> _templates;
 
-        /// PinRecord.Count when the file was last found missing and no starter could be written.
-        /// While it is unchanged Load returns at once instead of asking the disk on every pass; a
-        /// changed count means the record may now list keys, so it tries again.
-        private static int _missingAtCount = -1;
-
         /// Pins given a template on the last pass; the hover check walks only these.
         private static readonly List<Minimap.PinData> Templated = new List<Minimap.PinData>();
 
@@ -44,7 +39,6 @@ namespace CarturMapPins
         public static void Reset()
         {
             _templates = null;
-            _missingAtCount = -1;
             _hovered = null;
             Templated.Clear();
         }
@@ -120,22 +114,8 @@ namespace CarturMapPins
             if (_templates != null)
                 return _templates;
 
-            if (PinRecord.Count == _missingAtCount)
-                return null;
-
             string path = Path.Combine(Paths.ConfigPath, FileName);
-            if (!File.Exists(path))
-            {
-                // Not cached until the starter is written: the record that lists the keys may not
-                // be loaded on the first pass, and a file written then would list nothing.
-                if (!WriteStarter(path))
-                {
-                    _missingAtCount = PinRecord.Count;
-                    return null;
-                }
-                _templates = new Dictionary<string, string>();
-                return _templates;
-            }
+            WriteStarter(path);
 
             // Case-insensitive, since these keys are typed by hand.
             _templates = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -165,13 +145,16 @@ namespace CarturMapPins
             return _templates;
         }
 
-        /// Every line commented out, so writing it changes nothing on the map. Lists the kinds
-        /// already pinned in this world, which are real keys rather than ones derived from tables.
-        private static bool WriteStarter(string path)
+        /// Written at plugin load (Plugin.Awake) as well as here, so the file is in BepInEx/config
+        /// from the first launch. It used to be written only once a world with pins was loaded,
+        /// because it listed the kinds already pinned, and a player who looked before then, or
+        /// whose world had no pins yet, found no file and no way to know it existed.
+        /// Every line commented out, so writing it changes nothing on the map.
+        internal static void WriteStarter(string path = null)
         {
-            List<string> keys = PinRecord.Keys();
-            if (keys.Count == 0)
-                return false;
+            path = path ?? Path.Combine(Paths.ConfigPath, FileName);
+            if (File.Exists(path))
+                return;
 
             try
             {
@@ -186,11 +169,10 @@ namespace CarturMapPins
                 sb.AppendLine("#   Ore:Copper={qty} {name}");
                 sb.AppendLine("# Pins you renamed by hand are never changed. Hover a pin to see its full name.");
                 sb.AppendLine("# Changes apply the next time you load a world.");
-                sb.AppendLine("# The keys below are what was pinned in the world this file was written from.");
-                sb.AppendLine("# The key of any pin is the first field of its line in the .pins.txt record.");
-                sb.AppendLine();
-                foreach (string key in keys)
-                    sb.AppendLine("#" + key + "=");
+                sb.AppendLine("# The key of any pin is the first field of its line in the .pins.txt record");
+                sb.AppendLine("# next to this file, e.g. Pickable:Raspberry or Dungeon:Sunken Crypt.");
+                sb.AppendLine("# This file shortens labels. To translate the names themselves, see");
+                sb.AppendLine("# carturpins_names_english_template.txt in this folder.");
 
                 File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
                 Plugin.Log.LogInfo($"Wrote {path} - every line commented out, edit it to shorten pin labels.");
@@ -199,7 +181,6 @@ namespace CarturMapPins
             {
                 Plugin.Log.LogWarning($"Could not write {path}: {e.Message}");
             }
-            return true;
         }
     }
 }

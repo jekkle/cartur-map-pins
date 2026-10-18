@@ -191,8 +191,14 @@ namespace CarturMapPins
                 // set m_picked, so CanBePicked() only saw the prefab's default. Awake takes the
                 // picked state from the ZDO, falling back to m_defaultPicked (Pickable.cs 86); read
                 // it the same way.
+                //
+                // Only for ones that never come back (m_respawnTimeMinutes <= 0, the same test as the
+                // SetPicked patch below). A berry bush that was picked when its zone loaded regrows
+                // through SetPicked(false), which never runs AddInstance again, so skipping it left the
+                // bush unpinned until the zone reloaded (Nexus bug, lingonberries "sometimes" not
+                // pinned; pilot 2026-10-17: picked-at-load bush unpinned before and after regrowing).
                 Pickable pickable = go.GetComponent<Pickable>();
-                if (pickable != null && zdo.GetBool(ZDOVars.s_picked, pickable.m_defaultPicked))
+                if (pickable != null && pickable.m_respawnTimeMinutes <= 0f && zdo.GetBool(ZDOVars.s_picked, pickable.m_defaultPicked))
                 {
                     Tally(ref _skippedPicked);
                     return;

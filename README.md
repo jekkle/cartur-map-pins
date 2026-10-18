@@ -147,10 +147,21 @@ Fully quit and relaunch Valheim afterwards — BepInEx only scans plugins at sta
 - `CustomIcons / MapPicker` — the icon grid on the large map, for pins you place
   by hand. `MapPickerX` / `MapPickerY` move the panel.
 - `Pickables / …` — subgroup toggles. Only `HighValue` (surtling cores, Yggdrasil
-  shoots, eggs) is on by default; berries/mushrooms, crops/herbs, and
+  shoots, eggs) is on by default; berries/mushrooms (raspberry, blueberry, cloudberry,
+  lingonberry, vineberry), crops/herbs, and
   branches/stones/flint are off because they'd carpet the map and bloat the save.
   `Unrecognised` catches anything unmatched (including modded pickables) — check
   the log to see what those are.
+
+### User files (all in `BepInEx/config`, written on first launch)
+
+- `carturpins_names_english_template.txt` — every name the mod invents ("Sunken Crypt",
+  "Copper"...). Copy it to `carturpins_names_<language>.txt` using the game's own language
+  name (`french`, `german`...), translate the text after each `=`, restart the game. Names
+  the game already has (berries, traders, creatures, locations) follow the game language
+  with no file.
+- `carturpins_labels.txt` — your own short labels (`Pickable:Raspberry=R{qty}`). Every line
+  starts commented out. Not a translation file.
 
 ## Console commands
 

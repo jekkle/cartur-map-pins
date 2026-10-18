@@ -15,7 +15,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.8.4";
+        public const string PluginVersion = "1.8.5";
 
         internal static ManualLogSource Log;
 
@@ -217,7 +217,7 @@ namespace CarturMapPins
                 new ConfigDescription("Surtling, molten and black cores, cave crystals, royal jelly, obsidian, tin, bog iron, tar, meteorites, dragon and Volture eggs, and wild barley and flax. Rare and worth remembering.",
                     null, Attr(order: 5)));
             _pickBerries = Config.Bind(Sections.Of("Pickables", "BerriesAndMushrooms"), "BerriesAndMushrooms", false,
-                new ConfigDescription("Raspberry/blueberry/cloudberry bushes and mushrooms.",
+                new ConfigDescription("Raspberry, blueberry, cloudberry, lingonberry and vineberry bushes, and mushrooms. Off by default - turn this on for berries to be pinned.",
                     null, Attr(order: 4)));
             _pickCrops = Config.Bind(Sections.Of("Pickables", "CropsAndHerbs"), "CropsAndHerbs", false,
                 new ConfigDescription("Thistle, dandelion, seeds, carrot, turnip, onion, and barley and flax you planted yourself.",
@@ -404,6 +404,8 @@ namespace CarturMapPins
             // "[carturpins_frost_cave]", and Token() deliberately refuses to emit one it has not
             // registered, so registering late would silently leave the first pins in English.
             Translations.Register();
+            // Both user files exist from the first launch; see WriteStarter.
+            LabelTemplates.WriteStarter();
 
             // Only notes where records live. Which file is this one depends on the world and the
             // character, and at plugin load there is neither - it resolves on first use.
