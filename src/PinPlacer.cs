@@ -532,10 +532,22 @@ namespace CarturMapPins
         /// whether a crop is unhappy: find the heightmap under the point, then ask it. Null when
         /// the zone is not loaded, and then the answer is "not known to be cultivated" - the queue
         /// only drains for loaded objects, so that case is a formality.
+        ///
+        /// Not IsCultivated in the Deep North. IsCultivated is "paint mask green > 0.5", and the world
+        /// generator writes the Deep North's own ground blend into that same green channel at
+        /// 0.3 + 0.3 x noise (WorldGenerator.GetDeepNorthHeight), so in patches of wild Deep North
+        /// ground it reads as hoed and every wild lingonberry there was skipped as a farm (Discord
+        /// "Autopins", 2026-10-18: "it pins but not all sometimes"). No other biome writes green, and a
+        /// hoe paints 1, so in the Deep North the line sits above the generator's 0.6 ceiling.
+        private const float DeepNorthGroundMax = 0.6f;
+
         private static bool OnCultivatedGround(Vector3 pos)
         {
             Heightmap ground = Heightmap.FindHeightmap(pos);
-            return ground != null && ground.IsCultivated(pos);
+            if (ground == null)
+                return false;
+            float line = ground.GetBiome(pos) == Heightmap.Biome.DeepNorth ? DeepNorthGroundMax : 0.5f;
+            return ground.GetCultivationMask(pos) > line;
         }
 
         private static bool BuiltByPlayer(GameObject go)

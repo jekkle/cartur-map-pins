@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.6
+
+- **Lingonberries in the Deep North pin again.** In patches of Deep North ground the game's own data reads like hoed soil, so Map Pins took those spots for your farm and skipped every wild bush on them. Farms are still left alone. Reported on Discord and Nexus; tested on wild Deep North bushes, 9 of 9 pinned.
+
 ## 1.8.5
 
 - **Berry bushes that were already picked when you arrived now get a pin.** They were skipped, and nothing pinned them after they regrew. Reported on Nexus (lingonberries). Please report it if a berry bush still won't pin.
