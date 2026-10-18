@@ -44,13 +44,13 @@ If you keep a compact naming convention such as R5, B7, SC or FC, write it in Be
 Dungeon:Sunken Crypt=SC
 Ore:Copper={qty} {name}[/code]
 
-{qty} is how many pins of that kind are merged into the marker at the current zoom, and is left out when there is just one. {name} is the normal name in your language. The first time you load a world the file is written for you with every line commented out, listing the kinds already on your map. The key of any pin is also the first field of its line in the .pins.txt record. Changes apply the next time you load a world.
+{qty} is how many pins of that kind are merged into the marker at the current zoom, and is left out when there is just one. {name} is the normal name in your language. The file is written for you the first time you start the game, with every line commented out. The key of any pin is the first field of its line in the .pins.txt record in BepInEx/config. Changes apply the next time you load a world.
 
 Only what is drawn changes. The saved name stays, so search, the rename box and the pin list still read "Sunken Crypt". Pins you renamed yourself keep your name, and pointing at a pin shows its full name. The labels are yours alone. Other players only see them if they use the same file.
 
 [size=5][b]Names and languages[/b][/size]
 
-Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through carturpins_names_<language>.txt. Copy carturpins_names_english_template.txt to start one.
+Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through carturpins_names_<language>.txt. carturpins_names_english_template.txt is written to BepInEx/config the first time you start the game. Copy it to carturpins_names_french.txt (or german, spanish, and so on: the game's own language name), translate the text after each = and restart the game. carturpins_labels.txt is for short labels, not translation.
 
 What counts as ore, a beehive or a pickable is worked out at runtime from components rather than from a list of prefab names, which is why it should survive game updates and pick up modded content. Player-built beehives and containers are never pinned.
 
@@ -71,6 +71,7 @@ Config file: BepInEx/config/com.jekkle.valheim.carturmappins.cfg.
 [*][b]ZoomedOutPinScale[/b] (0.6) - How small pins get at full zoom-out. 1 turns it off.[/*]
 [*][b]HidePinsBeyond[/b] (0) - Metres. Hide pins further than this from you. 0 draws all.[/*]
 [*][b]PinSharing[/b] (Everything) - What a cartography table publishes: Everything, HandPlacedOnly or Nothing.[/*]
+[*][b]Pickables / BerriesAndMushrooms[/b] (false) - Raspberry, blueberry, cloudberry, lingonberry and vineberry bushes, and mushrooms. Off by default: turn it on to pin berries.[/*]
 [*][b]Ore / TintByType[/b] (true) - Colour ore pins by what the ore is.[/*]
 [*][b]Ore / ForgetMined[/b] (true) - Remove an ore pin once its deposit is mined out.[/*]
 [*][b]Chest / LootedIcon[/b] (Chest open) - Icon an emptied chest switches to.[/*]
