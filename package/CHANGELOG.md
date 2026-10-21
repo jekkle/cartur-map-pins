@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.8.7
+
+- New icon in the Cartur's Mods style. The mod itself is unchanged from 1.8.6 (BepInEx still reports 1.8.6).
+
 ## 1.8.6
 
 - **Lingonberries in the Deep North pin again.** In patches of Deep North ground the game's own data reads like hoed soil, so Map Pins took those spots for your farm and skipped every wild bush on them. Farms are still left alone. Reported on Discord and Nexus; tested on wild Deep North bushes, 9 of 9 pinned.
