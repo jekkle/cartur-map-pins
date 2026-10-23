@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
@@ -686,6 +686,19 @@ namespace CarturMapPins
             long owner = nview.GetZDO().GetLong(ZDOVars.s_owner, 0L);
             if (owner == Game.instance.GetPlayerProfile().GetPlayerID())
                 PinPlacer.ClearDeathPin(__instance.transform.position);
+        }
+    }
+
+    /// The pin record and trackers save at most every ten seconds, so the last few changes are
+    /// written here. Game.Shutdown (private) is what both Logout and OnApplicationQuit call
+    /// (ILSpy, assembly_valheim, Game.ContinueLogout and Game.OnApplicationQuit).
+    [HarmonyPatch(typeof(Game), "Shutdown")]
+    internal static class Patch_Game_Shutdown
+    {
+        private static void Prefix()
+        {
+            PinRecord.FlushNow();
+            Trackers.SaveNow();
         }
     }
 }

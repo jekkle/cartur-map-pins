@@ -107,6 +107,14 @@ namespace CarturMapPins
             ("tar",        "Tar"),
         };
 
+        /// The giants' swords and helmets in the Mistlands. They break like props (a _destruction
+        /// child, not _frac), which used to rule them out, but that child is a MineRock5 that only a
+        /// pickaxe gets into and every piece drops iron or copper scrap (read from the game's
+        /// bundles: giant_sword1/2 and giant_helmet1/2_destruction, m_dropItems IronScrap or
+        /// CopperScrap, slash Immune). Their own type and switch, asked for by Thor on Discord
+        /// (2026-10-23), so turning it on does not change what Iron pins.
+        public const string GiantArmor = "Giant Armor";
+
         public static void Build(ZNetScene scene)
         {
             ByHash.Clear();
@@ -241,6 +249,9 @@ namespace CarturMapPins
             if (LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string fragHow) &&
                 YieldsOre(prefab, out string fragVia, out string fragOre))
             {
+                // Evidence for the pin it came from, so it carries that pin's type.
+                if (prefab.name.ToLowerInvariant().Contains("_destruction"))
+                    fragOre = GiantArmor;
                 OreFragments[prefab.name.GetStableHashCode()] = fragOre;
                 OreQualifiedBy[prefab.name] = $"{fragVia} [{fragHow}] (evidence only, never pinned)";
             }
@@ -248,6 +259,8 @@ namespace CarturMapPins
             if (!LooksLikeFragment(prefab.name) && LooksMineable(prefab, out string how) &&
                 YieldsOre(prefab, out string via, out string oreType))
             {
+                if (how == "giant armor")
+                    oreType = GiantArmor;
                 via = $"{via} [{how}]";
                 category = PinCategory.Ore;
                 OreQualifiedBy[prefab.name] = via;
@@ -327,7 +340,12 @@ namespace CarturMapPins
             //   giant_sword1 -> giant_sword1_destruction   scenery, drops scrap
             //   MineRock_Tin -> no fragment child at all   a deposit
             if (shards != null && shards.name.ToLowerInvariant().Contains("_destruction"))
-                return false;
+            {
+                if (shards.GetComponent<MineRock5>() == null)
+                    return false;
+                how = "giant armor";
+                return true;
+            }
 
             // Not every deposit shatters. MineRock_Tin and MineRock_Obsidian are plain
             // Destructibles that drop directly and spawn no fragments, and despite the name carry

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -121,6 +121,14 @@ namespace CarturMapPins
         private static bool _loaded;
         private static bool _dirty;
         private static float _timer;
+        private static float _lastSave = -PinRecord.SaveEvery;
+
+        /// Writes now whatever is pending, at logout or quit.
+        public static void SaveNow()
+        {
+            if (_dirty)
+                Save();
+        }
 
         /// How often to look for things that have appeared or vanished. Pins move every frame
         /// regardless - see Follow.
@@ -180,8 +188,13 @@ namespace CarturMapPins
                 ScanWild();
                 Sweep();
 
-                if (_dirty)
+                // At most every PinRecord.SaveEvery seconds: a boat under sail dirties this on
+                // every scan. Game.Shutdown writes what is left.
+                if (_dirty && Time.realtimeSinceStartup - _lastSave >= PinRecord.SaveEvery)
+                {
+                    _lastSave = Time.realtimeSinceStartup;
                     Save();
+                }
             }
 
             Follow();
@@ -518,6 +531,7 @@ namespace CarturMapPins
         /// rather than throwing.
         private static void ReadFile()
         {
+            SafeFile.Recover(_path);
             if (!File.Exists(_path))
                 return;
 
@@ -573,12 +587,7 @@ namespace CarturMapPins
                 }
                 // Written beside and swapped in, as PinRecord.Save does, so a crash mid-write
                 // leaves the old file whole instead of a truncated one.
-                string temp = _path + ".tmp";
-                File.WriteAllLines(temp, lines.ToArray());
-                if (File.Exists(_path))
-                    File.Replace(temp, _path, null);
-                else
-                    File.Move(temp, _path);
+                SafeFile.Write(_path, lines.ToArray());
             }
             catch (Exception e)
             {

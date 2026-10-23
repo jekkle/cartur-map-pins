@@ -15,7 +15,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.8.6";
+        public const string PluginVersion = "1.8.8";
 
         internal static ManualLogSource Log;
 
@@ -87,7 +87,7 @@ namespace CarturMapPins
         /// attempts against 405 for Fuling villages - and a camp you clear in twenty seconds is
         /// not a trip you plan.
         private static readonly HashSet<string> KindsOffByDefault =
-            new HashSet<string> { "Camp:Greydwarf Camp" };
+            new HashSet<string> { "Camp:Greydwarf Camp", "Ore:" + PinCatalog.GiantArmor };
 
         private static string KindKey(PinCategory category, string kind) => category + ":" + kind;
 
@@ -195,6 +195,10 @@ namespace CarturMapPins
             // adds that the icon table has never heard of.
             foreach ((string _, string type) in PinCatalog.OreTokens)
                 BindKindToggle(PinCategory.Ore, Sections.Of("Ore Types"), type, $"Pin {type} deposits.");
+            // Off by default: the Mistlands are full of them, and an update should not suddenly
+            // cover everyone's map.
+            BindKindToggle(PinCategory.Ore, Sections.Of("Ore Types"), PinCatalog.GiantArmor,
+                "Pin the giants' swords and helmets in the Mistlands. Mined with a pickaxe for iron and copper scrap.");
 
 
             // Ore icons only: the switches above came from the catalog.

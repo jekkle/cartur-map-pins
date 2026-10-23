@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.8
+
+- **Giant swords and helmets in the Mistlands can be pinned.** New switch `Ore Types / Giant Armor`, off by default. They are mined with a pickaxe for iron and copper scrap. Asked on Discord.
+- **No more errors under Mod Organizer.** Saving the pin files left a short-lived Windows temporary file (`~RF....TMP`) that Mod Organizer reported as an error, and the files were saved up to three times a second, which filled its log. They are now saved at most every 10 seconds, without that temporary file, and once more when you log out or quit. Reported on Nexus.
+
 ## 1.8.7
 
 - New icon in the Cartur's Mods style. The mod itself is unchanged from 1.8.6 (BepInEx still reports 1.8.6).

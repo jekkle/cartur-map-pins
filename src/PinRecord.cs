@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -168,6 +168,7 @@ namespace CarturMapPins
 
         private static void ReadFile()
         {
+            SafeFile.Recover(_path);
             if (!File.Exists(_path))
                 return;
 
@@ -847,16 +848,30 @@ namespace CarturMapPins
             return false;
         }
 
-        /// Writes pending changes at most once per interval. Cheap no-op when nothing changed.
+        /// Writes pending changes at most once every SaveEvery seconds. Cheap no-op when nothing
+        /// changed. It used to write on every scan (0.33 s by default), which under Mod Organizer
+        /// filled its log with 100k lines in ten minutes (Duk3nat0r, Nexus, 2026-10-22); Game.Shutdown
+        /// writes what is left (Patch_Game_Shutdown).
         public static void Flush()
         {
             EnsureLoaded();
-            if (!_dirty)
+            if (!_dirty || Time.realtimeSinceStartup - _lastSave < SaveEvery)
                 return;
+            _lastSave = Time.realtimeSinceStartup;
             // Cleared only once the write succeeded, so a failed one is retried next tick.
             if (Save())
                 _dirty = false;
         }
+
+        /// Writes now whatever is pending, at logout or quit.
+        public static void FlushNow()
+        {
+            if (_dirty && Save())
+                _dirty = false;
+        }
+
+        internal const float SaveEvery = 10f;
+        private static float _lastSave = -SaveEvery;
 
         /// Removes every pin we created from the live map, and clears the record.
         /// Hand-placed pins are matched by position/type against the record, so they survive.
@@ -1614,12 +1629,7 @@ namespace CarturMapPins
                 }
                 // Written beside and swapped in, so a crash mid-write leaves the old file whole
                 // instead of a truncated one.
-                string temp = _path + ".tmp";
-                File.WriteAllLines(temp, lines.ToArray());
-                if (File.Exists(_path))
-                    File.Replace(temp, _path, null);
-                else
-                    File.Move(temp, _path);
+                SafeFile.Write(_path, lines.ToArray());
                 _warnedWrite = false;
                 return true;
             }

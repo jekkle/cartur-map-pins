@@ -142,7 +142,8 @@ Fully quit and relaunch Valheim afterwards — BepInEx only scans plugins at sta
   `Camp Types`, `Boss Types`, `Trader Types`, `Spawner Types`. Set one to
   `Default` to fall back to the category's own icon.
 - `Ore Types / <type>` — one on/off switch per ore type, so you can pin copper
-  and ignore tin.
+  and ignore tin. `Giant Armor` (the giants' swords and helmets in the Mistlands,
+  mined for iron and copper scrap) is off by default.
 - `CustomIcons / Enabled` — off falls everything back to vanilla pin types.
 - `CustomIcons / MapPicker` — the icon grid on the large map, for pins you place
   by hand. `MapPickerX` / `MapPickerY` move the panel.
