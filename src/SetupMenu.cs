@@ -30,15 +30,16 @@ namespace CarturMapPins
         private static readonly string Flag = Path.Combine(BepInEx.Paths.ConfigPath, "carturpins.setup.seen");
 
         private const string Topic = "Hugin";
+        /// What Hugin says when you talk to him (owner's line, 2026-10-27).
         private const string Text =
-            "The Allfather's ravens forget nothing, and now your map need not either. " +
-            "Here is your chance to choose what I mark for you as you wander.";
+            "Wanderer, the Allfather bid me watch over your map. As you roam, I will mark what you " +
+            "discover: ore veins, burial chambers, camps, and the altars of the Forsaken.\n\n" +
+            "Tell me what is worth remembering, and I will leave the rest to the mist!";
 
         /// The welcome page, in Hugin's voice.
         private const string Welcome =
-            "Wanderer, the Allfather bid me watch over your map. As you roam, I will mark what you " +
-            "discover: ore veins, burial chambers, camps, and the altars of the Forsaken.\n\n" +
-            "Tell me what is worth remembering, and I will leave the rest to the mist.";
+            "The Allfather's ravens forget nothing, and now your map need not either.\n\n" +
+            "Here is your chance to choose what I mark for you as you wander.";
 
         private const string MoreSettings =
             "Every switch, icon and size can be changed later in the mod settings " +
