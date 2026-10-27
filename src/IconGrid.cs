@@ -255,6 +255,17 @@ namespace CarturMapPins
         public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.7f);
         public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
         public static readonly Color Hovered = new Color(1f, 1f, 1f, 1f);
+        public static readonly Color Clear = new Color(1f, 1f, 1f, 0f);
+
+        /// An icon cell: nothing round it at rest, the gold frame when chosen.
+        public static void SetCellSelected(Image border, bool selected)
+        {
+            if (border == null)
+                return;
+            border.sprite = Border;
+            border.type = Image.Type.Sliced;
+            border.color = selected ? Selected : Clear;
+        }
 
         /// A cell whose pin type is currently filtered off the map. Faded rather than hidden:
         /// the cell still has to be there to right-click a second time and bring the pins back.
@@ -370,14 +381,14 @@ namespace CarturMapPins
                 cell.AddComponent<Image>();
             }
 
-            // The root becomes a plain dark slab and the icon moves to a child, so the drawing
-            // order is slab, then icon, then border. Keeping the icon on the root instead would
-            // put it under anything added afterwards.
+            // No box: the icon alone, like the game's own pin buttons (owner, 2026-10-27). The
+            // root stays as a clear hit area so the whole cell takes the click, and the icon moves
+            // to a child so the selection frame can draw over it.
             Image backing = cell.GetComponent<Image>();
             if (backing != null)
             {
                 backing.sprite = null;
-                backing.color = new Color(0.07f, 0.08f, 0.08f, 0.85f);
+                backing.color = new Color(0f, 0f, 0f, 0f);
                 backing.enabled = true;
             }
 
@@ -409,13 +420,14 @@ namespace CarturMapPins
             Image border = frame.AddComponent<Image>();
             border.sprite = BorderSprite();
             border.type = Image.Type.Sliced;
-            border.color = Resting;
+            border.color = Clear;
             border.raycastTarget = false;
 
-            cell.AddComponent<CellHover>().Bind(border);
+            // Hover is the inventory's tint on the icon plus the lift; the frame is selection only.
+            cell.AddComponent<CellHover>().Bind(null);
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
-            SlotHover(button, backing);
+            SlotHover(button, icon);
 
             // A whole fresh event object, NOT onClick.RemoveAllListeners(): that only drops
             // listeners added at runtime and leaves the prefab's serialized (persistent) calls
@@ -459,7 +471,7 @@ namespace CarturMapPins
         /// The tint only reads on the slot's own picture (measured: ColorTint 0.86 rest, 1.0
         /// hover, 0.72 pressed, 0.1 s, on a white sliced slot sprite), so the target takes that
         /// picture too, and the slot's hover and click sounds (ButtonSfx) come along.
-        public static void SlotHover(Button button, Image target)
+        public static void SlotHover(Button button, Graphic target)
         {
             Button slot = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponentInChildren<Button>(true);
             if (button == null || slot == null || target == null)
@@ -468,12 +480,6 @@ namespace CarturMapPins
             button.colors = slot.colors;
             button.spriteState = slot.spriteState;
             button.targetGraphic = target;
-            if (slot.targetGraphic is Image picture && picture.sprite != null)
-            {
-                target.sprite = picture.sprite;
-                target.type = picture.type;
-                target.color = Color.white;
-            }
             SlotSounds(button.gameObject);
         }
 

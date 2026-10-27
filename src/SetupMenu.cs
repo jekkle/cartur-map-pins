@@ -616,7 +616,7 @@ namespace CarturMapPins
             {
                 if (borders[i] == null)
                     continue;
-                IconGrid.SetSelected(borders[i], i == chosen);
+                IconGrid.SetCellSelected(borders[i], i == chosen);
                 if (i != item.DefaultIcon)
                     continue;
                 TextMeshProUGUI tag = Label(borders[i].transform.parent, "Default", 9f, Bronze, TextAlignmentOptions.Bottom,

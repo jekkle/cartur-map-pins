@@ -135,7 +135,7 @@ namespace CarturMapPins
             {
                 int index = CustomIcons.PickerIndexFor(active);
                 for (int i = 0; i < _highlights.Count; i++)
-                    IconGrid.SetSelected(_highlights[i], i == index);
+                    IconGrid.SetCellSelected(_highlights[i], i == index);
             }
 
             // Also clamped here, not only on release: the position comes out of the config, and a
@@ -157,6 +157,10 @@ namespace CarturMapPins
             public int Sibling;
             public Vector2 AnchorMin, AnchorMax, Pivot, Position, Size;
             public Vector3 Scale;
+            public Image Highlight;
+            public Sprite HighlightSprite;
+            public Image.Type HighlightType;
+            public Color HighlightColor;
         }
 
         private static readonly List<Origin> Moved = new List<Origin>();
@@ -217,9 +221,9 @@ namespace CarturMapPins
 
             gameButtons.Sort((a, b) => a.GetSiblingIndex().CompareTo(b.GetSiblingIndex()));
             foreach (RectTransform b in gameButtons)
-                Move(b, _gameSection);
+                Move(b, _gameSection, Highlight(icons, b));
             foreach (RectTransform b in modButtons)
-                Move(b, _modSection);
+                Move(b, _modSection, Highlight(icons, b));
 
             bool anyMod = _modSection.childCount > 0;
             _modSection.gameObject.SetActive(anyMod);
@@ -243,16 +247,37 @@ namespace CarturMapPins
             }
         }
 
-        private static void Move(RectTransform button, Transform section)
+        private static Image Highlight(Dictionary<Minimap.PinType, Image> icons, RectTransform button)
+        {
+            foreach (Image img in icons.Values)
+                if (img != null && img.transform.parent == button)
+                    return img;
+            return null;
+        }
+
+        /// Moves one button in and dresses it like the picker's own cells: the gold frame for its
+        /// selection highlight (the child vanilla's SelectIcon switches on), and the inventory's
+        /// hover on its icon. How it looked before is kept for RestoreAbsorbed.
+        private static void Move(RectTransform button, Transform section, Image highlight)
         {
             Moved.Add(new Origin
             {
                 Button = button, Parent = button.parent, Sibling = button.GetSiblingIndex(),
                 AnchorMin = button.anchorMin, AnchorMax = button.anchorMax, Pivot = button.pivot,
                 Position = button.anchoredPosition, Size = button.sizeDelta, Scale = button.localScale,
+                Highlight = highlight, HighlightSprite = highlight != null ? highlight.sprite : null,
+                HighlightType = highlight != null ? highlight.type : Image.Type.Simple,
+                HighlightColor = highlight != null ? highlight.color : Color.white,
             });
             button.SetParent(section, false);
             button.localScale = Vector3.one;
+            if (highlight != null)
+            {
+                highlight.sprite = IconGrid.Border;
+                highlight.type = Image.Type.Sliced;
+                highlight.color = IconGrid.Selected;
+            }
+            IconGrid.SlotHover(button.GetComponent<Button>(), button.GetComponent<Image>());
         }
 
         /// MapPicker switched off: every button goes back where and how it was, and the columns
@@ -272,6 +297,12 @@ namespace CarturMapPins
                 m.Button.anchoredPosition = m.Position;
                 m.Button.sizeDelta = m.Size;
                 m.Button.localScale = m.Scale;
+                if (m.Highlight != null)
+                {
+                    m.Highlight.sprite = m.HighlightSprite;
+                    m.Highlight.type = m.HighlightType;
+                    m.Highlight.color = m.HighlightColor;
+                }
             }
             Moved.Clear();
             foreach (GameObject column in EmptiedColumns)
@@ -500,7 +531,7 @@ namespace CarturMapPins
             _selectIcon.Invoke(map, new object[] { type });
 
             for (int i = 0; i < _highlights.Count; i++)
-                IconGrid.SetSelected(_highlights[i], i == index);
+                IconGrid.SetCellSelected(_highlights[i], i == index);
         }
 
         /// Private, and a thin forwarder onto GetClosestPin(pos, PinInteractRadius, true), which

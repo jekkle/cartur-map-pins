@@ -575,7 +575,7 @@ namespace CarturMapPins
             if (_highlights == null)
                 return;
             for (int i = 0; i < _highlights.Count; i++)
-                IconGrid.SetSelected(_highlights[i], i == _pending);
+                IconGrid.SetCellSelected(_highlights[i], i == _pending);
         }
     }
 
