@@ -285,7 +285,10 @@ namespace CarturMapPins
                 return;
             _page = index;
             Page page = _pages[index];
-            page.Snapshot = page.Items.Select(i => i.On).ToArray();
+            // Taken the first time the page is shown, so leaving and coming back does not move
+            // what Undo returns to (pilot: Select all, Next, Back, Undo kept everything on).
+            if (page.Snapshot == null)
+                page.Snapshot = page.Items.Select(i => i.On).ToArray();
             _title.text = page.Title;
             _pageNo.text = $"Page {index + 1} of {_pages.Count}  -  choose what gets a pin";
             _next.text = index == _pages.Count - 1 ? "Done" : "Next";
