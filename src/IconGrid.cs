@@ -257,14 +257,37 @@ namespace CarturMapPins
         public static readonly Color Hovered = new Color(1f, 1f, 1f, 1f);
         public static readonly Color Clear = new Color(1f, 1f, 1f, 0f);
 
+        /// The inventory's equipped-slot gold (InventoryElement/equiped, measured: 1.0, 0.85, 0.45).
+        public static readonly Color SelectedGold = new Color(1f, 0.85f, 0.45f, 1f);
+
+        private static Sprite _slot, _slotSelected;
+
+        /// The inventory slot's own picture and its selection frame, read from the slot prefab
+        /// the inventory instantiates, so whatever the game or Cartur's UI draws there is drawn here.
+        public static Sprite SlotSprite()
+        {
+            if (_slot == null)
+                _slot = SlotPrefab()?.GetComponentInChildren<Button>(true)?.targetGraphic is Image picture ? picture.sprite : null;
+            return _slot;
+        }
+
+        public static Sprite SelectedFrame()
+        {
+            if (_slotSelected == null)
+                _slotSelected = SlotPrefab()?.transform.Find("selected")?.GetComponent<Image>()?.sprite;
+            return _slotSelected != null ? _slotSelected : Border;
+        }
+
+        private static GameObject SlotPrefab() => InventoryGui.instance?.m_playerGrid?.m_elementPrefab;
+
         /// An icon cell: nothing round it at rest, the gold frame when chosen.
         public static void SetCellSelected(Image border, bool selected)
         {
             if (border == null)
                 return;
-            border.sprite = Border;
+            border.sprite = SelectedFrame();
             border.type = Image.Type.Sliced;
-            border.color = selected ? Selected : Clear;
+            border.color = selected ? SelectedGold : Clear;
         }
 
         /// A cell whose pin type is currently filtered off the map. Faded rather than hidden:
@@ -397,9 +420,10 @@ namespace CarturMapPins
             RectTransform irt = iconGo.AddComponent<RectTransform>();
             irt.anchorMin = Vector2.zero;
             irt.anchorMax = Vector2.one;
-            // Inset, so an icon does not run into the frame around it.
-            irt.offsetMin = new Vector2(5f, 5f);
-            irt.offsetMax = new Vector2(-5f, -5f);
+            // The whole cell, the way the game's own pin buttons draw their icon: with the box
+            // gone nothing needs the inset, and a 5 px one made ours smaller than theirs.
+            irt.offsetMin = Vector2.zero;
+            irt.offsetMax = Vector2.zero;
 
             Image icon = iconGo.AddComponent<Image>();
             icon.sprite = CustomIcons.SpriteForPicker(index);
@@ -425,6 +449,7 @@ namespace CarturMapPins
 
             // Hover is the inventory's tint on the icon plus the lift; the frame is selection only.
             cell.AddComponent<CellHover>().Bind(null);
+            cell.AddComponent<GlowHover>();
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
             SlotHover(button, icon);

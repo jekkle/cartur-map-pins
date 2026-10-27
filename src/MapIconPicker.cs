@@ -273,11 +273,13 @@ namespace CarturMapPins
             button.localScale = Vector3.one;
             if (highlight != null)
             {
-                highlight.sprite = IconGrid.Border;
+                highlight.sprite = IconGrid.SelectedFrame();
                 highlight.type = Image.Type.Sliced;
-                highlight.color = IconGrid.Selected;
+                highlight.color = IconGrid.SelectedGold;
             }
             IconGrid.SlotHover(button.GetComponent<Button>(), button.GetComponent<Image>());
+            if (button.GetComponent<GlowHover>() == null)
+                button.gameObject.AddComponent<GlowHover>();
         }
 
         /// MapPicker switched off: every button goes back where and how it was, and the columns
@@ -297,6 +299,14 @@ namespace CarturMapPins
                 m.Button.anchoredPosition = m.Position;
                 m.Button.sizeDelta = m.Size;
                 m.Button.localScale = m.Scale;
+                GlowHover glow = m.Button.GetComponent<GlowHover>();
+                if (glow != null)
+                {
+                    Transform disc = m.Button.Find("Glow");
+                    if (disc != null)
+                        Object.Destroy(disc.gameObject);
+                    Object.Destroy(glow);
+                }
                 if (m.Highlight != null)
                 {
                     m.Highlight.sprite = m.HighlightSprite;
