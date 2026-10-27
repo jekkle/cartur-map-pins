@@ -175,11 +175,13 @@ namespace CarturMapPins
             // NotDrawn is what both the icon fade and the label pass read, so a hidden pin goes
             // in it too; otherwise its name would float over a map with no icon under it.
             PinHiding.Apply(pins);
-            if (PinHiding.Any)
+            if (PinHiding.Any || PinHiding.Cycle != PinHiding.Shown.All)
             {
+                if (PinHiding.Cycle == PinHiding.Shown.Yours)
+                    PinRecord.IndexByPosition();
                 foreach (Minimap.PinData pin in pins)
                 {
-                    if (pin != null && PinHiding.IsHidden(pin))
+                    if (pin != null && (PinHiding.IsHidden(pin) || PinHiding.CycleHides(pin)))
                         NotDrawn.Add(pin);
                 }
             }

@@ -40,6 +40,41 @@ namespace CarturMapPins
 
         public static bool Any => Terms.Count > 0;
 
+        // ---- the hide key (General / HidePinsKey) ---------------------------------------------
+
+        /// What the hide key is showing: everything, nothing, or only your own pins.
+        public enum Shown { All, None, Yours }
+
+        /// Session only: a map left hidden by accident must not stay hidden after a restart.
+        public static Shown Cycle { get; private set; } = Shown.All;
+
+        private static readonly System.Reflection.FieldInfo PinUpdateRequired =
+            HarmonyLib.AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
+
+        /// First press hides every pin, the second brings back the ones you placed (only this
+        /// mod's stay hidden), the third shows everything (owner's spec, 2026-10-27). Nothing is
+        /// removed or saved: the pins are only not drawn, through the same NotDrawn path as the
+        /// hide list, so they fade and cannot be clicked while hidden (GetClosestPin postfix).
+        public static void Step()
+        {
+            Cycle = Cycle == Shown.All ? Shown.None : Cycle == Shown.None ? Shown.Yours : Shown.All;
+            // UpdatePins only runs when the map moves or this is set (Minimap.Update, decompiled).
+            if (Minimap.instance != null)
+                PinUpdateRequired?.SetValue(Minimap.instance, true);
+            Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft,
+                Cycle == Shown.None ? "All pins hidden" : Cycle == Shown.Yours ? "Auto pins hidden" : "All pins shown");
+        }
+
+        /// The death marker, pings and area circles stay whatever the key says: they are about
+        /// what is happening now, not what you have found.
+        public static bool CycleHides(Minimap.PinData pin)
+        {
+            if (Cycle == Shown.All || pin.m_worldSize > 0f ||
+                pin.m_type == Minimap.PinType.Death || pin.m_type == Minimap.PinType.Ping)
+                return false;
+            return Cycle == Shown.None || PinRecord.IsIndexedOurs(pin);
+        }
+
         /// How many names are being hidden, for the map to say so somewhere visible: a hidden pin
         /// with nothing announcing it reads as a broken mod six months later.
         public static int TermCount => Terms.Count;

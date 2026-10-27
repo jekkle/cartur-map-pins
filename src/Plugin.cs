@@ -22,6 +22,7 @@ namespace CarturMapPins
         public static ConfigEntry<float> DiscoveryRadius;
         public static ConfigEntry<bool> AutoPinning;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> AutoPinningKey;
+        public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> HidePinsKey;
         public static ConfigEntry<float> ScanInterval;
 #if DIAGNOSTICS
         public static ConfigEntry<bool> AutoProbe;
@@ -334,6 +335,10 @@ namespace CarturMapPins
             AutoPinningKey = Config.Bind(Sections.Of("General", "AutoPinningKey"), "AutoPinningKey",
                 new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.F8),
                 "Key that switches AutoPinning on and off in game.");
+            // H has no binding in ZInput's defaults (read from the installed assembly_utils).
+            HidePinsKey = Config.Bind(Sections.Of("General", "HidePinsKey"), "HidePinsKey",
+                new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.H),
+                "On the large map: the first press hides every pin, the second shows only the pins you placed yourself, the third shows them all again. Nothing is deleted; the death marker and pings always show.");
             DiscoveryRadius = Config.Bind(Sections.Of("General", "DiscoveryRadius"), "DiscoveryRadius", 60f,
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind(Sections.Of("General", "ScanIntervalSeconds"), "ScanIntervalSeconds", 0.33f,
@@ -811,6 +816,10 @@ namespace CarturMapPins
                 Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft,
                     AutoPinning.Value ? "Auto pins on" : "Auto pins paused");
             }
+            if (HidePinsKey.Value.IsDown() && Minimap.instance != null && Minimap.instance.m_mode == Minimap.MapMode.Large
+                && !Minimap.InTextInput() && !Console.IsVisible() && !TextInput.IsVisible()
+                && !(Chat.instance != null && Chat.instance.HasFocus()))
+                PinHiding.Step();
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
             Trackers.Tick(UnityEngine.Time.deltaTime);
         }
