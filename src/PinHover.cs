@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -52,11 +53,65 @@ namespace CarturMapPins
                 }
             }
 
-            if (ReferenceEquals(found, Current))
-                return;
-            Current = found;
-            if (found?.m_iconElement != null)
-                found.m_iconElement.transform.SetAsLastSibling();
+            if (!ReferenceEquals(found, Current))
+            {
+                Current = found;
+                if (found?.m_iconElement != null)
+                    found.m_iconElement.transform.SetAsLastSibling();
+                SetTag(found);
+            }
+            PlaceTag(found);
         }
+
+        // ---- "Auto pin" / "Your pin" above the hovered pin ------------------------------------
+        //
+        // Asked on Nexus with the delete fixes (2026-10-23): a pin the mod placed and one placed
+        // by hand look the same, so there was no telling which one a right-click would cost.
+        // Off the right of the cursor, like a tooltip (owner, 2026-10-24), so it never sits on the
+        // pin's own name or on a neighbouring pin.
+
+        private static TextMeshProUGUI _tag;
+
+        private static void SetTag(Minimap.PinData pin)
+        {
+            if (pin?.m_iconElement == null)
+            {
+                if (_tag != null)
+                    _tag.gameObject.SetActive(false);
+                return;
+            }
+            if (_tag == null)
+            {
+                var go = new GameObject("CarturPins_HoverOrigin", typeof(RectTransform));
+                _tag = Fonts.AddLabel(go);
+                _tag.alignment = TextAlignmentOptions.Left;
+                _tag.textWrappingMode = TextWrappingModes.NoWrap;
+                _tag.raycastTarget = false;
+                _tag.color = new Color(0.9f, 0.86f, 0.72f, 1f);
+                _tag.rectTransform.sizeDelta = new Vector2(160f, 24f);
+                _tag.rectTransform.pivot = new Vector2(0f, 0.5f);
+            }
+            Transform root = pin.m_iconElement.transform.parent;
+            if (_tag.transform.parent != root)
+                _tag.transform.SetParent(root, false);
+            TMP_Text name = pin.m_NamePinData?.PinNameText;
+            _tag.fontSize = name != null ? name.fontSize * 0.8f : 14f;
+            _tag.text = pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
+            _tag.gameObject.SetActive(true);
+            _tag.transform.SetAsLastSibling();
+        }
+
+        /// Every frame, following the mouse while it stays on the pin. CursorIn answers in the pin
+        /// root's own units, which is where the tag lives.
+        private static void PlaceTag(Minimap.PinData pin)
+        {
+            if (_tag == null || pin?.m_iconElement == null || !_tag.gameObject.activeSelf)
+                return;
+            Vector2 cursor = LabelCrowding.CursorIn(pin.m_iconElement);
+            _tag.rectTransform.localPosition = new Vector3(cursor.x + CursorGap, cursor.y, 0f);
+        }
+
+        /// Clear of the pointer arrow, which hangs down and right from the hot spot.
+        private const float CursorGap = 20f;
     }
 }

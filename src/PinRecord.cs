@@ -433,6 +433,47 @@ namespace CarturMapPins
             return changed;
         }
 
+        /// Puts back the icon of a pin that a session without this mod flattened to the circle.
+        ///
+        /// Root cause (Minimap.AddPin, read from the installed assembly): a type at or past
+        /// m_visibleIconTypes.Length is replaced by PinType.Icon3, and the map loader reaches it
+        /// through AddPin. Vanilla's array has 18 entries and ours sit on 100 and up, so one session
+        /// with the mod off loads every one of our pins as Icon3, and the next profile save writes
+        /// that to disk. Nothing in the pin remembers what it was; the record does, because it is
+        /// keyed on position and holds the kind (GitHub #1, "all pins became default circles").
+        ///
+        /// Only a recorded pin sitting exactly on Icon3 whose kind has a custom icon today. A pin
+        /// the player placed by hand is not in the record and its icon index is gone for good.
+        public static int RecoverFlattenedIcons()
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null || !CustomIcons.Ready)
+                return 0;
+
+            int changed = 0;
+            foreach (Entry e in Entries)
+            {
+                if (!Resolve(e.Key, out PinCategory category, out string subtype, out Plugin.CategorySettings settings))
+                    continue;
+
+                Minimap.PinType wanted = PinPlacer.IconFor(category, subtype, settings);
+                if (!CustomIcons.IsCustom(wanted))
+                    continue;
+
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_type != Minimap.PinType.Icon3)
+                    continue;
+
+                if (Repoint(map, pin, wanted))
+                    changed++;
+            }
+
+            if (changed > 0)
+                map.SaveMapData();
+            return changed;
+        }
+
         /// Moves a pin still wearing its category's generic icon onto its own kind's icon.
         ///
         /// Narrower than RepointAllToCurrent on purpose, and safe to run unasked at every login:
@@ -1486,6 +1527,24 @@ namespace CarturMapPins
         /// (RepairPositions keeps it so), which is what lets a rounded key stand in for the
         /// half-metre test.
         private static readonly Dictionary<long, int> ByPosition = new Dictionary<long, int>();
+
+        /// True when this mod placed the pin, renamed or not: the record holds its position.
+        /// Walks the record, so it is for a hover or a click, not for every pin every frame.
+        internal static bool IsOurs(Minimap.PinData pin)
+        {
+            EnsureLoaded();
+            if (pin == null || !pin.m_save)
+                return false;
+            long key = PositionKey(pin.m_pos);
+            foreach (Entry e in Entries)
+                if (PositionKey(e.Pos) == key)
+                    return true;
+            return false;
+        }
+
+        /// IsOurs for a whole pass: a dictionary lookup against the index IndexByPosition just built.
+        internal static bool IsIndexedOurs(Minimap.PinData pin) =>
+            pin != null && pin.m_save && ByPosition.ContainsKey(PositionKey(pin.m_pos));
 
         private static long PositionKey(Vector3 pos) =>
             ((long)Mathf.RoundToInt(pos.x) << 32) ^ (uint)Mathf.RoundToInt(pos.z);

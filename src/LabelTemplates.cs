@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -129,9 +129,9 @@ namespace CarturMapPins
                     int eq = line.IndexOf('=');
                     if (eq <= 0)
                         continue;
-                    string text = line.Substring(eq + 1).Trim();
-                    if (text.Length > 0)
-                        _templates[line.Substring(0, eq).Trim()] = text;
+                    // Nothing after the '=' is a rule too: no label (GitHub #4 asked for berry
+                    // pins with a colour and no text). Hovering still shows the full name.
+                    _templates[line.Substring(0, eq).Trim()] = line.Substring(eq + 1).Trim();
                 }
             }
             catch (Exception e)
@@ -167,6 +167,7 @@ namespace CarturMapPins
                 sb.AppendLine("#   Pickable:Raspberry=R{qty}");
                 sb.AppendLine("#   Dungeon:Sunken Crypt=SC");
                 sb.AppendLine("#   Ore:Copper={qty} {name}");
+                sb.AppendLine("#   Pickable:Raspberry=          (nothing after the '=' hides the label)");
                 sb.AppendLine("# Pins you renamed by hand are never changed. Hover a pin to see its full name.");
                 sb.AppendLine("# Changes apply the next time you load a world.");
                 sb.AppendLine("# The key of any pin is the first field of its line in the .pins.txt record");

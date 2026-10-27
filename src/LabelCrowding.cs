@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
@@ -48,12 +49,6 @@ namespace CarturMapPins
             return byX != 0 ? byX : a.Pin.m_pos.z.CompareTo(b.Pin.m_pos.z);
         };
 
-        /// Vanilla's CreateMapNamePin starts DelayActivation(go, 1f): the new label is made
-        /// inactive and SetActive(true)d one second later (read from the Minimap decompile), which
-        /// undoes any hiding Apply did to it in between. Set when a label is created; the Update
-        /// postfix asks for one more pin update once it has passed, and that pass hides it again.
-        internal static float RecheckAt;
-
         public static void Apply(List<Minimap.PinData> pins)
         {
             // Nothing is put back here, deliberately. UpdatePins writes every label visibility
@@ -65,11 +60,12 @@ namespace CarturMapPins
             Ordered.Clear();
             NameCounts.Clear();
 
+            // ShowPinLabels is this mod's switch for this mod's names. Through 1.8.9 it hid every
+            // pin's name, so a player who turned it off also lost the names of their own pins and
+            // the game's (GitHub/Discord report, bkpenther). Only pins this mod placed are hidden;
+            // the zoom and collision rules below still cover the rest as before.
             if (!Plugin.ShowPinLabels.Value)
-            {
-                HideAll(pins);
-                return;
-            }
+                HideAll(pins, oursOnly: true);
 
             // Vanilla's rule is dead on the live component: it hides names while
             // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
@@ -78,7 +74,7 @@ namespace CarturMapPins
             float limit = Plugin.HideLabelsFromZoom.Value;
             if (limit < 100f && Crowding.ZoomOutPercent() > limit)
             {
-                HideAll(pins);
+                HideAll(pins, oursOnly: false);
                 return;
             }
 
@@ -168,14 +164,18 @@ namespace CarturMapPins
         /// Every label off, bar the one under the cursor: a map of unlabelled icons cannot be read
         /// without some way to ask what one is, and this is the same reveal the collision hiding
         /// uses.
-        private static void HideAll(List<Minimap.PinData> pins)
+        private static void HideAll(List<Minimap.PinData> pins, bool oursOnly)
         {
             Vector2 cursor = CursorNear(pins);
+            if (oursOnly)
+                PinRecord.IndexByPosition();
 
             foreach (Minimap.PinData pin in pins)
             {
                 Minimap.PinNameData name = pin?.m_NamePinData;
                 if (name?.PinNameGameObject == null || !name.PinNameGameObject.activeInHierarchy)
+                    continue;
+                if (oursOnly && !PinRecord.IsIndexedOurs(pin))
                     continue;
 
                 if (!Crowding.OutOfSight(pin) && pin.m_iconElement != null &&
@@ -245,12 +245,33 @@ namespace CarturMapPins
         }
     }
 
-    /// Stamps the time a label was made, so LabelCrowding can hide it again after vanilla's
-    /// DelayActivation shows it. Time.time because DelayActivation waits on WaitForSeconds, which
-    /// runs on scaled time.
-    [HarmonyPatch(typeof(Minimap), "CreateMapNamePin")]
-    internal static class Patch_Minimap_CreateMapNamePin
+    /// Hides a new label in the same frame vanilla shows it.
+    ///
+    /// CreateMapNamePin starts DelayActivation(go, 1f): the label is made inactive and SetActive(true)d
+    /// one second later, from a coroutine, with no UpdatePins pass after it (read from the Minimap
+    /// decompile). That undoes whatever Apply did to it in the meantime. Through 1.8.9 a single
+    /// shared timestamp asked for one more pass 1.1 s after the newest label was made - and
+    /// scrolling the large map out brings pins into view every frame, each one rebuilding its
+    /// label, so the timestamp kept moving, every earlier label stayed lit until the scrolling
+    /// stopped, and the names appeared in waves. This runs Apply the moment each coroutine has
+    /// activated its label, so none of them is ever drawn.
+    [HarmonyPatch(typeof(Minimap), "DelayActivation")]
+    internal static class Patch_Minimap_DelayActivation
     {
-        private static void Postfix() => LabelCrowding.RecheckAt = Time.time + 1.1f;
+        private static void Postfix(Minimap __instance, ref IEnumerator __result) =>
+            __result = ThenApply(__result, __instance);
+
+        private static IEnumerator ThenApply(IEnumerator vanilla, Minimap map)
+        {
+            while (vanilla.MoveNext())
+                yield return vanilla.Current;
+
+            if (map != null)
+            {
+                List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+                if (pins != null)
+                    LabelCrowding.Apply(pins);
+            }
+        }
     }
 }

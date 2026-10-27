@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace CarturMapPins
 {
@@ -161,6 +161,9 @@ namespace CarturMapPins
             E("Giant Remains", "Giant Remains", 145),
             E("Chitin", "Chitin", 146),
             E("Tar", "Tar", 13),
+            // The sheet's giant sword (PoiGiantSword). Without a row here the type had a switch
+            // but no icon setting and drew the generic ore glyph (thor_01, Discord 2026-10-23).
+            E(PinCatalog.GiantArmor, PinCatalog.GiantArmor, 52),
         };
 
         /// What each ore is, in colour.
@@ -172,11 +175,26 @@ namespace CarturMapPins
         /// Keyed by the same names the ore table uses, which the catalog resolves from what a
         /// deposit drops, so an ore added by a game update has no colour until one is written
         /// here rather than taking somebody else's.
+        /// Berry bushes in their berry's colour (DrGrue-US, GitHub #4: "make the berry icon red for
+        /// raspberry ... blue for blueberry, yellow for cloudberry"). Keyed by the pickable kind
+        /// names above. The sheet's berry glyphs are white (measured: every lit pixel of cells 90,
+        /// 91, 92, 140 and 141 is 255,255,255), so they take the colour as drawn. Lifted like the ores so
+        /// none is a dark hole on the map; lingonberry is pinker than raspberry to tell them apart.
+        public static readonly Dictionary<string, string> BerryColours = new Dictionary<string, string>
+        {
+            { "Raspberry", "E8483F" },
+            { "Blueberry", "5B86F0" },
+            { "Cloudberry", "F5B942" },
+            { "Lingonberry", "FF6F9C" },
+            { "Vineberry", "B06CF0" },
+        };
+
         public static readonly Dictionary<string, string> OreColours = new Dictionary<string, string>
         {
             { "Copper", "C87A33" },
             { "Tin", "D6DCE4" },
             { "Iron", "9A9A9A" },
+            { PinCatalog.GiantArmor, "9A9A9A" },   // iron and copper scrap; reads as iron
             { "Silver", "E4EDF5" },
             { "Obsidian", "6E6A86" },       // lifted: obsidian is near black
             { "Flametal", "E8562A" },

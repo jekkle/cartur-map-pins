@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.9
+
+- **Right-click deletes the pin that is lit up.** The game deleted whichever pin was nearest the cursor, which with pins close together was often a different one. **Ctrl+Z** on the large map brings back the pins you just deleted. New setting `General / ConfirmDelete` (off by default) asks for a second click first, for every pin or only for auto pins. Asked on Nexus.
+- **The name of the pin under the cursor now sits to the right of the cursor**, so the cursor no longer covers it.
+- **Pin names no longer flash on for a moment when you zoom out.**
+- **`ShowPinLabels` off now hides only this mod's names.** Pins you placed yourself and the game's own keep theirs. Reported on Discord.
+- **Icons come back after a reinstall.** Custom icons could turn into the plain vanilla pin when the mod was removed and installed again; they are recovered the next time you load the world. GitHub #1.
+- **Berry bushes are coloured by their berry**: raspberry red, blueberry blue, cloudberry yellow, lingonberry pink, vineberry purple. New setting `Pickables / TintBerriesByType`, on by default. Berries themselves are still off by default (`Pickables / BerriesAndMushrooms`). GitHub #4.
+- **Tamed hatchlings are tracked**: a tamed Asksvin is pinned before it grows up. GitHub #9.
+- **Giant swords and helmets have their own icon setting** and draw the giant sword icon instead of the plain ore one. They are still off by default (`Ore Types / Giant Armor`). Reported on Discord.
+
 ## 1.8.8
 
 - **Giant swords and helmets in the Mistlands can be pinned.** New switch `Ore Types / Giant Armor`, off by default. They are mined with a pickaxe for iron and copper scrap. Asked on Discord.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -203,19 +203,22 @@ namespace CarturMapPins
         public static void RebuildOreTints()
         {
             OreTints.Clear();
-            if (!Plugin.TintOreByType.Value)
-                return;
+            if (Plugin.TintOreByType.Value)
+                Tint(Subtypes.OreColours, Plugin.SettingsFor(PinCategory.Ore));
+            if (Plugin.TintBerriesByType.Value)
+                Tint(Subtypes.BerryColours, Plugin.SettingsFor(PinCategory.Pickable));
+        }
 
-            Plugin.CategorySettings ore = Plugin.SettingsFor(PinCategory.Ore);
-            if (ore == null)
+        private static void Tint(Dictionary<string, string> colours, Plugin.CategorySettings settings)
+        {
+            if (settings == null)
                 return;
-
-            foreach (KeyValuePair<string, string> entry in Subtypes.OreColours)
+            foreach (KeyValuePair<string, string> entry in colours)
             {
                 if (!ColorUtility.TryParseHtmlString("#" + entry.Value, out Color colour))
                     continue;
 
-                Minimap.PinType type = Plugin.SubtypeIconFor(entry.Key, ore);
+                Minimap.PinType type = Plugin.SubtypeIconFor(entry.Key, settings);
                 if (CustomIcons.IsCustom(type))
                     OreTints[type] = colour;
             }

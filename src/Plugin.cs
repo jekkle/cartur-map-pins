@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -15,7 +15,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "1.8.8";
+        public const string PluginVersion = "1.8.9";
 
         internal static ManualLogSource Log;
 
@@ -137,6 +137,8 @@ namespace CarturMapPins
                     null, Attr(order: 100)));
             ApplyPreset.SettingChanged += (_, __) => Apply(ApplyPreset.Value);
 
+            ConfirmDelete = Config.Bind(Sections.Of("General", "ConfirmDelete"), "ConfirmDelete", DeleteConfirm.Off,
+                "Ask before a right-click deletes a pin: the first click says what it is (auto pin or your pin) and a second click within 2 seconds deletes it. AutoPinsOnly asks only for pins this mod placed. Ctrl+Z on the large map brings back the last pins you deleted either way.");
             ShrinkCrowdedPins = Config.Bind(Sections.Of("General", "ShrinkCrowdedPins"), "ShrinkCrowdedPins", true,
                 "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
 
@@ -156,7 +158,7 @@ namespace CarturMapPins
                 "How far out the map has to be zoomed before pins start shrinking, as a percentage. 0 is fully zoomed in and 100 is the whole world. Below this pins are full size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.");
 
             ShowPinLabels = Config.Bind(Sections.Of("General", "ShowPinLabels"), "ShowPinLabels", true,
-                "Draw the name under each pin. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. The pin under your cursor always shows its name, so nothing becomes unidentifiable.");
+                "Draw the name under each pin this mod places. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. Pins you placed yourself, and the game's own, keep their names. The pin under your cursor always shows its name, so nothing becomes unidentifiable.");
 
             HideCollidingLabels = Config.Bind(Sections.Of("General", "HideCollidingLabels"), "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
@@ -186,6 +188,8 @@ namespace CarturMapPins
             TintOreByType = Config.Bind(Sections.Of("Ore", "TintByType"), "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
+            TintBerriesByType = Config.Bind(Sections.Of("Pickables", "TintBerriesByType"), "TintBerriesByType", true,
+                "Colour each berry bush pin by its berry - raspberry red, blueberry blue, cloudberry yellow, lingonberry pink, vineberry purple. A colour you set on a pin yourself always wins. To drop the berry names as well, put e.g. Pickable:Raspberry= in carturpins_labels.txt.");
             ForgetMinedOre = Config.Bind(Sections.Of("Ore", "ForgetMined"), "ForgetMined", true,
                 "Remove an ore pin once its deposit has been mined out. Deposits never respawn, so the pin marks an empty hole and sends you back to it. Only pins this mod placed are removed, and only while the game has that area loaded - a node you have simply walked away from is never mistaken for a mined one.");
 
@@ -365,7 +369,7 @@ namespace CarturMapPins
             TrackCarts = Config.Bind(Sections.Of("Tracking", "Carts"), "Carts", true,
                 new ConfigDescription("The same for carts.", null, Attr(order: 5)));
             TrackTames = Config.Bind(Sections.Of("Tracking", "Tames"), "Tames", true,
-                new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle). Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
+                new ConfigDescription("The same for tames you have named, and for anything you can ride (it has a saddle), young ones too - a tamed Asksvin hatchling is pinned before it grows up. Unnamed livestock is left alone - a boar pen would otherwise bury the map.",
                     null, Attr(order: 4)));
             TrackWild = Config.Bind(Sections.Of("Tracking", "Wild"), "Wild", true,
                 new ConfigDescription("Bears: pinned once you come within DiscoveryRadius of one, and the pin follows it while it is nearby. Out of range the pin stays where you last saw it. Bears roam rather than living at a fixed spot, so this is how to find one again for the trophy.",
@@ -721,7 +725,9 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ReplaceBedMarker;
         public static ConfigEntry<bool> TickLootedDungeons;
         public static ConfigEntry<bool> TintOreByType;
+        public static ConfigEntry<bool> TintBerriesByType;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
+        public static ConfigEntry<DeleteConfirm> ConfirmDelete;
         public static ConfigEntry<bool> HideCollidingLabels;
         public static ConfigEntry<string> HiddenPins;
         public static ConfigEntry<bool> ShowPinLabels;

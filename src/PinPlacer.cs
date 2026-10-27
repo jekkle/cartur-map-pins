@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -122,6 +122,15 @@ namespace CarturMapPins
                     int reworded = PinRecord.Relabel();
                     if (reworded > 0)
                         Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
+                });
+
+                // Before the subtype step, which judges a pin by the icon it wears: a pin flattened to
+                // the circle by a session without the mod wears none it recognises.
+                MigrationStep("Icon recovery", () =>
+                {
+                    int recovered = PinRecord.RecoverFlattenedIcons();
+                    if (recovered > 0)
+                        Plugin.Log.LogInfo($"Restored the icon on {recovered} pin(s) that a session without this mod had turned into plain circles.");
                 });
 
                 MigrationStep("Subtype adopt", () =>

@@ -67,7 +67,7 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `DiscoveryRadius` | 60 | Metres. How close you must get before something pins. |
 | `AutoPinning` | true | Place pins automatically. Off pauses it without touching any category switch. |
 | `AutoPinningKey` | F8 | Key that toggles `AutoPinning` in game. |
-| `ShowPinLabels` | true | Draw the name under each pin. |
+| `ShowPinLabels` | true | Draw the name under each pin this mod places. Your own pins keep their names. |
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
 | `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
@@ -75,9 +75,11 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
 | `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
+| `ConfirmDelete` | Off | Ask for a second click before right-click deletes a pin: Off, AutoPinsOnly or All. Ctrl+Z on the large map undoes a delete either way. |
 | `PinSharing` | Everything | What a cartography table publishes: Everything, HandPlacedOnly or Nothing. |
 | `Pickables / BerriesAndMushrooms` | false | Raspberry, blueberry, cloudberry, lingonberry and vineberry bushes, and mushrooms. Off by default: turn it on to pin berries. |
 | `Ore / TintByType` | true | Colour ore pins by what the ore is. |
+| `Pickables / TintBerriesByType` | true | Colour berry bush pins by their berry. |
 | `Ore / ForgetMined` | true | Remove an ore pin once its deposit is mined out. |
 | `Chest / LootedIcon` | Chest open | Icon an emptied chest switches to. |
 | `Dungeon / TickWhenLooted` | true | Tick a dungeon off once it is cleared. |

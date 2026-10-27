@@ -294,7 +294,23 @@ namespace CarturMapPins
                     continue;
 
                 Tameable tame = c.GetComponent<Tameable>();
-                if (tame == null || !tame.IsTamed())
+                if (tame == null)
+                {
+                    // Young have no Tameable, only Growup, so an Asksvin hatchling was skipped until
+                    // it grew up (datacain, GitHub #9). Read from the game's bundles:
+                    // Asksvin_hatchling is Humanoid + MonsterAI + Growup (m_inheritTame 1), no
+                    // Tameable; Wolf_cub is the same. Their tame state is Character.IsTamed, which
+                    // Growup hands on to the adult. Pinned when the adult would be by itself
+                    // (rideable), since a youngster cannot be named.
+                    Growup grow = c.GetComponent<Growup>();
+                    if (grow == null || !c.IsTamed() || grow.m_grownPrefab?.GetComponent<Tameable>()?.m_saddle == null)
+                        continue;
+                    // The adult's icon: there is no setting per youngster.
+                    Note(Kind.Tame, Plugin.TrackedIconFor(grow.m_grownPrefab.name, PinIcon.UtilStar),
+                         c.GetComponent<ZNetView>(), c.transform, c.transform.position, c.m_name);
+                    continue;
+                }
+                if (!tame.IsTamed())
                     continue;
 
                 string given = tame.GetText();

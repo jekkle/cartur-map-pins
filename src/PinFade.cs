@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
@@ -151,14 +151,6 @@ namespace CarturMapPins
         {
             if (__instance.m_mode == Minimap.MapMode.None)
                 return;
-
-            // One pass after a label's 1 s DelayActivation has re-shown it; see
-            // LabelCrowding.RecheckAt.
-            if (LabelCrowding.RecheckAt > 0f && Time.time >= LabelCrowding.RecheckAt)
-            {
-                LabelCrowding.RecheckAt = 0f;
-                MinimapAccess.RequestPinUpdate(__instance);
-            }
 
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
             PinHover.Find(__instance, pins);

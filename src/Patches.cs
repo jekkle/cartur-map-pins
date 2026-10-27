@@ -80,6 +80,7 @@ namespace CarturMapPins
             // Records are per world per character, so the previous world's must be dropped before
             // anything asks this world whether a thing is already pinned.
             PinRecord.Unload();
+            PinDelete.Reset();
             IconRepoint.Reset();
             // Same reason, plus the tracked pins belong to a Minimap that is being replaced.
             Trackers.Unload();
