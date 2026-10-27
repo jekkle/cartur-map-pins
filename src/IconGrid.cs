@@ -353,7 +353,11 @@ namespace CarturMapPins
         /// ColorBlock (UpdateHighlightColor only swaps highlightedColor for touch; decompiled), so
         /// the slot prefab's transition and colours are copied as they are, read at runtime from
         /// InventoryGui's grid - whatever the inventory does on a game version, the grid does too.
-        public static void SlotHover(Button button, Graphic target)
+        ///
+        /// The tint only reads on the slot's own picture (measured: ColorTint 0.86 rest, 1.0
+        /// hover, 0.72 pressed, 0.1 s, on a white sliced slot sprite), so the target takes that
+        /// picture too, and the slot's hover and click sounds (ButtonSfx) come along.
+        public static void SlotHover(Button button, Image target)
         {
             Button slot = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponentInChildren<Button>(true);
             if (button == null || slot == null || target == null)
@@ -362,6 +366,28 @@ namespace CarturMapPins
             button.colors = slot.colors;
             button.spriteState = slot.spriteState;
             button.targetGraphic = target;
+            if (slot.targetGraphic is Image picture && picture.sprite != null)
+            {
+                target.sprite = picture.sprite;
+                target.type = picture.type;
+                target.color = Color.white;
+            }
+            SlotSounds(button.gameObject);
+        }
+
+        /// The inventory slot's hover and click sounds on any button.
+        public static void SlotSounds(GameObject go)
+        {
+            ButtonSfx from = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponentInChildren<ButtonSfx>(true);
+            if (go == null || from == null)
+                return;
+            ButtonSfx to = go.GetComponent<ButtonSfx>() ?? go.AddComponent<ButtonSfx>();
+            to.m_sfxPrefab = from.m_sfxPrefab;
+            to.m_sfxPrefabVibrationOnly = from.m_sfxPrefabVibrationOnly;
+            to.m_selectSfxPrefab = from.m_selectSfxPrefab;
+            to.m_selectSfxPrefabVibrationOnly = from.m_selectSfxPrefabVibrationOnly;
+            to.m_enterSfxPrefab = from.m_enterSfxPrefab;
+            to.m_enterSfxPrefabVibrationOnly = from.m_enterSfxPrefabVibrationOnly;
         }
 
         /// Vanilla's own pin-type buttons, used as the styling template. Null is tolerated.

@@ -275,6 +275,7 @@ namespace CarturMapPins
         private static GameObject _root;
         private static RectTransform _grid;
         private static TextMeshProUGUI _title, _pageNo, _next, _footer;
+        private static GameObject _backButton;
         private static List<Page> _pages;
         private static int _page;
         private static readonly List<(RectTransform rect, Item item)> RowRects = new List<(RectTransform, Item)>();
@@ -353,7 +354,7 @@ namespace CarturMapPins
             _grid.sizeDelta = new Vector2(788f, 440f);
 
             Button(panel, "Not now", new Vector2(36f, 28f), 140f, false, () => Close(false), anchorLeft: true);
-            Button(panel, "Back", new Vector2(-188f, 28f), 140f, false, () => ShowPage(_page - 1));
+            _backButton = Button(panel, "Back", new Vector2(-188f, 28f), 140f, false, () => ShowPage(_page - 1)).transform.parent.gameObject;
             _footer = Label(panel, "Footer", 14f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.Left,
                             new Vector2(196f, -584f), new Vector2(330f, 52f));
             _footer.textWrappingMode = TextWrappingModes.Normal;
@@ -384,6 +385,7 @@ namespace CarturMapPins
             foreach (GameObject b in PageButtons)
                 b.SetActive(!page.IsWelcome);
             _footer.text = index == _pages.Count - 1 ? MoreSettings : "";
+            _backButton.SetActive(index > 0);
             _next.text = index == _pages.Count - 1 ? "Done" : "Next";
 
             foreach (Transform child in _grid)
@@ -452,6 +454,7 @@ namespace CarturMapPins
                 go.GetComponent<Button>().transition = Selectable.Transition.None;
                 go.GetComponent<Button>().onClick.AddListener(() => { _sharing = mode; Refresh(); });
                 go.AddComponent<HoverFx>().Bind(go.GetComponent<Image>(), RowRest, RowHover, 1.02f);
+                IconGrid.SlotSounds(go);
 
                 Image box = Box(rt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
                 var boxRt = (RectTransform)box.transform;
@@ -487,6 +490,7 @@ namespace CarturMapPins
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => { item.On = !item.On; Refresh(); });
             go.AddComponent<HoverFx>().Bind(back, RowRest, RowHover, 1.02f);
+            IconGrid.SlotSounds(go);
 
             Image box = Box(rt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
             var boxRt = (RectTransform)box.transform;
@@ -567,11 +571,12 @@ namespace CarturMapPins
         private static void OpenPicker(Item item)
         {
             ClosePicker();
-            RectTransform box = Box(_panel, "IconPicker", new Color(0.03f, 0.03f, 0.025f, 0.98f),
+            RectTransform box = Box(_panel, "IconPicker", new Color(0.03f, 0.03f, 0.025f, 1f),
                                     new Vector2(IconGrid.PanelWidth(7), 470f));
             box.anchorMin = box.anchorMax = box.pivot = new Vector2(1f, 1f);
             box.anchoredPosition = new Vector2(-24f, -100f);
             _picker = box.gameObject;
+            box.SetAsLastSibling();
             Edge(box, true);
 
             TextMeshProUGUI title = Label(box, "Title", 18f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(220f, 26f));
@@ -747,6 +752,7 @@ namespace CarturMapPins
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(click);
             rt.gameObject.AddComponent<HoverFx>().Bind(rt.GetComponent<Image>(), ButtonBack, ButtonHover, 1.05f);
+            IconGrid.SlotSounds(rt.gameObject);
             RectTransform line = Box(rt, "Line", Bronze, new Vector2(0f, 2f));
             line.anchorMin = new Vector2(0f, 0f);
             line.anchorMax = new Vector2(1f, 0f);
