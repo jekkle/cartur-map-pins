@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace CarturMapPins
@@ -88,9 +89,14 @@ namespace CarturMapPins
             scroll.horizontal = false;
             scroll.vertical = true;
             scroll.movementType = ScrollRect.MovementType.Clamped;
-            // Six rows per wheel tick: 236 icons in five columns (current sheet plus 1.2.2's) is
-            // 48 rows, so a tick has to move about a tenth of the way down to be fast enough.
-            scroll.scrollSensitivity = (CellSize + Spacing) * 6f;
+            // The wheel is SmoothScroll's, not the ScrollRect's: six rows per tick jumped (owner,
+            // 2026-10-27: "optimize scrolling"). Dragging the content still goes through here.
+            scroll.scrollSensitivity = 0f;
+            scroll.inertia = true;
+            scroll.decelerationRate = 0.08f;
+            panel.AddComponent<SmoothScroll>().Bind(scroll, CellSize + Spacing);
+            scroll.verticalScrollbar = SlimScrollbar(panel.transform, bottom);
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
 
             var highlights = new List<Image>(CustomIcons.PickerCount);
 
@@ -152,6 +158,83 @@ namespace CarturMapPins
             label.raycastTarget = false;
         }
 
+        /// A 4 px bar down the right edge, bronze handle, hidden when everything fits.
+        private static Scrollbar SlimScrollbar(Transform panel, float bottom)
+        {
+            var bar = new GameObject("Scrollbar", typeof(RectTransform), typeof(Image), typeof(Scrollbar));
+            bar.transform.SetParent(panel, false);
+            var rt = (RectTransform)bar.transform;
+            rt.anchorMin = new Vector2(1f, 0f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(1f, 0.5f);
+            rt.sizeDelta = new Vector2(4f, -16f - bottom);
+            rt.anchoredPosition = new Vector2(-2f, bottom * 0.5f);
+            bar.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.06f);
+
+            var area = new GameObject("Area", typeof(RectTransform));
+            area.transform.SetParent(bar.transform, false);
+            var areaRt = (RectTransform)area.transform;
+            areaRt.anchorMin = Vector2.zero;
+            areaRt.anchorMax = Vector2.one;
+            areaRt.sizeDelta = Vector2.zero;
+
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image));
+            handle.transform.SetParent(area.transform, false);
+            var handleRt = (RectTransform)handle.transform;
+            handleRt.sizeDelta = Vector2.zero;
+            handle.GetComponent<Image>().color = new Color(0.78f, 0.58f, 0.32f, 0.85f);
+
+            Scrollbar scrollbar = bar.GetComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scrollbar.handleRect = handleRt;
+            scrollbar.targetGraphic = handle.GetComponent<Image>();
+            return scrollbar;
+        }
+
+        /// The mouse wheel, eased: each tick moves the target two rows and the content glides to
+        /// it, framerate-independent. Dragging or the scrollbar moving the content resyncs the
+        /// target, so the two never fight.
+        private sealed class SmoothScroll : MonoBehaviour, IScrollHandler
+        {
+            private const float RowsPerTick = 2f;
+            private const float Rate = 16f;
+            private ScrollRect _scroll;
+            private float _row, _target;
+            private bool _moving;
+
+            public void Bind(ScrollRect scroll, float row)
+            {
+                _scroll = scroll;
+                _row = row;
+            }
+
+            public void OnScroll(PointerEventData e)
+            {
+                RectTransform content = _scroll.content;
+                if (!_moving)
+                    _target = content.anchoredPosition.y;
+                float max = Mathf.Max(0f, content.rect.height - _scroll.viewport.rect.height);
+                _target = Mathf.Clamp(_target - Mathf.Sign(e.scrollDelta.y) * RowsPerTick * _row, 0f, max);
+                _scroll.velocity = Vector2.zero;
+                _moving = true;
+            }
+
+            private void Update()
+            {
+                if (!_moving || _scroll == null)
+                    return;
+                RectTransform content = _scroll.content;
+                float y = content.anchoredPosition.y;
+                float next = Mathf.Lerp(y, _target, 1f - Mathf.Exp(-Rate * Time.unscaledDeltaTime));
+                if (Mathf.Abs(next - _target) < 0.5f)
+                {
+                    next = _target;
+                    _moving = false;
+                }
+                content.anchoredPosition = new Vector2(content.anchoredPosition.x, next);
+            }
+        }
+
         /// White for a cell at rest, gold for the chosen one.
         public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.7f);
         public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
@@ -174,9 +257,11 @@ namespace CarturMapPins
         /// The same frame the cells use, so a chosen swatch and a chosen icon say it the same way.
         public static Sprite Border => BorderSprite();
 
-        /// A one-pixel frame, built once at runtime and nine-sliced so it draws crisply at any
-        /// cell size. Drawn rather than shipped: it is four lines, and a PNG for it would be one
-        /// more thing to keep in step with the sheet.
+        /// A two-pixel frame, built once at runtime and nine-sliced so it draws at any cell size.
+        /// Drawn rather than shipped: it is four lines, and a PNG for it would be one more thing
+        /// to keep in step with the sheet. Through 2.0 it was one pixel, point-filtered: with the
+        /// map UI scaled below 1, whole sides fell between screen pixels and were not drawn
+        /// (owner: "some are missing sides"). Two pixels, bilinear, always covers a pixel.
         private static Sprite BorderSprite()
         {
             if (_border != null)
@@ -189,17 +274,18 @@ namespace CarturMapPins
             {
                 for (int x = 0; x < size; x++)
                 {
-                    bool edge = x == 0 || y == 0 || x == size - 1 || y == size - 1;
+                    bool edge = x <= 1 || y <= 1 || x >= size - 2 || y >= size - 2;
                     tex.SetPixel(x, y, edge ? Color.white : clear);
                 }
             }
-            tex.filterMode = FilterMode.Point;
+            tex.filterMode = FilterMode.Bilinear;
             tex.wrapMode = TextureWrapMode.Clamp;
             tex.Apply();
 
-            // A two-pixel border on every side keeps the corners square when the middle stretches.
+            // A three-pixel slice border keeps the two-pixel line and the corners square when the
+            // middle stretches.
             _border = Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f),
-                                    100f, 0u, SpriteMeshType.FullRect, new Vector4(2f, 2f, 2f, 2f));
+                                    100f, 0u, SpriteMeshType.FullRect, new Vector4(3f, 3f, 3f, 3f));
             return _border;
         }
 
