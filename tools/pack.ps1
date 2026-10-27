@@ -29,6 +29,8 @@ if (Test-Path $plugins) { Remove-Item $plugins -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $plugins | Out-Null
 Copy-Item (Join-Path $root "src\bin\Release\net472\CarturMapPins.dll") $plugins -Force
 
+& (Join-Path $root "..\_tools\prepack.ps1") -Pkg $pkg
+
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 $zip = Join-Path $dist "Carturs_Map_Pins-$version.zip"
 if (Test-Path $zip) { Remove-Item $zip }
