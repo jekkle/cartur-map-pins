@@ -86,6 +86,8 @@ namespace CarturMapPins
             public int FallbackIcon;            // the category's icon, drawn when Icon is -1
             public ConfigEntry<PinIcon> IconEntry;
             public string Description;
+            public bool OriginalOn;             // what the player's own config said when the menu opened
+            public int OriginalIcon;
             public string Biomes;               // read from the game's location table, or null
             public ConfigEntry<bool> Entry;     // the kind's own switch, or the category's Enabled
             public PinCategory Category;        // whose Enabled follows the page (kinds only)
@@ -146,6 +148,13 @@ namespace CarturMapPins
             AddKinds(other, PinCategory.Trader, Subtypes.Traders, "Traders");
             pages.Add(other);
 
+            // A player updating has settings already; the menu opens on THEIR choices and only
+            // what they change is written back (Save), so pressing Done untouched changes nothing.
+            foreach (Item item in pages.SelectMany(p => p.Items))
+            {
+                item.OriginalOn = item.On;
+                item.OriginalIcon = item.Icon;
+            }
             return pages.Where(p => p.IsWelcome || p.Items.Count > 0).ToList();
         }
 
@@ -241,25 +250,31 @@ namespace CarturMapPins
             return string.Join(", ", names);
         }
 
-        /// Writes every page. A category whose kinds are listed is on when any of its kinds is,
-        /// so switching every Dungeon kind off also stops unlisted (modded) dungeons, as asked.
+        /// Writes what the player changed, and nothing else: an untouched item keeps whatever the
+        /// config held, even where the menu could not show it (a kind switched on under a category
+        /// that is off). A category follows its kinds only when one of them was changed: on when
+        /// any kind is on, so switching every Dungeon kind off also stops unlisted (modded) ones.
         private static void Save()
         {
-            Plugin.PinSharing.Value = _sharing;
-            var anyOn = new Dictionary<PinCategory, bool>();
-            foreach (Item item in _pages.SelectMany(p => p.Items))
+            if (Plugin.PinSharing.Value != _sharing)
+                Plugin.PinSharing.Value = _sharing;
+            var touched = new HashSet<PinCategory>();
+            List<Item> all = _pages.SelectMany(p => p.Items).ToList();
+            foreach (Item item in all)
             {
-                item.Entry.Value = item.On;
-                if (item.IconEntry != null && (int)item.IconEntry.Value != item.Icon)
+                if (item.IconEntry != null && item.Icon != item.OriginalIcon)
                     item.IconEntry.Value = (PinIcon)item.Icon;
+                if (item.On == item.OriginalOn)
+                    continue;
+                item.Entry.Value = item.On;
                 if (item.IsKind)
-                    anyOn[item.Category] = (anyOn.TryGetValue(item.Category, out bool on) && on) || item.On;
+                    touched.Add(item.Category);
             }
-            foreach (KeyValuePair<PinCategory, bool> kv in anyOn)
+            foreach (PinCategory category in touched)
             {
-                Plugin.CategorySettings settings = Plugin.SettingsFor(kv.Key);
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
                 if (settings != null)
-                    settings.Enabled.Value = kv.Value;
+                    settings.Enabled.Value = all.Any(i => i.IsKind && i.Category == category && i.On);
             }
         }
 
