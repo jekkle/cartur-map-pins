@@ -147,15 +147,28 @@ namespace CarturMapPins
             go.AddComponent<RectTransform>();
 
             LayoutElement layout = go.AddComponent<LayoutElement>();
-            layout.preferredHeight = 18f;
+            layout.preferredHeight = 22f;
             layout.flexibleWidth = 1f;
 
+            // Bronze small caps on the left with a hairline under them, the setup menu's section
+            // style, so the picker reads as the same family.
             TextMeshProUGUI label = Fonts.AddLabel(go);
             label.text = text;
             label.fontSize = 12f;
-            label.color = new Color(0.95f, 0.92f, 0.82f, 0.6f);
-            label.alignment = TextAlignmentOptions.Center;
+            label.color = Bronze;
+            label.alignment = TextAlignmentOptions.BottomLeft;
+            label.margin = new Vector4(2f, 0f, 0f, 4f);
             label.raycastTarget = false;
+
+            var rule = new GameObject("Rule", typeof(RectTransform), typeof(Image));
+            rule.transform.SetParent(go.transform, false);
+            var rt = (RectTransform)rule.transform;
+            rt.anchorMin = new Vector2(0f, 0f);
+            rt.anchorMax = new Vector2(1f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.sizeDelta = new Vector2(0f, 1f);
+            rule.GetComponent<Image>().color = new Color(Bronze.r, Bronze.g, Bronze.b, 0.35f);
+            rule.GetComponent<Image>().raycastTarget = false;
             return go.transform;
         }
 
@@ -237,6 +250,8 @@ namespace CarturMapPins
         }
 
         /// White for a cell at rest, gold for the chosen one.
+        public static readonly Color Bronze = new Color(0.78f, 0.58f, 0.32f, 1f);
+        public static readonly Color PanelBack = new Color(0.04f, 0.035f, 0.03f, 0.92f);
         public static readonly Color Resting = new Color(0.95f, 0.94f, 0.90f, 0.7f);
         public static readonly Color Selected = new Color(1f, 0.78f, 0.25f, 1f);
         public static readonly Color Hovered = new Color(1f, 1f, 1f, 1f);

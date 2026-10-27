@@ -116,7 +116,9 @@ namespace CarturMapPins
             panelRt.anchoredPosition = new Vector2(-Plugin.MapPickerRight.Value, Plugin.MapPickerBottom.Value);
 
             Image bg = _panel.AddComponent<Image>();
-            bg.color = new Color(0f, 0f, 0f, 0.55f);
+            bg.color = IconGrid.PanelBack;
+            Rail(_panel.transform, true);
+            Rail(_panel.transform, false);
 
             _canvasCamera = IconGrid.CameraFor(_panel);
 
@@ -288,7 +290,21 @@ namespace CarturMapPins
             }
         }
 
-        private const float CaptionHeight = 20f;
+        private const float CaptionHeight = 30f;
+
+        /// A thin bronze line across the top or bottom edge, as on the setup menu.
+        private static void Rail(Transform panel, bool top)
+        {
+            var go = new GameObject("Rail", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(panel, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0f, top ? 1f : 0f);
+            rt.anchorMax = new Vector2(1f, top ? 1f : 0f);
+            rt.pivot = new Vector2(0.5f, top ? 1f : 0f);
+            rt.sizeDelta = new Vector2(0f, 2f);
+            go.GetComponent<Image>().color = IconGrid.Bronze;
+            go.GetComponent<Image>().raycastTarget = false;
+        }
 
         /// A line above the grid saying how to change a pin you have already placed. Shift-click
         /// is the only way to reach the editor and nothing else on screen says so; the grid is
@@ -304,14 +320,14 @@ namespace CarturMapPins
             rt.pivot = new Vector2(0.5f, 1f);
             // Left inset clears the grab handle, right inset matches it so the sentence stays
             // centred in what is left.
-            rt.offsetMin = new Vector2(HandleSize + 10f, -CaptionHeight);
-            rt.offsetMax = new Vector2(-(HandleSize + 10f), -2f);
+            rt.offsetMin = new Vector2(HandleSize + 14f, -CaptionHeight);
+            rt.offsetMax = new Vector2(-10f, -2f);
 
             TextMeshProUGUI text = Fonts.AddLabel(go);
-            text.text = "SHIFT CLICK ICON TO CHANGE";
-            text.fontSize = 14f;
-            text.color = new Color(0.95f, 0.92f, 0.82f, 0.85f);
-            text.alignment = TextAlignmentOptions.Center;
+            text.text = "PINS  <size=11><alpha=#88>shift-click a pin to change it</size>";
+            text.fontSize = 17f;
+            text.color = new Color(0.95f, 0.92f, 0.82f, 1f);
+            text.alignment = TextAlignmentOptions.Left;
             text.raycastTarget = false;
         }
 
@@ -334,12 +350,23 @@ namespace CarturMapPins
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(0f, 1f);
             rt.pivot = new Vector2(0f, 1f);
-            rt.sizeDelta = new Vector2(HandleSize, HandleSize);
-            rt.anchoredPosition = new Vector2(5f, -4f);
-
+            rt.sizeDelta = new Vector2(HandleSize, HandleSize + 4f);
+            rt.anchoredPosition = new Vector2(8f, -7f);
+            // A clear hit area holding six dots: the usual "drag me" grip.
             Image box = go.AddComponent<Image>();
-            box.color = IconGrid.Selected;
+            box.color = new Color(0f, 0f, 0f, 0f);
             box.raycastTarget = true;
+            for (int i = 0; i < 6; i++)
+            {
+                var dot = new GameObject("Dot", typeof(RectTransform), typeof(Image));
+                dot.transform.SetParent(go.transform, false);
+                var d = (RectTransform)dot.transform;
+                d.anchorMin = d.anchorMax = d.pivot = new Vector2(0f, 1f);
+                d.sizeDelta = new Vector2(3f, 3f);
+                d.anchoredPosition = new Vector2(2f + (i % 2) * 5f, -2f - (i / 2) * 5.5f);
+                dot.GetComponent<Image>().color = IconGrid.Bronze;
+                dot.GetComponent<Image>().raycastTarget = false;
+            }
 
             go.AddComponent<PanelDrag>().Init(_panelRect, CommitPosition);
             go.AddComponent<CellHover>();
