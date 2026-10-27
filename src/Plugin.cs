@@ -755,6 +755,32 @@ namespace CarturMapPins
             return fallback;
         }
 
+        // ---- for the first-install setup (SetupMenu) ---------------------------------------
+
+        /// One kind's own switch, or null when it has none.
+        internal static ConfigEntry<bool> KindSwitch(PinCategory category, string kind) =>
+            SubtypeToggles.TryGetValue(KindKey(category, kind), out ConfigEntry<bool> e) ? e : null;
+
+        /// The icon a kind is drawn with, as a picker index, or -1 for the category's own.
+        internal static int KindIconIndex(string kind) =>
+            SubtypeIcons.TryGetValue(kind, out ConfigEntry<PinIcon> e) ? (int)e.Value : -1;
+
+        internal static ConfigEntry<bool> PickableSwitch(PickableGroup group)
+        {
+            switch (group)
+            {
+                case PickableGroup.HighValue: return _pickHighValue;
+                case PickableGroup.Berries: return _pickBerries;
+                case PickableGroup.Crops: return _pickCrops;
+                case PickableGroup.Junk: return _pickJunk;
+                case PickableGroup.Other: return _pickOther;
+                default: return null;
+            }
+        }
+
+        internal static int PickableIconIndex(PickableGroup group) =>
+            PickableIcons.TryGetValue(group, out ConfigEntry<PinIcon> e) ? (int)e.Value : -1;
+
         public static bool PickableGroupEnabled(PickableGroup group)
         {
             switch (group)
@@ -884,6 +910,10 @@ namespace CarturMapPins
                         ? $"Repointed {changed} pin(s) to their current icons."
                         : "Every recorded pin already carries its current icon.");
                 });
+
+            new Terminal.ConsoleCommand("carturpins_setup",
+                "Opens the setup menu Hugin brings on first install: choose what Map Pins marks.",
+                args => SetupMenu.Open());
 
             new Terminal.ConsoleCommand("carturpins_count",
                 "Reports how many map pins Cartur's Map Pins has placed.",
