@@ -26,7 +26,7 @@ namespace CarturMapPins
         /// beside vanilla's pin column. The grid fills the width it is given, so the column count
         /// follows from this instead of being a second number that has to agree with it.
         private const float PanelWidth = 263f;
-        private const float PanelHeight = 273f;
+        private const float PanelHeight = 380f;
 
         private static GameObject _panel;
         private static RectTransform _panelRect;
