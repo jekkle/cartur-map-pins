@@ -278,8 +278,10 @@ namespace CarturMapPins
                 highlight.color = IconGrid.SelectedGold;
             }
             IconGrid.SlotHover(button.GetComponent<Button>(), button.GetComponent<Image>());
-            if (button.GetComponent<GlowHover>() == null)
-                button.gameObject.AddComponent<GlowHover>();
+            // The pop is ours, the same on every cell (see IconGrid.YieldHover).
+            IconGrid.YieldHover(button.gameObject);
+            if (button.GetComponent<CellHover>() == null)
+                button.gameObject.AddComponent<CellHover>().Bind(null);
         }
 
         /// MapPicker switched off: every button goes back where and how it was, and the columns
@@ -299,16 +301,13 @@ namespace CarturMapPins
                 m.Button.anchoredPosition = m.Position;
                 m.Button.sizeDelta = m.Size;
                 m.Button.localScale = m.Scale;
-                GlowHover glow = m.Button.GetComponent<GlowHover>();
-                if (glow != null)
+                CellHover pop = m.Button.GetComponent<CellHover>();
+                if (pop != null)
+                    Object.Destroy(pop);
+                foreach (MonoBehaviour behaviour in m.Button.GetComponents<MonoBehaviour>())
                 {
-                    foreach (string extra in new[] { "Glow", "Fill" })
-                    {
-                        Transform piece = m.Button.Find(extra);
-                        if (piece != null)
-                            Object.Destroy(piece.gameObject);
-                    }
-                    Object.Destroy(glow);
+                    if (behaviour != null && behaviour.GetType().Name == "HoverFx")
+                        behaviour.enabled = true;
                 }
                 if (m.Highlight != null)
                 {

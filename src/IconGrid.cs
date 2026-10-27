@@ -262,6 +262,20 @@ namespace CarturMapPins
 
         private static Sprite _slot, _slotSelected;
 
+        /// With Cartur's UI installed every Button gets its HoverFx (Selectable.OnEnable patch):
+        /// the button eases up 5% over 0.1 s, which is the inventory's pop. A picker cell pops by
+        /// its own CellHover (a bit more, so it reads on a bare icon), and two scripts writing one
+        /// localScale fight, so that one is switched off here. Found by name: it lives in another
+        /// mod, which this one must not reference.
+        public static void YieldHover(GameObject go)
+        {
+            foreach (MonoBehaviour behaviour in go.GetComponents<MonoBehaviour>())
+            {
+                if (behaviour != null && behaviour.GetType().Name == "HoverFx")
+                    behaviour.enabled = false;
+            }
+        }
+
         /// The inventory slot's own picture and its selection frame, read from the slot prefab
         /// the inventory instantiates, so whatever the game or Cartur's UI draws there is drawn here.
         public static Sprite SlotSprite()
@@ -449,10 +463,10 @@ namespace CarturMapPins
 
             // Hover is the inventory's tint on the icon plus the lift; the frame is selection only.
             cell.AddComponent<CellHover>().Bind(null);
-            cell.AddComponent<GlowHover>();
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
             SlotHover(button, icon);
+            YieldHover(button.gameObject);
 
             // A whole fresh event object, NOT onClick.RemoveAllListeners(): that only drops
             // listeners added at runtime and leaves the prefab's serialized (persistent) calls
