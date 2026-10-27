@@ -74,8 +74,12 @@ namespace CarturMapPins
         private const float Speed = 24f;   // the slot's 0.1 s fade
         private static readonly Color Clear = new Color(1f, 1f, 1f, 0f);
 
-        private Image _glow;
+        private Image _glow, _fill;
         private float _t, _target;
+
+        /// The slot picture is dark, on a dark panel: brightening it alone is hard to see, so a
+        /// pale wash comes up with it, which is what makes the hover read at a glance.
+        private const float FillPeak = 0.16f;
 
         private void Awake()
         {
@@ -87,6 +91,18 @@ namespace CarturMapPins
             rt.anchorMax = Vector2.one;
             rt.offsetMin = new Vector2(-1f, -1f);
             rt.offsetMax = new Vector2(1f, 1f);
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(transform, false);
+            fill.transform.SetAsFirstSibling();
+            var frt = (RectTransform)fill.transform;
+            frt.anchorMin = Vector2.zero;
+            frt.anchorMax = Vector2.one;
+            frt.offsetMin = frt.offsetMax = Vector2.zero;
+            _fill = fill.GetComponent<Image>();
+            _fill.color = new Color(1f, 0.95f, 0.85f, 0f);
+            _fill.raycastTarget = false;
+            go.transform.SetAsLastSibling();
+            go.transform.SetSiblingIndex(1);
             _glow = go.GetComponent<Image>();
             Sprite slot = IconGrid.SlotSprite();
             _glow.sprite = slot != null ? slot : IconGrid.Disc();
@@ -104,6 +120,7 @@ namespace CarturMapPins
                 return;
             _t = Mathf.Abs(_t - _target) < 0.01f ? _target : Mathf.Lerp(_t, _target, 1f - Mathf.Exp(-Speed * Time.unscaledDeltaTime));
             _glow.color = new Color(1f, 1f, 1f, _t);
+            _fill.color = new Color(1f, 0.95f, 0.85f, FillPeak * _t);
         }
     }
 }

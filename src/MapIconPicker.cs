@@ -302,9 +302,12 @@ namespace CarturMapPins
                 GlowHover glow = m.Button.GetComponent<GlowHover>();
                 if (glow != null)
                 {
-                    Transform disc = m.Button.Find("Glow");
-                    if (disc != null)
-                        Object.Destroy(disc.gameObject);
+                    foreach (string extra in new[] { "Glow", "Fill" })
+                    {
+                        Transform piece = m.Button.Find(extra);
+                        if (piece != null)
+                            Object.Destroy(piece.gameObject);
+                    }
                     Object.Destroy(glow);
                 }
                 if (m.Highlight != null)
