@@ -36,6 +36,9 @@ namespace CarturMapPins
         /// nothing. Not zero: an exponential approach never quite arrives.
         private const float Invisible = 0.02f;
 
+        internal const float MaxStep = 1f / 30f;
+        private const float ScaleSpeed = 2f;
+
         private static readonly ConditionalWeakTable<UnityEngine.UI.Image, CanvasGroup> Groups =
             new ConditionalWeakTable<UnityEngine.UI.Image, CanvasGroup>();
 
@@ -44,8 +47,11 @@ namespace CarturMapPins
             if (pins == null || dt <= 0f)
                 return;
 
-            // Fraction of the remaining distance to cover this frame, the same for every pin.
-            float t = 1f - Mathf.Exp(-Rate * dt);
+            // Fraction of the remaining distance to cover this frame, the same for every pin. A
+            // long frame counts as at most a 30 fps one: the frame a whole map regroups at a
+            // grid step measured 68-90 ms (pilot mapsweep), and at full dt that one frame took a
+            // pin from 1.00 to 0.34 opacity, which is a pop, not a fade.
+            float t = 1f - Mathf.Exp(-Rate * Mathf.Min(dt, MaxStep));
 
             foreach (Minimap.PinData pin in pins)
             {
@@ -78,7 +84,12 @@ namespace CarturMapPins
 
                 Transform icon = pin.m_iconElement.transform;
                 float wantedScale = ScaleFor(pin);
+                // Capped at ScaleSpeed of its own size per second: at a grid step a crowded pin's
+                // tier changes in one pass (0.44 -> 0.52 measured), and the easing alone still
+                // grew it 15-18% in a single frame. Zooming shrinks pins far slower than this.
                 float scale = Mathf.Lerp(icon.localScale.x, wantedScale, t);
+                float most = icon.localScale.x * ScaleSpeed * Mathf.Min(dt, MaxStep);
+                scale = Mathf.Clamp(scale, icon.localScale.x - most, icon.localScale.x + most);
                 if (!Mathf.Approximately(icon.localScale.x, scale))
                     icon.localScale = new Vector3(scale, scale, 1f);
             }
@@ -155,6 +166,7 @@ namespace CarturMapPins
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
             PinHover.Find(__instance, pins);
             PinFade.Step(pins, Time.deltaTime);
+            LabelCrowding.Step(pins, Time.deltaTime);
             LabelTemplates.Hover(__instance);
         }
     }

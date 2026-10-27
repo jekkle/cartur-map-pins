@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using UnityEngine;
 
@@ -71,8 +72,13 @@ namespace CarturMapPins
             // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
             // map allows is 1.0, so the test is true at every zoom and no name is ever hidden by
             // it. Measured at runtime; the 0.5 in the assembly is only the field initializer.
+            // A band round the limit (10% of it, at least one point) so a zoom resting on the line
+            // does not switch every name on and off.
             float limit = Plugin.HideLabelsFromZoom.Value;
-            if (limit < 100f && Crowding.ZoomOutPercent() > limit)
+            float band = Mathf.Max(1f, limit * 0.1f);
+            float percent = Crowding.ZoomOutPercent();
+            _zoomHidden = limit < 100f && (_zoomHidden ? percent > limit - band : percent > limit + band);
+            if (_zoomHidden)
             {
                 HideAll(pins, oursOnly: false);
                 return;
@@ -98,7 +104,7 @@ namespace CarturMapPins
                 // belongs to is still on the map, dimmed.
                 if (!PinFilter.Matches(pin.m_name))
                 {
-                    name.PinNameGameObject.SetActive(false);
+                    Hide(name);
                     continue;
                 }
 
@@ -123,6 +129,23 @@ namespace CarturMapPins
 
             Vector2 cursor = CursorIn(Ordered[0].Pin.m_iconElement);
 
+            // Which way the zoom is going decides which way a name may change. Rarest-first
+            // overlap resolution cascades: B hides behind a rarer C, which frees A's spot, A comes
+            // back, then collides with C and goes again (pilot mapsweep timeline, Troll Cave:
+            // off/on/off/on/off in one zoom-out). Zooming out squeezes names together, so they
+            // may only go; zooming in or standing still spreads or keeps them, so a name already
+            // up stays and a hidden one comes back only where nothing that is up overlaps it.
+            int direction = ZoomDirection();
+            if (hideColliding && direction <= 0)
+            {
+                foreach (Ranked ranked in Ordered)
+                {
+                    Minimap.PinNameData name = ranked.Pin.m_NamePinData;
+                    if (Fades.TryGetValue(name.PinNameGameObject, out Fade f) && f.Want)
+                        Shown.Add(name);
+                }
+            }
+
             foreach (Ranked ranked in Ordered)
             {
                 Minimap.PinData pin = ranked.Pin;
@@ -136,13 +159,35 @@ namespace CarturMapPins
 
                 // Collides only when collision hiding is on: an active search alone must dim
                 // non-matches, not also hide labels that overlap.
-                if (revealed || !hideColliding || !Collides(mine))
+                // Hysteresis: a name already up keeps its place unless it overlaps by more than
+                // a margin, and a hidden one needs that margin clear before it comes back, so two
+                // names grazing each other while the zoom moves do not take turns.
+                bool known = Fades.TryGetValue(name.PinNameGameObject, out Fade had);
+                bool wasShown = !known || had.Want;
+                if (hideColliding && known && !revealed)
+                {
+                    if (direction <= 0 && wasShown)
+                    {
+                        Show(name);   // already in Shown
+                        continue;
+                    }
+                    if (direction > 0 && !wasShown)
+                    {
+                        Hide(name);
+                        continue;
+                    }
+                }
+                float grow = wasShown ? -Margin : Margin;
+                Rect test = new Rect(mine.x - mine.width * grow, mine.y - mine.height * grow,
+                                     mine.width * (1f + 2f * grow), mine.height * (1f + 2f * grow));
+                if (revealed || !hideColliding || !Collides(test))
                 {
                     Shown.Add(name);
+                    Show(name);
                     continue;
                 }
 
-                name.PinNameGameObject.SetActive(false);
+                Hide(name);
             }
         }
 
@@ -157,7 +202,7 @@ namespace CarturMapPins
                 if (name?.PinNameGameObject == null || !name.PinNameGameObject.activeInHierarchy)
                     continue;
 
-                name.PinNameGameObject.SetActive(false);
+                Hide(name);
             }
         }
 
@@ -180,9 +225,12 @@ namespace CarturMapPins
 
                 if (!Crowding.OutOfSight(pin) && pin.m_iconElement != null &&
                     Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius)
+                {
+                    Show(name);
                     continue;
+                }
 
-                name.PinNameGameObject.SetActive(false);
+                Hide(name);
             }
         }
 
@@ -197,6 +245,109 @@ namespace CarturMapPins
             }
             return new Vector2(float.MaxValue, float.MaxValue);
         }
+
+        // ---- fades -------------------------------------------------------------------------
+        //
+        // Names fade rather than pop. Vanilla switches every name on in each UpdatePins pass and
+        // this class switches the unwanted ones off again in the same frame, so the switch itself
+        // is never seen; what was seen is a name present one pass and gone the next. A name now
+        // keeps its marker active while it fades on a CanvasGroup (vanilla never looks for one on
+        // a name), and is switched off only once it has faded out. One that was already faded out
+        // is switched off at once, so a hidden name never flashes when vanilla relights it.
+
+        private sealed class Fade
+        {
+            public CanvasGroup Group;
+            public bool Want;
+        }
+
+        private static readonly ConditionalWeakTable<GameObject, Fade> Fades = new ConditionalWeakTable<GameObject, Fade>();
+        private static bool _zoomHidden;
+
+        /// 12% of the label's size, inside the 8-15% band from research/pin-clustering/ux_reference.md.
+        private const float Margin = 0.12f;
+        private const float FadeRate = 14f;
+        private const float Invisible = 0.02f;
+
+        private static Fade FadeFor(GameObject go)
+        {
+            if (Fades.TryGetValue(go, out Fade f) && f.Group != null)
+                return f;
+            Fades.Remove(go);
+            CanvasGroup group = go.GetComponent<CanvasGroup>() ?? go.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.blocksRaycasts = false;
+            group.interactable = false;
+            f = new Fade { Group = group, Want = true };
+            Fades.Add(go, f);
+            return f;
+        }
+
+        private static void Show(Minimap.PinNameData name) => FadeFor(name.PinNameGameObject).Want = true;
+
+        private static void Hide(Minimap.PinNameData name)
+        {
+            Fade f = FadeFor(name.PinNameGameObject);
+            f.Want = false;
+            if (f.Group.alpha <= Invisible)
+                name.PinNameGameObject.SetActive(false);
+        }
+
+        /// Called every frame from the Minimap.Update postfix, after vanilla's pass.
+        public static void Step(List<Minimap.PinData> pins, float dt)
+        {
+            if (pins == null || dt <= 0f)
+                return;
+            // The zoom has just come to rest: ask vanilla for one more pass, so names held back
+            // while it moved (ZoomDirection) can come back where there is room. UpdatePins only
+            // runs when the map moves or m_pinUpdateRequired is set (Minimap.Update, decompiled).
+            if (_direction != 0 && Time.unscaledTime - _zoomMovedAt > HoldSeconds && Minimap.instance != null)
+            {
+                _direction = 0;
+                PinUpdateRequired?.SetValue(Minimap.instance, true);
+            }
+
+            float t = 1f - Mathf.Exp(-FadeRate * Mathf.Min(dt, PinFade.MaxStep));
+            foreach (Minimap.PinData pin in pins)
+            {
+                GameObject go = pin?.m_NamePinData?.PinNameGameObject;
+                if (go == null || !go.activeSelf || !Fades.TryGetValue(go, out Fade f) || f.Group == null)
+                    continue;
+                float want = f.Want ? 1f : 0f;
+                float alpha = Mathf.Lerp(f.Group.alpha, want, t);
+                if (Mathf.Abs(alpha - want) < Invisible)
+                    alpha = want;
+                if (!Mathf.Approximately(f.Group.alpha, alpha))
+                    f.Group.alpha = alpha;
+                if (!f.Want && alpha <= Invisible)
+                    go.SetActive(false);
+            }
+        }
+
+        private static float _lastZoom = -1f, _zoomMovedAt = -10f;
+        private static int _direction;
+
+        /// +1 while the large map is zooming out, -1 zooming in, 0 once it has held still for
+        /// HoldSeconds (research: a ~0.15 s hold before re-deciding, ux_reference.md).
+        private static int ZoomDirection()
+        {
+            Minimap map = Minimap.instance;
+            float zoom = map != null ? map.LargeZoom : 0f;
+            if (_lastZoom >= 0f && !Mathf.Approximately(zoom, _lastZoom))
+            {
+                _direction = zoom > _lastZoom ? 1 : -1;
+                _zoomMovedAt = Time.unscaledTime;
+            }
+            _lastZoom = zoom;
+            if (Time.unscaledTime - _zoomMovedAt > HoldSeconds)
+                _direction = 0;
+            return _direction;
+        }
+
+        private const float HoldSeconds = 0.15f;
+
+        private static readonly System.Reflection.FieldInfo PinUpdateRequired =
+            AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
 
         private static bool Collides(Rect mine)
         {

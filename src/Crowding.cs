@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -58,10 +58,14 @@ namespace CarturMapPins
 
         /// Which patch of ground a pin stands on. World metres, so dragging the map cannot change
         /// the answer and neither can scrolling a pin off the edge.
+        ///
+        /// Floor, not round, and a power-of-two cell size (see Level): a cell of 2^(k+1) metres is
+        /// then exactly four cells of 2^k, so a merge one level out only ever joins whole groups
+        /// from the level in, and zooming in only ever splits them.
         private static long CellFor(Minimap.PinData pin)
         {
-            int x = Mathf.RoundToInt(pin.m_pos.x / _cellMetres);
-            int z = Mathf.RoundToInt(pin.m_pos.z / _cellMetres);
+            int x = Mathf.FloorToInt(pin.m_pos.x / _cellMetres);
+            int z = Mathf.FloorToInt(pin.m_pos.z / _cellMetres);
             return ((long)x << 32) ^ (uint)z;
         }
 
@@ -199,9 +203,10 @@ namespace CarturMapPins
             if (smallest < float.MaxValue)
                 _iconPixels = smallest;
 
-            _cellMetres = CellMetres(map);
-            if (_cellMetres <= 0f)
+            float raw = CellMetres(map);
+            if (raw <= 0f)
                 return;
+            _cellMetres = Mathf.Pow(2f, Level(raw));
 
             float hideSqr = HideRangeSqr();
             Player player = Player.m_localPlayer;
@@ -314,6 +319,28 @@ namespace CarturMapPins
                     Winners[cell] = pin;
             }
         }
+
+        /// The cell size as a power of two, with hysteresis.
+        ///
+        /// Through 1.8.9 the cell was exactly one icon wide in metres, which changes on every
+        /// frame of a zoom, and cells were placed by rounding, so the grid re-cut the map every
+        /// frame and the same pins merged, split and resized over and over (measured with the
+        /// pilot's mapsweep: 590 of 715 pins flickered in one zoom out and back; zero when the
+        /// zoom is held still). Snapping to powers of two keeps the grid still between steps, and
+        /// a step is taken only once the icon size is HysteresisSteps past the halfway point,
+        /// so hovering on a boundary cannot toggle it.
+        private static int Level(float rawMetres)
+        {
+            float log = Mathf.Log(rawMetres, 2f);
+            if (_level == int.MinValue || Mathf.Abs(log - _level) > 0.5f + HysteresisSteps)
+                _level = Mathf.RoundToInt(log);
+            return _level;
+        }
+
+        /// A sixth of a step past the halfway point: about 12% of icon size, inside the 8-15%
+        /// band the clustering research recommends (research/pin-clustering/ux_reference.md).
+        private const float HysteresisSteps = 0.17f;
+        private static int _level = int.MinValue;
 
         private static int Rarity(Minimap.PinData pin)
         {
