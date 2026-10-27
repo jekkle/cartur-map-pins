@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using HarmonyLib;
 using TMPro;
@@ -60,6 +61,10 @@ namespace CarturMapPins
                 return;
             }
             _panel.SetActive(visible);
+            if (visible)
+                Absorb(Minimap.instance);
+            else
+                RestoreAbsorbed();
             if (_searchBar != null)
                 _searchBar.SetActive(visible);
 
@@ -136,7 +141,151 @@ namespace CarturMapPins
             // dragged into the corner of a big monitor is unreachable in a smaller window.
             ClampToScreen();
 
+            Absorb(map);
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons plus {CustomIcons.LegacyCount} from the old sheet.");
+        }
+
+        // ---- the game's own pin buttons, and other mods', inside the picker -------------------
+
+        /// Where a moved button came from, so turning the picker off puts it back exactly.
+        private struct Origin
+        {
+            public RectTransform Button;
+            public Transform Parent;
+            public int Sibling;
+            public Vector2 AnchorMin, AnchorMax, Pivot, Position, Size;
+            public Vector3 Scale;
+        }
+
+        private static readonly List<Origin> Moved = new List<Origin>();
+        private static readonly List<GameObject> EmptiedColumns = new List<GameObject>();
+        private static Transform _gameSection, _modSection;
+
+        private static readonly FieldInfo SelectedIcons = AccessTools.Field(typeof(Minimap), "m_selectedIcons");
+
+        /// Owner, 2026-10-27: "add the vanilla ones to the menu and remove them from the map, same
+        /// for the Epic Loot ones". The buttons themselves are moved, not copied: each keeps the
+        /// wiring it came with - vanilla's SelectIcon and right-click filter, Epic Loot's
+        /// AdventurePinFilter toggles, any other mod's hover - so nothing is reimplemented here.
+        ///
+        /// Minimap.m_selectedIcons maps every pin type that has a button to that button's
+        /// selection highlight, whose parent is the button (read in game with the pilot's mapui:
+        /// Icon0-4 under IconPanel; Boss, Death and Epic Loot's AdventurePinFilter800/801 in a
+        /// second column). Mods register there too, so one dictionary finds them all. A column
+        /// is switched off only once no button is left in it, so anything unknown stays put.
+        ///
+        /// Run again whenever the large map opens: Epic Loot adds its buttons when its adventure
+        /// data arrives, which can be after the picker is built.
+        private static void Absorb(Minimap map)
+        {
+            if (map == null || _panel == null || !(SelectedIcons?.GetValue(map) is Dictionary<Minimap.PinType, Image> icons))
+                return;
+            Transform content = _panel.transform.Find("Viewport/Content");
+            GridLayoutGroup grid = content != null && content.childCount > 0 ? content.GetComponentInChildren<GridLayoutGroup>() : null;
+            if (grid == null)
+                return;
+
+            var gameButtons = new List<RectTransform>();
+            var modButtons = new List<RectTransform>();
+            foreach (KeyValuePair<Minimap.PinType, Image> kv in icons)
+            {
+                var button = kv.Value != null ? kv.Value.transform.parent as RectTransform : null;
+                if (button == null || Moved.Exists(m => m.Button == button))
+                    continue;
+                (System.Enum.IsDefined(typeof(Minimap.PinType), kv.Key) ? gameButtons : modButtons).Add(button);
+            }
+            if (gameButtons.Count == 0 && modButtons.Count == 0)
+                return;
+
+            if (_gameSection == null)
+            {
+                // Top down: the game's pins, other mods', then this mod's own set.
+                Transform ours = IconGrid.AddHeading(content, "CARTUR'S ICONS");
+                ours.SetSiblingIndex(0);
+                _modSection = IconGrid.AddSection(content, grid.constraintCount);
+                _modSection.SetSiblingIndex(0);
+                Transform modHeading = IconGrid.AddHeading(content, "FROM OTHER MODS");
+                modHeading.SetSiblingIndex(0);
+                _modSection.gameObject.name = "ModSection";
+                modHeading.gameObject.name = "ModHeading";
+                _gameSection = IconGrid.AddSection(content, grid.constraintCount);
+                _gameSection.SetSiblingIndex(0);
+                IconGrid.AddHeading(content, "MAP PINS").SetSiblingIndex(0);
+            }
+
+            gameButtons.Sort((a, b) => a.GetSiblingIndex().CompareTo(b.GetSiblingIndex()));
+            foreach (RectTransform b in gameButtons)
+                Move(b, _gameSection);
+            foreach (RectTransform b in modButtons)
+                Move(b, _modSection);
+
+            bool anyMod = _modSection.childCount > 0;
+            _modSection.gameObject.SetActive(anyMod);
+            content.Find("ModHeading")?.gameObject.SetActive(anyMod);
+            // Epic Loot's buttons are its own; name the section after it when they are all it holds.
+            if (anyMod && content.Find("ModHeading")?.GetComponent<TextMeshProUGUI>() is TextMeshProUGUI label)
+                label.text = _modSection.Cast<Transform>().All(t => t.name.StartsWith("AdventurePinFilter")) ? "EPIC LOOT" : "FROM OTHER MODS";
+
+            foreach (Origin m in Moved)
+            {
+                GameObject column = m.Parent != null ? m.Parent.gameObject : null;
+                if (column == null || !column.activeSelf || EmptiedColumns.Contains(column))
+                    continue;
+                bool buttonLeft = false;
+                foreach (Transform child in column.transform)
+                    buttonLeft |= child.gameObject.activeSelf && child.GetComponent<Button>() != null;
+                if (buttonLeft)
+                    continue;
+                column.SetActive(false);
+                EmptiedColumns.Add(column);
+            }
+        }
+
+        private static void Move(RectTransform button, Transform section)
+        {
+            Moved.Add(new Origin
+            {
+                Button = button, Parent = button.parent, Sibling = button.GetSiblingIndex(),
+                AnchorMin = button.anchorMin, AnchorMax = button.anchorMax, Pivot = button.pivot,
+                Position = button.anchoredPosition, Size = button.sizeDelta, Scale = button.localScale,
+            });
+            button.SetParent(section, false);
+            button.localScale = Vector3.one;
+        }
+
+        /// MapPicker switched off: every button goes back where and how it was, and the columns
+        /// come back on.
+        private static void RestoreAbsorbed()
+        {
+            for (int i = Moved.Count - 1; i >= 0; i--)
+            {
+                Origin m = Moved[i];
+                if (m.Button == null || m.Parent == null)
+                    continue;
+                m.Button.SetParent(m.Parent, false);
+                m.Button.SetSiblingIndex(m.Sibling);
+                m.Button.anchorMin = m.AnchorMin;
+                m.Button.anchorMax = m.AnchorMax;
+                m.Button.pivot = m.Pivot;
+                m.Button.anchoredPosition = m.Position;
+                m.Button.sizeDelta = m.Size;
+                m.Button.localScale = m.Scale;
+            }
+            Moved.Clear();
+            foreach (GameObject column in EmptiedColumns)
+                if (column != null)
+                    column.SetActive(true);
+            EmptiedColumns.Clear();
+        }
+
+        [HarmonyPatch(typeof(Minimap), nameof(Minimap.SetMapMode))]
+        private static class Patch_AbsorbOnOpen
+        {
+            private static void Postfix(Minimap __instance, Minimap.MapMode mode)
+            {
+                if (mode == Minimap.MapMode.Large && _panel != null && _panel.activeSelf)
+                    Absorb(__instance);
+            }
         }
 
         private const float CaptionHeight = 20f;

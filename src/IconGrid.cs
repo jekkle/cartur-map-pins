@@ -120,7 +120,7 @@ namespace CarturMapPins
         }
 
         /// One grid of cells, sized by its contents so the column above can stack sections.
-        private static Transform AddSection(Transform parent, int columns)
+        internal static Transform AddSection(Transform parent, int columns)
         {
             var section = new GameObject("Section");
             section.transform.SetParent(parent, false);
@@ -140,7 +140,7 @@ namespace CarturMapPins
             return section.transform;
         }
 
-        private static void AddHeading(Transform parent, string text)
+        internal static Transform AddHeading(Transform parent, string text)
         {
             var go = new GameObject("Heading");
             go.transform.SetParent(parent, false);
@@ -156,6 +156,7 @@ namespace CarturMapPins
             label.color = new Color(0.95f, 0.92f, 0.82f, 0.6f);
             label.alignment = TextAlignmentOptions.Center;
             label.raycastTarget = false;
+            return go.transform;
         }
 
         /// A 4 px bar down the right edge, bronze handle, hidden when everything fits.
