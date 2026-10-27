@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -313,6 +313,7 @@ namespace CarturMapPins
             cell.AddComponent<CellHover>().Bind(border);
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
+            SlotHover(button, backing);
 
             // A whole fresh event object, NOT onClick.RemoveAllListeners(): that only drops
             // listeners added at runtime and leaves the prefab's serialized (persistent) calls
@@ -346,6 +347,21 @@ namespace CarturMapPins
             }
 
             return border;
+        }
+
+        /// Gives a cell the inventory's own hover: InventoryElement keeps its look in the Button's
+        /// ColorBlock (UpdateHighlightColor only swaps highlightedColor for touch; decompiled), so
+        /// the slot prefab's transition and colours are copied as they are, read at runtime from
+        /// InventoryGui's grid - whatever the inventory does on a game version, the grid does too.
+        public static void SlotHover(Button button, Graphic target)
+        {
+            Button slot = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponentInChildren<Button>(true);
+            if (button == null || slot == null || target == null)
+                return;
+            button.transition = slot.transition;
+            button.colors = slot.colors;
+            button.spriteState = slot.spriteState;
+            button.targetGraphic = target;
         }
 
         /// Vanilla's own pin-type buttons, used as the styling template. Null is tolerated.

@@ -5,6 +5,7 @@ using BepInEx.Configuration;
 using HarmonyLib;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace CarturMapPins
@@ -267,6 +268,9 @@ namespace CarturMapPins
         private static readonly Color Warm = new Color(0.95f, 0.92f, 0.82f, 1f);
         private static readonly Color Bronze = new Color(0.78f, 0.58f, 0.32f, 1f);
         private static readonly Color ButtonBack = new Color(0.18f, 0.14f, 0.1f, 0.95f);
+        private static readonly Color ButtonHover = new Color(0.36f, 0.26f, 0.15f, 1f);
+        private static readonly Color RowRest = new Color(1f, 1f, 1f, 0.03f);
+        private static readonly Color RowHover = new Color(1f, 0.85f, 0.6f, 0.14f);
 
         private static GameObject _root;
         private static RectTransform _grid;
@@ -444,8 +448,10 @@ namespace CarturMapPins
                 rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
                 rt.anchoredPosition = new Vector2(0f, -204f - i * 36f);
                 rt.sizeDelta = new Vector2(420f, 32f);
-                go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+                go.GetComponent<Image>().color = RowRest;
+                go.GetComponent<Button>().transition = Selectable.Transition.None;
                 go.GetComponent<Button>().onClick.AddListener(() => { _sharing = mode; Refresh(); });
+                go.AddComponent<HoverFx>().Bind(go.GetComponent<Image>(), RowRest, RowHover, 1.02f);
 
                 Image box = Box(rt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
                 var boxRt = (RectTransform)box.transform;
@@ -476,12 +482,11 @@ namespace CarturMapPins
             rt.anchoredPosition = at;
             rt.sizeDelta = new Vector2(width, height);
             var back = go.GetComponent<Image>();
-            back.color = new Color(1f, 1f, 1f, 0.03f);
+            back.color = RowRest;
             var button = go.GetComponent<Button>();
-            ColorBlock colors = button.colors;
-            colors.highlightedColor = new Color(1f, 0.9f, 0.7f, 4f);   // tints the 0.03 backing to ~0.12 under the mouse
-            button.colors = colors;
+            button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => { item.On = !item.On; Refresh(); });
+            go.AddComponent<HoverFx>().Bind(back, RowRest, RowHover, 1.02f);
 
             Image box = Box(rt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
             var boxRt = (RectTransform)box.transform;
@@ -739,7 +744,9 @@ namespace CarturMapPins
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(x, y);
             rt.anchoredPosition = at;
             var button = rt.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
             button.onClick.AddListener(click);
+            rt.gameObject.AddComponent<HoverFx>().Bind(rt.GetComponent<Image>(), ButtonBack, ButtonHover, 1.05f);
             RectTransform line = Box(rt, "Line", Bronze, new Vector2(0f, 2f));
             line.anchorMin = new Vector2(0f, 0f);
             line.anchorMax = new Vector2(1f, 0f);
@@ -748,6 +755,44 @@ namespace CarturMapPins
             TextMeshProUGUI label = Label(rt, "Text", 18f, Warm, TextAlignmentOptions.Center, Vector2.zero, new Vector2(width, 38f));
             label.text = text;
             return label;
+        }
+
+        /// Every row and button in the menu answers the mouse: the backing warms, the whole thing
+        /// grows a touch under the pointer and dips when pressed, eased both ways. Stays enabled
+        /// and idles at rest, like CellHover, because a disabled component gets no pointer events.
+        private sealed class HoverFx : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
+                                                     IPointerDownHandler, IPointerUpHandler
+        {
+            private const float Speed = 14f;
+            private Graphic _back;
+            private Color _rest, _hover;
+            private float _grow, _t, _target, _press = 1f, _pressTarget = 1f;
+
+            public void Bind(Graphic back, Color rest, Color hover, float grow)
+            {
+                _back = back;
+                _rest = rest;
+                _hover = hover;
+                _grow = grow;
+            }
+
+            public void OnPointerEnter(PointerEventData e) => _target = 1f;
+            public void OnPointerExit(PointerEventData e) { _target = 0f; _pressTarget = 1f; }
+            public void OnPointerDown(PointerEventData e) => _pressTarget = 0.97f;
+            public void OnPointerUp(PointerEventData e) => _pressTarget = 1f;
+
+            private void Update()
+            {
+                if (Mathf.Approximately(_t, _target) && Mathf.Approximately(_press, _pressTarget))
+                    return;
+                float k = 1f - Mathf.Exp(-Speed * Time.unscaledDeltaTime);
+                _t = Mathf.Abs(_t - _target) < 0.01f ? _target : Mathf.Lerp(_t, _target, k);
+                _press = Mathf.Abs(_press - _pressTarget) < 0.002f ? _pressTarget : Mathf.Lerp(_press, _pressTarget, k);
+                if (_back != null)
+                    _back.color = Color.Lerp(_rest, _hover, _t);
+                float s = Mathf.Lerp(1f, _grow, _t) * _press;
+                transform.localScale = new Vector3(s, s, 1f);
+            }
         }
 
         /// Keys, the hover description, and no map underneath.
