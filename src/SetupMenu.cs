@@ -62,7 +62,12 @@ namespace CarturMapPins
         private sealed class Item
         {
             public string Name;
-            public int Icon;                    // picker index, -1 for none
+            public int Icon;                    // picker index chosen here, -1 for the fallback
+            public int DefaultIcon;             // what a fresh install draws
+            public int FallbackIcon;            // the category's icon, drawn when Icon is -1
+            public ConfigEntry<PinIcon> IconEntry;
+            public string Description;
+            public string Biomes;               // read from the game's location table, or null
             public ConfigEntry<bool> Entry;     // the kind's own switch, or the category's Enabled
             public PinCategory Category;        // whose Enabled follows the page (kinds only)
             public bool IsKind;
@@ -97,7 +102,7 @@ namespace CarturMapPins
             pages.Add(bosses);
 
             Page picks = new Page { Title = "Berries and things to pick" };
-            AddGroup(picks, PickableGroup.HighValue, "Valuable finds (surtling cores, eggs, barley, flax)");
+            AddGroup(picks, PickableGroup.HighValue, "Valuable finds");
             AddGroup(picks, PickableGroup.Berries, "Berries and mushrooms");
             AddGroup(picks, PickableGroup.Crops, "Crops and herbs");
             AddGroup(picks, PickableGroup.Junk, "Branches, stones and flint");
@@ -138,11 +143,16 @@ namespace CarturMapPins
                 ConfigEntry<bool> entry = Plugin.KindSwitch(category, e.Name);
                 if (entry == null || settings == null)
                     continue;
-                int icon = Plugin.KindIconIndex(e.Name);
+                ConfigEntry<PinIcon> iconEntry = Plugin.KindIcon(e.Name);
                 page.Items.Add(new Item
                 {
                     Name = Names.TryGetValue(e.Name, out string n) ? n : e.Name,
-                    Icon = icon >= 0 ? icon : (int)settings.IconIndex.Value,
+                    IconEntry = iconEntry,
+                    Icon = iconEntry != null ? (int)iconEntry.Value : -1,
+                    DefaultIcon = iconEntry != null ? (int)(PinIcon)iconEntry.DefaultValue : -1,
+                    FallbackIcon = (int)settings.IconIndex.Value,
+                    Description = SetupText.For(e.Name, category),
+                    Biomes = BiomesOf(table, e.Name),
                     Entry = entry,
                     Category = category,
                     IsKind = true,
@@ -158,7 +168,13 @@ namespace CarturMapPins
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             if (settings == null)
                 return;
-            page.Items.Add(new Item { Name = name, Icon = (int)settings.IconIndex.Value, Entry = settings.Enabled, Category = category, On = settings.Enabled.Value });
+            page.Items.Add(new Item
+            {
+                Name = name, IconEntry = settings.IconIndex, Icon = (int)settings.IconIndex.Value,
+                DefaultIcon = (int)(PinIcon)settings.IconIndex.DefaultValue, FallbackIcon = -1,
+                Description = SetupText.ForCategory(category, settings.Enabled.Description.Description),
+                Entry = settings.Enabled, Category = category, On = settings.Enabled.Value,
+            });
         }
 
         private static void AddGroup(Page page, PickableGroup group, string name)
@@ -169,9 +185,38 @@ namespace CarturMapPins
                 return;
             page.Items.Add(new Item
             {
-                Name = name, Icon = Plugin.PickableIconIndex(group), Entry = entry,
+                Name = name, Entry = entry,
+                IconEntry = Plugin.PickableIcon(group),
+                Icon = Plugin.PickableIcon(group) != null ? (int)Plugin.PickableIcon(group).Value : -1,
+                DefaultIcon = Plugin.PickableIcon(group) != null ? (int)(PinIcon)Plugin.PickableIcon(group).DefaultValue : -1,
+                FallbackIcon = (int)pick.IconIndex.Value,
+                Description = SetupText.ForGroup(group),
                 Category = PinCategory.Pickable, IsKind = true, On = pick.Enabled.Value && entry.Value,
             });
+        }
+
+        /// Which biomes a kind's locations are generated in, read from ZoneSystem.m_locations with
+        /// the same matcher the scanner uses, so it is the game's answer, not a written one.
+        private static string BiomesOf(Subtypes.Entry[] table, string kind)
+        {
+            if (ZoneSystem.instance == null)
+                return null;
+            Heightmap.Biome biomes = 0;
+            foreach (ZoneSystem.ZoneLocation loc in ZoneSystem.instance.m_locations)
+            {
+                if (loc != null && loc.m_enable && !string.IsNullOrEmpty(loc.m_prefabName) &&
+                    Subtypes.Match(table, loc.m_prefabName) == kind)
+                    biomes |= loc.m_biome;
+            }
+            if (biomes == 0)
+                return null;
+            var names = new List<string>();
+            foreach (Heightmap.Biome b in System.Enum.GetValues(typeof(Heightmap.Biome)))
+            {
+                if (b != 0 && b != Heightmap.Biome.All && (biomes & b) == b && Mathf.IsPowerOfTwo((int)b))
+                    names.Add(Localization.instance.Localize("$biome_" + b.ToString().ToLowerInvariant()));
+            }
+            return string.Join(", ", names);
         }
 
         /// Writes every page. A category whose kinds are listed is on when any of its kinds is,
@@ -182,6 +227,8 @@ namespace CarturMapPins
             foreach (Item item in _pages.SelectMany(p => p.Items))
             {
                 item.Entry.Value = item.On;
+                if (item.IconEntry != null && (int)item.IconEntry.Value != item.Icon)
+                    item.IconEntry.Value = (PinIcon)item.Icon;
                 if (item.IsKind)
                     anyOn[item.Category] = (anyOn.TryGetValue(item.Category, out bool on) && on) || item.On;
             }
@@ -205,6 +252,10 @@ namespace CarturMapPins
         private static TextMeshProUGUI _title, _pageNo, _next;
         private static List<Page> _pages;
         private static int _page;
+        private static readonly List<(RectTransform rect, Item item)> RowRects = new List<(RectTransform, Item)>();
+        private static RectTransform _panel, _tip;
+        private static TextMeshProUGUI _tipText;
+        private static GameObject _picker;
         private static readonly List<(Item item, Image box, Image icon, TextMeshProUGUI label)> Rows =
             new List<(Item, Image, Image, TextMeshProUGUI)>();
 
@@ -233,6 +284,9 @@ namespace CarturMapPins
             Object.Destroy(_root);
             _root = null;
             Rows.Clear();
+            RowRects.Clear();
+            _picker = null;
+            _tip = null;
         }
 
         private static void Build()
@@ -249,7 +303,7 @@ namespace CarturMapPins
             _root.AddComponent<GraphicRaycaster>();
             _root.AddComponent<Keys>();
 
-            RectTransform panel = Box(_root.transform, "Panel", Panel, new Vector2(860f, 640f));
+            RectTransform panel = _panel = Box(_root.transform, "Panel", Panel, new Vector2(860f, 640f));
             Edge(panel, true);
             Edge(panel, false);
 
@@ -270,6 +324,7 @@ namespace CarturMapPins
 
             Button(panel, "Not now", new Vector2(36f, 28f), 140f, false, () => Close(false), anchorLeft: true);
             Button(panel, "Back", new Vector2(-188f, 28f), 140f, false, () => ShowPage(_page - 1));
+            BuildTip();
             _next = Button(panel, "Next", new Vector2(-36f, 28f), 140f, false, () =>
             {
                 if (_page == _pages.Count - 1)
@@ -296,11 +351,15 @@ namespace CarturMapPins
             foreach (Transform child in _grid)
                 Object.Destroy(child.gameObject);
             Rows.Clear();
+            RowRects.Clear();
+            ClosePicker();
 
             // Three columns, filled top to bottom; a heading takes a whole row.
             const float colWidth = 262f, rowHeight = 34f;
-            int col = 0, row = 0, perColumn = Mathf.CeilToInt((page.Items.Count + page.Items.Count(i => i.Heading != null)) / 3f);
-            perColumn = Mathf.Max(perColumn, 1);
+            // On a page with headings, row 0 of every column is heading space, so the columns'
+            // first items line up (Bosses: The Queen sat level with the "Boss altars" heading).
+            int start = page.Items.Any(i => i.Heading != null) ? 1 : 0;
+            int col = 0, row = 0, perColumn = start + Mathf.Max(1, Mathf.CeilToInt(page.Items.Count / 3f));
             foreach (Item item in page.Items)
             {
                 if (item.Heading != null)
@@ -310,7 +369,7 @@ namespace CarturMapPins
                           new Vector2(col * colWidth, -row * rowHeight), new Vector2(colWidth, rowHeight)).text = item.Heading.ToUpperInvariant();
                     row++;
                 }
-                if (row >= perColumn && col < 2) { col++; row = 0; }
+                if (row >= perColumn && col < 2) { col++; row = start; }
                 AddRow(item, new Vector2(col * colWidth, -row * rowHeight), colWidth - 10f, rowHeight - 4f);
                 row++;
             }
@@ -342,9 +401,11 @@ namespace CarturMapPins
             var iconRt = (RectTransform)icon.transform;
             iconRt.anchorMin = iconRt.anchorMax = new Vector2(0f, 0.5f);
             iconRt.anchoredPosition = new Vector2(46f, 0f);
-            icon.sprite = item.Icon >= 0 ? CustomIcons.SpriteForPicker(item.Icon) : null;
             icon.preserveAspect = true;
-            icon.enabled = icon.sprite != null;
+            // The icon is its own button: clicking it picks the icon, clicking the rest of the
+            // row switches the kind on or off.
+            if (item.IconEntry != null)
+                icon.gameObject.AddComponent<Button>().onClick.AddListener(() => OpenPicker(item));
 
             TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(66f, 0f), new Vector2(width - 70f, height));
             var labelRt = (RectTransform)label.transform;
@@ -355,6 +416,7 @@ namespace CarturMapPins
             label.overflowMode = TextOverflowModes.Ellipsis;
 
             Rows.Add((item, box, icon, label));
+            RowRects.Add((rt, item));
         }
 
         private static void Refresh()
@@ -362,6 +424,8 @@ namespace CarturMapPins
             foreach (var (item, box, icon, label) in Rows)
             {
                 box.color = item.On ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
+                icon.sprite = CustomIcons.SpriteForPicker(item.Icon >= 0 ? item.Icon : item.FallbackIcon);
+                icon.enabled = icon.sprite != null;
                 icon.color = new Color(1f, 1f, 1f, item.On ? 1f : 0.35f);
                 label.color = new Color(Warm.r, Warm.g, Warm.b, item.On ? 1f : 0.45f);
             }
@@ -381,6 +445,121 @@ namespace CarturMapPins
             for (int i = 0; i < page.Items.Count; i++)
                 page.Items[i].On = page.Snapshot[i];
             Refresh();
+        }
+
+        // ---- icon picker --------------------------------------------------------------------
+
+        /// The map's own icon grid (IconGrid, shared with the map picker and the pin editor) over
+        /// the right of the panel. The default icon wears a DEFAULT tag, the chosen one the gold
+        /// border; the choice is written with everything else on Done.
+        private static void OpenPicker(Item item)
+        {
+            ClosePicker();
+            RectTransform box = Box(_panel, "IconPicker", new Color(0.03f, 0.03f, 0.025f, 0.98f),
+                                    new Vector2(IconGrid.PanelWidth(7), 470f));
+            box.anchorMin = box.anchorMax = box.pivot = new Vector2(1f, 1f);
+            box.anchoredPosition = new Vector2(-24f, -100f);
+            _picker = box.gameObject;
+            Edge(box, true);
+
+            TextMeshProUGUI title = Label(box, "Title", 18f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(220f, 26f));
+            title.text = "Icon for " + item.Name;
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            title.overflowMode = TextOverflowModes.Ellipsis;
+            Button(box, "Use default", new Vector2(-10f, -8f), 120f, true, () =>
+            {
+                item.Icon = item.DefaultIcon;
+                ClosePicker();
+                Refresh();
+            }).fontSize = 15f;
+
+            List<Image> borders = IconGrid.Build(box.gameObject, IconGrid.FindTemplateButton(Minimap.instance), index =>
+            {
+                item.Icon = index;
+                ClosePicker();
+                Refresh();
+            }, top: 46f);
+
+            int chosen = item.Icon >= 0 ? item.Icon : item.FallbackIcon;
+            for (int i = 0; i < borders.Count; i++)
+            {
+                if (borders[i] == null)
+                    continue;
+                IconGrid.SetSelected(borders[i], i == chosen);
+                if (i != item.DefaultIcon)
+                    continue;
+                TextMeshProUGUI tag = Label(borders[i].transform.parent, "Default", 9f, Bronze, TextAlignmentOptions.Bottom,
+                                            Vector2.zero, new Vector2(IconGrid.CellSize, IconGrid.CellSize));
+                tag.text = "DEFAULT";
+                tag.fontStyle = FontStyles.Bold;
+            }
+        }
+
+        private static void ClosePicker()
+        {
+            if (_picker != null)
+                Object.Destroy(_picker);
+            _picker = null;
+        }
+
+        // ---- hover description --------------------------------------------------------------
+
+        private const float TipWidth = 340f;
+
+        private static void BuildTip()
+        {
+            _tip = Box(_root.transform, "Tip", new Color(0.02f, 0.02f, 0.015f, 0.96f), new Vector2(TipWidth, 10f));
+            _tip.anchorMin = _tip.anchorMax = new Vector2(0.5f, 0.5f);
+            _tip.pivot = new Vector2(0f, 1f);
+            Edge(_tip, true);
+            _tipText = Label(_tip, "Text", 16f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(TipWidth - 28f, 10f));
+            _tipText.textWrappingMode = TextWrappingModes.Normal;
+            _tip.gameObject.SetActive(false);
+        }
+
+        private static string Gold(string text) => $"<color=#{ColorUtility.ToHtmlStringRGB(Bronze)}>{text}</color>";
+
+        /// The row under the mouse gets its full description in a box just right of the pointer,
+        /// kept on screen. Nothing under the mouse, or the icon picker open, hides it.
+        private static void UpdateTip()
+        {
+            if (_tip == null)
+                return;
+            Vector2 pointer = ZInput.pointerPosition;
+            Item hovered = null;
+            if (_picker == null)
+            {
+                foreach ((RectTransform rect, Item item) in RowRects)
+                {
+                    if (rect != null && RectTransformUtility.RectangleContainsScreenPoint(rect, pointer, null))
+                    {
+                        hovered = item;
+                        break;
+                    }
+                }
+            }
+            if (hovered == null)
+            {
+                _tip.gameObject.SetActive(false);
+                return;
+            }
+
+            bool defaultOn = hovered.Entry.DefaultValue is bool on && on;
+            _tipText.text = $"<size=20>{Gold(hovered.Name)}</size>\n" + hovered.Description +
+                            (hovered.Biomes != null ? $"\n\n{Gold("Found in:")} {hovered.Biomes}" : "\n") +
+                            $"\n{Gold("On by default:")} {(defaultOn ? "yes" : "no")}" +
+                            (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it.</size>" : "");
+            float height = _tipText.GetPreferredValues(_tipText.text, TipWidth - 28f, 0f).y + 26f;
+            ((RectTransform)_tipText.transform).sizeDelta = new Vector2(TipWidth - 28f, height);
+            _tip.sizeDelta = new Vector2(TipWidth, height);
+
+            var root = (RectTransform)_root.transform;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, pointer, null, out Vector2 local);
+            Vector2 half = root.rect.size * 0.5f;
+            _tip.anchoredPosition = new Vector2(Mathf.Min(local.x + 24f, half.x - TipWidth - 8f),
+                                                Mathf.Max(local.y - 8f, -half.y + height + 8f));
+            _tip.SetAsLastSibling();
+            _tip.gameObject.SetActive(true);
         }
 
         // ---- building blocks ------------------------------------------------------------------
@@ -441,14 +620,22 @@ namespace CarturMapPins
             return label;
         }
 
-        /// Escape is "Not now"; the map cannot be opened underneath.
+        /// Keys, the hover description, and no map underneath.
         private sealed class Keys : MonoBehaviour
         {
             private void Update()
             {
+                // Escape closes the icon picker first, then the menu ("Not now").
                 if (ZInput.GetKeyDown(KeyCode.Escape))
-                    Close(false);
-                else if (Minimap.instance != null && Minimap.IsOpen())
+                {
+                    if (_picker != null)
+                        ClosePicker();
+                    else
+                        Close(false);
+                    return;
+                }
+                UpdateTip();
+                if (Minimap.instance != null && Minimap.IsOpen())
                     Minimap.instance.SetMapMode(Minimap.MapMode.Small);
             }
         }

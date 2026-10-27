@@ -761,9 +761,9 @@ namespace CarturMapPins
         internal static ConfigEntry<bool> KindSwitch(PinCategory category, string kind) =>
             SubtypeToggles.TryGetValue(KindKey(category, kind), out ConfigEntry<bool> e) ? e : null;
 
-        /// The icon a kind is drawn with, as a picker index, or -1 for the category's own.
-        internal static int KindIconIndex(string kind) =>
-            SubtypeIcons.TryGetValue(kind, out ConfigEntry<PinIcon> e) ? (int)e.Value : -1;
+        /// A kind's icon setting, or null when it has none (it then uses the category's).
+        internal static ConfigEntry<PinIcon> KindIcon(string kind) =>
+            SubtypeIcons.TryGetValue(kind, out ConfigEntry<PinIcon> e) ? e : null;
 
         internal static ConfigEntry<bool> PickableSwitch(PickableGroup group)
         {
@@ -778,8 +778,8 @@ namespace CarturMapPins
             }
         }
 
-        internal static int PickableIconIndex(PickableGroup group) =>
-            PickableIcons.TryGetValue(group, out ConfigEntry<PinIcon> e) ? (int)e.Value : -1;
+        internal static ConfigEntry<PinIcon> PickableIcon(PickableGroup group) =>
+            PickableIcons.TryGetValue(group, out ConfigEntry<PinIcon> e) ? e : null;
 
         public static bool PickableGroupEnabled(PickableGroup group)
         {
