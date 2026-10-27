@@ -28,10 +28,20 @@ namespace CarturMapPins
         private const string Key = "carturpins_setup";
         private static readonly string Flag = Path.Combine(BepInEx.Paths.ConfigPath, "carturpins.setup.seen");
 
-        private const string Topic = "Cartur's Map Pins";
+        private const string Topic = "Hugin";
         private const string Text =
-            "I will mark what you find on your map: ore, dungeons, camps and much more.\n\n" +
-            "Let us choose together what is worth a pin. You can change it later in the config.";
+            "The Allfather's ravens forget nothing, and now your map need not either. " +
+            "Here is your chance to choose what I mark for you as you wander.";
+
+        /// The welcome page, in Hugin's voice.
+        private const string Welcome =
+            "Wanderer, the Allfather bid me watch over your map. As you roam, I will mark what you " +
+            "discover: ore veins, burial chambers, camps, and the altars of the Forsaken.\n\n" +
+            "Tell me what is worth remembering, and I will leave the rest to the mist.";
+
+        private const string MoreSettings =
+            "Every switch, icon and size can be changed later in the mod settings " +
+            "(BepInEx/config, or F1 with Configuration Manager).";
 
         [HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
         private static class Patch_Land
@@ -50,11 +60,18 @@ namespace CarturMapPins
         [HarmonyPatch(typeof(Player), nameof(Player.SetSeenTutorial))]
         private static class Patch_Talked
         {
-            private static void Postfix(string name)
+            private static void Postfix(Player __instance, string name)
             {
                 if (name == Key)
-                    Open();
+                    __instance.StartCoroutine(OpenAfter(2.5f));
             }
+        }
+
+        /// Hugin's line goes up in his speech bubble first; the menu follows once it can be read.
+        private static System.Collections.IEnumerator OpenAfter(float seconds)
+        {
+            yield return new WaitForSecondsRealtime(seconds);
+            Open();
         }
 
         // ---- the pages ------------------------------------------------------------------------
@@ -78,6 +95,7 @@ namespace CarturMapPins
         private sealed class Page
         {
             public string Title;
+            public bool IsWelcome;
             public List<Item> Items = new List<Item>();
             public bool[] Snapshot;
         }
@@ -90,8 +108,10 @@ namespace CarturMapPins
 
         private static List<Page> BuildPages()
         {
+            _sharing = Plugin.PinSharing.Value;
             var pages = new List<Page>
             {
+                new Page { Title = "Hugin's map", IsWelcome = true },
                 KindPage("Ores", PinCategory.Ore, Subtypes.Ores),
                 KindPage("Dungeons", PinCategory.Dungeon, Subtypes.Dungeons),
                 KindPage("Camps and villages", PinCategory.Camp, Subtypes.Camps),
@@ -124,7 +144,7 @@ namespace CarturMapPins
             AddKinds(other, PinCategory.Trader, Subtypes.Traders, "Traders");
             pages.Add(other);
 
-            return pages.Where(p => p.Items.Count > 0).ToList();
+            return pages.Where(p => p.IsWelcome || p.Items.Count > 0).ToList();
         }
 
         private static Page KindPage(string title, PinCategory category, Subtypes.Entry[] table, string heading = null)
@@ -223,6 +243,7 @@ namespace CarturMapPins
         /// so switching every Dungeon kind off also stops unlisted (modded) dungeons, as asked.
         private static void Save()
         {
+            Plugin.PinSharing.Value = _sharing;
             var anyOn = new Dictionary<PinCategory, bool>();
             foreach (Item item in _pages.SelectMany(p => p.Items))
             {
@@ -249,13 +270,17 @@ namespace CarturMapPins
 
         private static GameObject _root;
         private static RectTransform _grid;
-        private static TextMeshProUGUI _title, _pageNo, _next;
+        private static TextMeshProUGUI _title, _pageNo, _next, _footer;
         private static List<Page> _pages;
         private static int _page;
         private static readonly List<(RectTransform rect, Item item)> RowRects = new List<(RectTransform, Item)>();
         private static RectTransform _panel, _tip;
         private static TextMeshProUGUI _tipText;
         private static GameObject _picker;
+        private static Plugin.PinSharingMode _sharing;
+        private static readonly List<GameObject> PageButtons = new List<GameObject>();
+        private static readonly List<(Plugin.PinSharingMode mode, Image box, TextMeshProUGUI label, RectTransform rect)> ShareRows =
+            new List<(Plugin.PinSharingMode, Image, TextMeshProUGUI, RectTransform)>();
         private static readonly List<(Item item, Image box, Image icon, TextMeshProUGUI label)> Rows =
             new List<(Item, Image, Image, TextMeshProUGUI)>();
 
@@ -310,9 +335,10 @@ namespace CarturMapPins
             _title = Label(panel, "Title", 34f, Warm, TextAlignmentOptions.TopLeft, new Vector2(36f, -26f), new Vector2(520f, 44f));
             _pageNo = Label(panel, "PageNo", 17f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.TopLeft, new Vector2(38f, -72f), new Vector2(400f, 24f));
 
-            Button(panel, "Select all", new Vector2(-322f, -30f), 128f, true, () => SetAll(true));
-            Button(panel, "Deselect all", new Vector2(-180f, -30f), 128f, true, () => SetAll(false));
-            Button(panel, "Undo", new Vector2(-38f, -30f), 128f, true, Undo);
+            PageButtons.Clear();
+            PageButtons.Add(Button(panel, "Select all", new Vector2(-322f, -30f), 128f, true, () => SetAll(true)).transform.parent.gameObject);
+            PageButtons.Add(Button(panel, "Deselect all", new Vector2(-180f, -30f), 128f, true, () => SetAll(false)).transform.parent.gameObject);
+            PageButtons.Add(Button(panel, "Undo", new Vector2(-38f, -30f), 128f, true, Undo).transform.parent.gameObject);
 
             var gridGo = new GameObject("Grid", typeof(RectTransform));
             gridGo.transform.SetParent(panel, false);
@@ -324,6 +350,9 @@ namespace CarturMapPins
 
             Button(panel, "Not now", new Vector2(36f, 28f), 140f, false, () => Close(false), anchorLeft: true);
             Button(panel, "Back", new Vector2(-188f, 28f), 140f, false, () => ShowPage(_page - 1));
+            _footer = Label(panel, "Footer", 14f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.Left,
+                            new Vector2(196f, -584f), new Vector2(330f, 52f));
+            _footer.textWrappingMode = TextWrappingModes.Normal;
             BuildTip();
             _next = Button(panel, "Next", new Vector2(-36f, 28f), 140f, false, () =>
             {
@@ -344,8 +373,13 @@ namespace CarturMapPins
             // what Undo returns to (pilot: Select all, Next, Back, Undo kept everything on).
             if (page.Snapshot == null)
                 page.Snapshot = page.Items.Select(i => i.On).ToArray();
+            ShareRows.Clear();
             _title.text = page.Title;
-            _pageNo.text = $"Page {index + 1} of {_pages.Count}  -  choose what gets a pin";
+            _pageNo.text = page.IsWelcome ? $"Page 1 of {_pages.Count}"
+                : $"Page {index + 1} of {_pages.Count}  -  choose what gets a pin";
+            foreach (GameObject b in PageButtons)
+                b.SetActive(!page.IsWelcome);
+            _footer.text = index == _pages.Count - 1 ? MoreSettings : "";
             _next.text = index == _pages.Count - 1 ? "Done" : "Next";
 
             foreach (Transform child in _grid)
@@ -356,6 +390,12 @@ namespace CarturMapPins
 
             // Three columns, filled top to bottom; a heading takes a whole row.
             const float colWidth = 262f, rowHeight = 34f;
+            if (page.IsWelcome)
+            {
+                BuildWelcome();
+                return;
+            }
+
             // On a page with headings, row 0 of every column is heading space, so the columns'
             // first items line up (Bosses: The Queen sat level with the "Boss altars" heading).
             int start = page.Items.Any(i => i.Heading != null) ? 1 : 0;
@@ -373,6 +413,57 @@ namespace CarturMapPins
                 AddRow(item, new Vector2(col * colWidth, -row * rowHeight), colWidth - 10f, rowHeight - 4f);
                 row++;
             }
+            Refresh();
+        }
+
+        private static readonly (Plugin.PinSharingMode mode, string name, string tip)[] ShareChoices =
+        {
+            (Plugin.PinSharingMode.Everything, "Share all my pins",
+             "Friends who read your cartography table get every pin on your map, the ones I place for you included."),
+            (Plugin.PinSharingMode.HandPlacedOnly, "Share only pins I place myself",
+             "Friends get the pins you placed by hand. The ore, berries and the rest that I mark for you stay on your map alone, so their maps are not buried."),
+            (Plugin.PinSharingMode.Nothing, "Share no pins",
+             "The table still shares the ground you have explored, but none of your pins. Pins your friends share still reach you."),
+        };
+
+        private static void BuildWelcome()
+        {
+            TextMeshProUGUI words = Label(_grid, "Hugin", 20f, Warm, TextAlignmentOptions.TopLeft, Vector2.zero, new Vector2(788f, 150f));
+            words.textWrappingMode = TextWrappingModes.Normal;
+            words.fontStyle = FontStyles.Italic;
+            words.text = Welcome;
+
+            Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(0f, -170f), new Vector2(788f, 30f))
+                .text = "SHARING AT THE CARTOGRAPHY TABLE";
+            for (int i = 0; i < ShareChoices.Length; i++)
+            {
+                var (mode, name, _) = ShareChoices[i];
+                var go = new GameObject("Share", typeof(RectTransform), typeof(Image), typeof(Button));
+                go.transform.SetParent(_grid, false);
+                var rt = (RectTransform)go.transform;
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+                rt.anchoredPosition = new Vector2(0f, -204f - i * 36f);
+                rt.sizeDelta = new Vector2(420f, 32f);
+                go.GetComponent<Image>().color = new Color(1f, 1f, 1f, 0.03f);
+                go.GetComponent<Button>().onClick.AddListener(() => { _sharing = mode; Refresh(); });
+
+                Image box = Box(rt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
+                var boxRt = (RectTransform)box.transform;
+                boxRt.anchorMin = boxRt.anchorMax = new Vector2(0f, 0.5f);
+                boxRt.anchoredPosition = new Vector2(16f, 0f);
+
+                TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, Vector2.zero, new Vector2(370f, 32f));
+                var labelRt = (RectTransform)label.transform;
+                labelRt.anchorMin = labelRt.anchorMax = labelRt.pivot = new Vector2(0f, 0.5f);
+                labelRt.anchoredPosition = new Vector2(40f, 0f);
+                label.text = name;
+                ShareRows.Add((mode, box, label, rt));
+            }
+
+            TextMeshProUGUI more = Label(_grid, "More", 15f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.TopLeft,
+                                         new Vector2(0f, -330f), new Vector2(788f, 60f));
+            more.textWrappingMode = TextWrappingModes.Normal;
+            more.text = MoreSettings + " Press Next to choose what gets a pin.";
             Refresh();
         }
 
@@ -405,7 +496,16 @@ namespace CarturMapPins
             // The icon is its own button: clicking it picks the icon, clicking the rest of the
             // row switches the kind on or off.
             if (item.IconEntry != null)
+            {
                 icon.gameObject.AddComponent<Button>().onClick.AddListener(() => OpenPicker(item));
+                // The map picker's own cell frame round it, so it reads as something to click,
+                // lit up under the mouse the way the picker's cells are (CellHover).
+                Image frame = Box(iconRt, "Frame", IconGrid.Resting, new Vector2(32f, 32f)).GetComponent<Image>();
+                frame.sprite = IconGrid.Border;
+                frame.type = Image.Type.Sliced;
+                frame.raycastTarget = false;
+                icon.gameObject.AddComponent<CellHover>().Bind(frame);
+            }
 
             TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(66f, 0f), new Vector2(width - 70f, height));
             var labelRt = (RectTransform)label.transform;
@@ -421,6 +521,11 @@ namespace CarturMapPins
 
         private static void Refresh()
         {
+            foreach (var (mode, box, label, _) in ShareRows)
+            {
+                box.color = mode == _sharing ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
+                label.color = new Color(Warm.r, Warm.g, Warm.b, mode == _sharing ? 1f : 0.45f);
+            }
             foreach (var (item, box, icon, label) in Rows)
             {
                 box.color = item.On ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
@@ -433,6 +538,8 @@ namespace CarturMapPins
 
         private static void SetAll(bool on)
         {
+            if (_pages[_page].IsWelcome)
+                return;
             foreach (Item item in _pages[_page].Items)
                 item.On = on;
             Refresh();
@@ -538,17 +645,40 @@ namespace CarturMapPins
                     }
                 }
             }
-            if (hovered == null)
+            string text = null;
+            if (hovered == null && _picker == null)
+            {
+                foreach (var (mode, _, _, rect) in ShareRows)
+                {
+                    if (rect == null || !RectTransformUtility.RectangleContainsScreenPoint(rect, pointer, null))
+                        continue;
+                    var choice = ShareChoices.First(c => c.mode == mode);
+                    text = $"<size=20>{Gold(choice.name)}</size>\n{choice.tip}" +
+                           (mode == Plugin.PinSharingMode.Everything ? $"\n\n{Gold("Default:")} this one, as in the base game" : "");
+                }
+            }
+            if (hovered == null && text == null)
             {
                 _tip.gameObject.SetActive(false);
                 return;
             }
+            if (hovered != null)
+                text = TipFor(hovered);
+            ShowTip(text, pointer);
+        }
 
+        private static string TipFor(Item hovered)
+        {
             bool defaultOn = hovered.Entry.DefaultValue is bool on && on;
-            _tipText.text = $"<size=20>{Gold(hovered.Name)}</size>\n" + hovered.Description +
+            return $"<size=20>{Gold(hovered.Name)}</size>\n" + hovered.Description +
                             (hovered.Biomes != null ? $"\n\n{Gold("Found in:")} {hovered.Biomes}" : "\n") +
                             $"\n{Gold("On by default:")} {(defaultOn ? "yes" : "no")}" +
                             (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it.</size>" : "");
+        }
+
+        private static void ShowTip(string text, Vector2 pointer)
+        {
+            _tipText.text = text;
             float height = _tipText.GetPreferredValues(_tipText.text, TipWidth - 28f, 0f).y + 26f;
             ((RectTransform)_tipText.transform).sizeDelta = new Vector2(TipWidth - 28f, height);
             _tip.sizeDelta = new Vector2(TipWidth, height);
