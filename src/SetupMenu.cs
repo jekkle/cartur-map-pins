@@ -64,7 +64,7 @@ namespace CarturMapPins
             private static void Postfix(Player __instance, string name)
             {
                 if (name == Key)
-                    __instance.StartCoroutine(OpenAfter(2.5f));
+                    __instance.StartCoroutine(OpenAfter(4f));
             }
         }
 
@@ -473,7 +473,20 @@ namespace CarturMapPins
                                          new Vector2(0f, -330f), new Vector2(788f, 60f));
             more.textWrappingMode = TextWrappingModes.Normal;
             more.text = MoreSettings + " Press Next to choose what gets a pin.";
+
+            // All of Cartur's mods, opened in the player's default browser (Application.OpenURL).
+            Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(0f, -384f), new Vector2(788f, 26f))
+                .text = "MORE OF CARTUR'S MODS";
+            LinkButton("Thunderstore", "https://thunderstore.io/c/valheim/p/Cartur/", new Vector2(0f, -414f));
+            LinkButton("Hexium", "https://valheim.hexium.gg/teams/Cartur", new Vector2(176f, -414f));
             Refresh();
+        }
+
+        private static void LinkButton(string text, string url, Vector2 at)
+        {
+            TextMeshProUGUI label = Button(_grid, text, Vector2.zero, 160f, true, () => Application.OpenURL(url), anchorLeft: true);
+            var rt = (RectTransform)label.transform.parent;
+            rt.anchoredPosition = at;
         }
 
         private static void AddRow(Item item, Vector2 at, float width, float height)
