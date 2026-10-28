@@ -87,12 +87,16 @@ namespace CarturMapPins
             var crt = (RectTransform)cap.transform;
             crt.anchorMin = crt.anchorMax = crt.pivot = new Vector2(0f, 0.5f);
             TextMeshProUGUI shift = KeyCap(cap.GetComponent<Image>(), "Shift", 0f, false);
+            // Left-aligned, so the key's wider body leaves room on the right for the mouse.
+            shift.alignment = TextAlignmentOptions.MidlineLeft;
+            shift.rectTransform.offsetMin = new Vector2(7f, 0f);
             float textWidth = shift.GetPreferredValues("Shift").x;
-            float capWidth = textWidth + 14f;
-            crt.sizeDelta = new Vector2(capWidth, 26f);
+            const float MouseSize = 26f;
+            // The key runs under the whole mouse icon, so the icon sits ON it.
+            float capWidth = 7f + textWidth + 2f + MouseSize + 4f;
+            crt.sizeDelta = new Vector2(capWidth, 28f);
             crt.anchoredPosition = Vector2.zero;
 
-            const float MouseSize = 26f;
             mouse.transform.SetParent(wrap.transform, false);
             var mrt = (RectTransform)mouse.transform;
             mrt.anchorMin = mrt.anchorMax = new Vector2(0f, 0.5f);
@@ -102,7 +106,7 @@ namespace CarturMapPins
             mouse.transform.SetAsLastSibling();   // on top of the key
             mouse.raycastTarget = false;
             var layout = wrap.GetComponent<LayoutElement>();
-            layout.preferredWidth = 7f + textWidth + 2f + MouseSize;
+            layout.preferredWidth = capWidth;
             layout.preferredHeight = 32f;
         }
 
