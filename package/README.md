@@ -26,6 +26,36 @@ There is also an icon grid on the large map next to vanilla's pin buttons, for c
 
 ![The whole icon set](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/icons-all.png)
 
+## Hugin helps you set it up
+
+The first time you load a world after installing or updating, Hugin lands and offers to choose what gets pinned. Talk to him and a menu opens: one page for each kind of place (ores, dungeons, camps and villages, bosses, berries and things to pick, landmarks, creature spawners, everything else). Every item has a tick, its icon, its colour and a hover description that says what it is and where it is found. **Select all**, **Deselect all** and **Undo** work on the page you are on. The first page chooses who sees your pins at the cartography table, turns **New default colours** on or off, and has links to the rest of Cartur's mods.
+
+The menu opens on your own settings, and pressing Done writes only what you changed, so updating never touches a setup you already made. **Not now** changes nothing. `carturpins_setup` opens it again at any time. If you play with the game's tutorials switched off, Hugin does not land; use the command.
+
+## Colours
+
+Shift-click a pin and the editor has a **colour wheel**, a brightness bar, your **last five colours** and an Original button. The same wheel is in Hugin's menu, beside every item.
+
+With **New default colours** on (`General / NewDefaultColours`), every new pin takes the colour of the thing it marks: copper brown, tin pale, each berry its own colour, a Fuling village orange, Eikthyr lightning blue, and so on, a colour for every kind. Only pins placed from then on are affected. The **Apply to existing pins** button in Hugin's menu (or `carturpins_applycolours`) gives the pins already on your map the same colours, leaving any you coloured yourself. Every kind's colour is a setting of its own under *Kind Colours*, as a hex code.
+
+## On the map screen
+
+- **Hide pins with H.** First press hides every pin, the second shows only the ones you placed, the third shows them all again. Names go with the pins. Nothing is deleted. The key is a setting (`General / HidePinsKey`), and the bottom bar always says what the next press does.
+- **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
+- **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
+- Zooming is smooth: pins and names fade rather than flicker or jump.
+
+## Portals
+
+Every portal is pinned, named with the tag you gave it. Built without a name it starts as "Portal" and takes its name the first time you name it.
+
+## Groups and zooming out
+
+Both are off by default.
+
+- **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are; nothing moves. Hover the badge for a list of what it stands for and how far away it is. Click it to zoom in. It cannot be ticked off or deleted until you are zoomed in to a single pin. Your own pins and other players' pins are never grouped.
+- **`General / PriorityZoomOut`:** when the map is zoomed far out, pickables drop first, then landmarks, nests and hives, then ore, chests and stones. Bosses, dungeons, camps, portals, traders and home always stay.
+
 ## Keeping the map readable
 
 An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
@@ -75,6 +105,10 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
 | `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
+| `HidePinsKey` | H | On the large map: hide all pins, then only yours, then all again. |
+| `NewDefaultColours` | true | Each new pin takes the colour of what it marks. See Kind Colours. |
+| `ClusterPins` | false | Crowded pins with the same icon become one pin with a count badge. |
+| `PriorityZoomOut` | false | Far out, cheap-to-find pins drop first. Bosses, dungeons, camps and portals stay. |
 | `ConfirmDelete` | Off | Ask for a second click before right-click deletes a pin: Off, AutoPinsOnly or All. Ctrl+Z on the large map undoes a delete either way. |
 | `PinSharing` | Everything | What a cartography table publishes: Everything, HandPlacedOnly or Nothing. |
 | `Pickables / BerriesAndMushrooms` | false | Raspberry, blueberry, cloudberry, lingonberry and vineberry bushes, and mushrooms. Off by default: turn it on to pin berries. |
