@@ -88,6 +88,9 @@ namespace CarturMapPins
             public string Description;
             public bool OriginalOn;             // what the player's own config said when the menu opened
             public int OriginalIcon;
+            public string ColourKey;            // Kind Colours / <this>, or null when the item has no colour
+            public BepInEx.Configuration.ConfigEntry<string> ColourEntry;
+            public int Colour, OriginalColour;  // PinStyles codes, 0 = none
             public string Biomes;               // read from the game's location table, or null
             public ConfigEntry<bool> Entry;     // the kind's own switch, or the category's Enabled
             public PinCategory Category;        // whose Enabled follows the page (kinds only)
@@ -113,6 +116,7 @@ namespace CarturMapPins
         private static List<Page> BuildPages()
         {
             _sharing = Plugin.PinSharing.Value;
+            _newColours = Plugin.NewDefaultColours.Value;
             var pages = new List<Page>
             {
                 new Page { Title = "Hugin's map", IsWelcome = true },
@@ -154,6 +158,8 @@ namespace CarturMapPins
             {
                 item.OriginalOn = item.On;
                 item.OriginalIcon = item.Icon;
+                item.ColourEntry = item.ColourKey != null ? Plugin.KindColourEntry(item.ColourKey) : null;
+                item.Colour = item.OriginalColour = CodeOf(item.ColourEntry);
             }
             return pages.Where(p => p.IsWelcome || p.Items.Count > 0).ToList();
         }
@@ -188,6 +194,7 @@ namespace CarturMapPins
                     Category = category,
                     IsKind = true,
                     On = settings.Enabled.Value && entry.Value,
+                    ColourKey = KindColours.KeyFor(category, e.Name),
                     Heading = first ? heading : null,
                 });
                 first = false;
@@ -205,6 +212,7 @@ namespace CarturMapPins
                 DefaultIcon = (int)(PinIcon)settings.IconIndex.DefaultValue, FallbackIcon = -1,
                 Description = SetupText.ForCategory(category, settings.Enabled.Description.Description),
                 Entry = settings.Enabled, Category = category, On = settings.Enabled.Value,
+                ColourKey = KindColours.KeyFor(category, null),
             });
         }
 
@@ -223,6 +231,7 @@ namespace CarturMapPins
                 FallbackIcon = (int)pick.IconIndex.Value,
                 Description = SetupText.ForGroup(group),
                 Category = PinCategory.Pickable, IsKind = true, On = pick.Enabled.Value && entry.Value,
+                ColourKey = group.ToString(),
             });
         }
 
@@ -250,6 +259,9 @@ namespace CarturMapPins
             return string.Join(", ", names);
         }
 
+        private static int CodeOf(BepInEx.Configuration.ConfigEntry<string> entry) =>
+            entry != null && ColorUtility.TryParseHtmlString("#" + entry.Value.Trim().TrimStart('#'), out Color c) ? PinStyles.ToCode(c) : 0;
+
         /// Writes what the player changed, and nothing else: an untouched item keeps whatever the
         /// config held, even where the menu could not show it (a kind switched on under a category
         /// that is off). A category follows its kinds only when one of them was changed: on when
@@ -258,12 +270,19 @@ namespace CarturMapPins
         {
             if (Plugin.PinSharing.Value != _sharing)
                 Plugin.PinSharing.Value = _sharing;
+            if (Plugin.NewDefaultColours.Value != _newColours)
+                Plugin.NewDefaultColours.Value = _newColours;
             var touched = new HashSet<PinCategory>();
             List<Item> all = _pages.SelectMany(p => p.Items).ToList();
             foreach (Item item in all)
             {
                 if (item.IconEntry != null && item.Icon != item.OriginalIcon)
                     item.IconEntry.Value = (PinIcon)item.Icon;
+                if (item.ColourEntry != null && item.Colour != item.OriginalColour)
+                {
+                    item.ColourEntry.Value = item.Colour == 0 ? string.Empty : ColorUtility.ToHtmlStringRGB(PinStyles.FromCode(item.Colour));
+                    ColourWheel.Remember(item.Colour);
+                }
                 if (item.On == item.OriginalOn)
                     continue;
                 item.Entry.Value = item.On;
@@ -299,6 +318,11 @@ namespace CarturMapPins
         private static TextMeshProUGUI _tipText;
         private static GameObject _picker;
         private static Plugin.PinSharingMode _sharing;
+        private static bool _newColours;
+        private static Image _newColoursBox;
+        private static TextMeshProUGUI _applyLabel;
+        private static Item _colourItem;
+        private static readonly Dictionary<Item, Image> Dots = new Dictionary<Item, Image>();
         private static readonly List<GameObject> PageButtons = new List<GameObject>();
         private static readonly List<(Plugin.PinSharingMode mode, Image box, TextMeshProUGUI label, RectTransform rect)> ShareRows =
             new List<(Plugin.PinSharingMode, Image, TextMeshProUGUI, RectTransform)>();
@@ -331,6 +355,8 @@ namespace CarturMapPins
             _root = null;
             Rows.Clear();
             RowRects.Clear();
+            Dots.Clear();
+            _colourItem = null;
             _picker = null;
             _tip = null;
         }
@@ -408,6 +434,7 @@ namespace CarturMapPins
                 Object.Destroy(child.gameObject);
             Rows.Clear();
             RowRects.Clear();
+            Dots.Clear();
             ClosePicker();
 
             // Three columns, filled top to bottom; a heading takes a whole row.
@@ -490,12 +517,52 @@ namespace CarturMapPins
             more.textWrappingMode = TextWrappingModes.Normal;
             more.text = MoreSettings + " Press Next to choose what gets a pin.";
 
+            // New default colours: on = each NEW pin gets the colour of what it marks; the button gives the
+            // pins already on the map the same colours (owner, 2026-10-27).
+            Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(446f, -170f), new Vector2(340f, 30f))
+                .text = "PIN COLOURS";
+            var colours = new GameObject("NewColours", typeof(RectTransform), typeof(Image), typeof(Button));
+            colours.transform.SetParent(_grid, false);
+            var crt = (RectTransform)colours.transform;
+            crt.anchorMin = crt.anchorMax = crt.pivot = new Vector2(0f, 1f);
+            crt.anchoredPosition = new Vector2(446f, -204f);
+            crt.sizeDelta = new Vector2(340f, 32f);
+            colours.GetComponent<Image>().color = RowRest;
+            colours.GetComponent<Button>().transition = Selectable.Transition.None;
+            colours.GetComponent<Button>().onClick.AddListener(() => { _newColours = !_newColours; Refresh(); });
+            colours.AddComponent<HoverFx>().Bind(colours.GetComponent<Image>(), RowRest, RowHover, 1.02f);
+            IconGrid.SlotSounds(colours);
+            _newColoursBox = Box(crt, "Check", Bronze, new Vector2(18f, 18f)).GetComponent<Image>();
+            var nbrt = (RectTransform)_newColoursBox.transform;
+            nbrt.anchorMin = nbrt.anchorMax = new Vector2(0f, 0.5f);
+            nbrt.anchoredPosition = new Vector2(16f, 0f);
+            TextMeshProUGUI nlabel = Label(crt, "Name", 17f, Warm, TextAlignmentOptions.Left, Vector2.zero, new Vector2(290f, 32f));
+            var nlrt = (RectTransform)nlabel.transform;
+            nlrt.anchorMin = nlrt.anchorMax = nlrt.pivot = new Vector2(0f, 0.5f);
+            nlrt.anchoredPosition = new Vector2(40f, 0f);
+            nlabel.text = "New default colours";
+
+            _applyLabel = Button(_grid, "Apply to existing pins", Vector2.zero, 340f, true, ApplyColours, anchorLeft: true);
+            ((RectTransform)_applyLabel.transform.parent).anchoredPosition = new Vector2(446f, -244f);
+
             // All of Cartur's mods, opened in the player's default browser (Application.OpenURL).
             Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(0f, -384f), new Vector2(788f, 26f))
                 .text = "MORE OF CARTUR'S MODS";
             LinkButton("Thunderstore", "https://thunderstore.io/c/valheim/p/Cartur/", new Vector2(0f, -414f));
             LinkButton("Hexium", "https://valheim.hexium.gg/teams/Cartur", new Vector2(176f, -414f));
             Refresh();
+        }
+
+
+        private static void ApplyColours()
+        {
+            var pending = new Dictionary<string, int>();
+            foreach (Item item in _pages.SelectMany(p => p.Items))
+                if (item.ColourKey != null && item.Colour != item.OriginalColour)
+                    pending[item.ColourKey] = item.Colour;
+            int changed = KindColours.ApplyToExisting(pending);
+            if (_applyLabel != null)
+                _applyLabel.text = changed == 1 ? "Updated 1 pin" : $"Updated {changed} pins";
         }
 
         private static void LinkButton(string text, string url, Vector2 at)
@@ -545,10 +612,31 @@ namespace CarturMapPins
                 icon.gameObject.AddComponent<CellHover>().Bind(frame);
             }
 
-            TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(66f, 0f), new Vector2(width - 70f, height));
+            float nameX = 66f;
+            if (item.ColourEntry != null)
+            {
+                // The pin's colour, a small square beside the icon: click it for the colour wheel.
+                Image dot = Box(rt, "Colour", Color.white, new Vector2(14f, 14f)).GetComponent<Image>();
+                var drt = (RectTransform)dot.transform;
+                drt.anchorMin = drt.anchorMax = new Vector2(0f, 0.5f);
+                drt.anchoredPosition = new Vector2(70f, 0f);
+                dot.gameObject.AddComponent<Button>().onClick.AddListener(() => OpenColour(item));
+                Image dframe = Box(drt, "Frame", IconGrid.Resting, Vector2.zero).GetComponent<Image>();
+                dframe.sprite = IconGrid.Border;
+                dframe.type = Image.Type.Sliced;
+                dframe.raycastTarget = false;
+                dframe.rectTransform.anchorMin = new Vector2(-0.15f, -0.15f);
+                dframe.rectTransform.anchorMax = new Vector2(1.15f, 1.15f);
+                dframe.rectTransform.offsetMin = dframe.rectTransform.offsetMax = Vector2.zero;
+                dot.gameObject.AddComponent<CellHover>().Bind(null);
+                Dots[item] = dot;
+                nameX = 92f;
+            }
+
+            TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(nameX, 0f), new Vector2(width - nameX - 4f, height));
             var labelRt = (RectTransform)label.transform;
             labelRt.anchorMin = labelRt.anchorMax = labelRt.pivot = new Vector2(0f, 0.5f);
-            labelRt.anchoredPosition = new Vector2(66f, 0f);
+            labelRt.anchoredPosition = new Vector2(nameX, 0f);
             label.text = item.Name;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Ellipsis;
@@ -563,6 +651,13 @@ namespace CarturMapPins
             {
                 box.color = mode == _sharing ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
                 label.color = new Color(Warm.r, Warm.g, Warm.b, mode == _sharing ? 1f : 0.45f);
+            }
+            if (_newColoursBox != null)
+                _newColoursBox.color = _newColours ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
+            foreach (KeyValuePair<Item, Image> d in Dots)
+            {
+                d.Value.color = d.Key.Colour != 0 ? PinStyles.FromCode(d.Key.Colour) : new Color(1f, 1f, 1f, 0.12f);
+                d.Value.transform.GetChild(0).GetComponent<Image>().color = d.Key == _colourItem ? IconGrid.SelectedGold : IconGrid.Resting;
             }
             foreach (var (item, box, icon, label) in Rows)
             {
@@ -643,9 +738,44 @@ namespace CarturMapPins
 
         private static void ClosePicker()
         {
+            if (_colourItem != null && _colourItem.Colour != 0)
+                ColourWheel.Remember(_colourItem.Colour);
+            _colourItem = null;
             if (_picker != null)
                 Object.Destroy(_picker);
             _picker = null;
+        }
+
+        // ---- colour popup -------------------------------------------------------------------
+
+        /// The colour wheel (the pin editor's own) over the right of the panel, for one item.
+        private static void OpenColour(Item item)
+        {
+            ClosePicker();
+            _colourItem = item;
+            RectTransform box = Box(_panel, "ColourPicker", new Color(0.03f, 0.03f, 0.025f, 1f),
+                                    new Vector2(ColourWheel.Width + 28f, ColourWheel.Height + 72f));
+            box.anchorMin = box.anchorMax = box.pivot = new Vector2(1f, 1f);
+            box.anchoredPosition = new Vector2(-24f, -100f);
+            _picker = box.gameObject;
+            box.SetAsLastSibling();
+            Edge(box, true);
+
+            TextMeshProUGUI title = Label(box, "Title", 18f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(ColourWheel.Width - 70f, 26f));
+            title.text = "Colour for " + item.Name;
+            title.textWrappingMode = TextWrappingModes.NoWrap;
+            title.overflowMode = TextOverflowModes.Ellipsis;
+            Button(box, "Close", new Vector2(-10f, -8f), 72f, true, ClosePickerAndRefresh).fontSize = 15f;
+
+            ColourWheel wheel = ColourWheel.Build(box, -46f, code => { item.Colour = code; Refresh(); });
+            wheel.Show(item.Colour);
+            Refresh();
+        }
+
+        private static void ClosePickerAndRefresh()
+        {
+            ClosePicker();
+            Refresh();
         }
 
         // ---- hover description --------------------------------------------------------------
@@ -685,7 +815,9 @@ namespace CarturMapPins
                 }
             }
             string text = null;
-            if (hovered == null && _picker == null)
+            if (hovered == null && _picker == null && _newColoursBox != null && RectTransformUtility.RectangleContainsScreenPoint((RectTransform)_newColoursBox.transform.parent, pointer, null))
+                text = $"<size=20>{Gold("New default colours")}</size>\nEach new pin takes the colour of the thing it marks: copper brown, a Fuling village orange, each berry its own. Only pins placed from now on; the button below paints the ones already on your map (never a pin you coloured yourself). Change any kind's colour with its coloured square on the next pages.";
+            if (hovered == null && text == null && _picker == null)
             {
                 foreach (var (mode, _, _, rect) in ShareRows)
                 {
@@ -712,7 +844,8 @@ namespace CarturMapPins
             return $"<size=20>{Gold(hovered.Name)}</size>\n" + hovered.Description +
                             (hovered.Biomes != null ? $"\n\n{Gold("Found in:")} {hovered.Biomes}" : "\n") +
                             $"\n{Gold("On by default:")} {(defaultOn ? "yes" : "no")}" +
-                            (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it.</size>" : "");
+                            (hovered.ColourEntry != null ? $"\n{Gold("Pin colour:")} {(hovered.Colour != 0 ? "#" + ColorUtility.ToHtmlStringRGB(PinStyles.FromCode(hovered.Colour)) : "none")}" : "") +
+                            (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it" + (hovered.ColourEntry != null ? ", or the square for its colour" : "") + ".</size>" : "");
         }
 
         private static void ShowTip(string text, Vector2 pointer)

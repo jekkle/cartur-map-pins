@@ -1329,6 +1329,16 @@ namespace CarturMapPins
             // which would spam the corner of the screen during bulk discovery.
             MinimapAccess.AddPinKeepFilter(Minimap.instance, pos, pinType, written, save: true);
 
+            // New pins only: the colour is written to the pin's own style now, so later changes to
+            // the kind's colour or to this switch leave it alone. A style already there (one the
+            // player gave this spot) is never overwritten.
+            if (Plugin.NewDefaultColours.Value && PinStyles.For(pos).Colour == 0 && KindColours.For(category, subtype) is Color kindColour)
+            {
+                PinStyles.Style style = PinStyles.For(pos);
+                style.Colour = PinStyles.ToCode(kindColour);
+                PinStyles.Set(pos, style);
+            }
+
             // Both the source and the written text go into the record, so a later language change
             // can re-word this pin and still tell our own wording from a hand rename.
             PinRecord.Add(key, pos, label, written);

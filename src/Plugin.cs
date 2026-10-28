@@ -189,6 +189,11 @@ namespace CarturMapPins
             TintOreByType = Config.Bind(Sections.Of("Ore", "TintByType"), "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
+            NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
+                "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. Hugin's setup menu has the same switch and an Apply button for the existing pins.");
+            foreach (KeyValuePair<string, string> colour in KindColours.Table)
+                KindColourEntries[colour.Key] = Config.Bind(Sections.Of("Kind Colours"), colour.Key, colour.Value,
+                    new ConfigDescription($"Colour new {colour.Key} pins are given when NewDefaultColours is on, as RRGGBB. Empty for none.", null, Attr(advanced: true)));
             TintBerriesByType = Config.Bind(Sections.Of("Pickables", "TintBerriesByType"), "TintBerriesByType", true,
                 "Colour each berry bush pin by its berry - raspberry red, blueberry blue, cloudberry yellow, lingonberry pink, vineberry purple. A colour you set on a pin yourself always wins. To drop the berry names as well, put e.g. Pickable:Raspberry= in carturpins_labels.txt.");
             ForgetMinedOre = Config.Bind(Sections.Of("Ore", "ForgetMined"), "ForgetMined", true,
@@ -731,6 +736,14 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TickLootedDungeons;
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> TintBerriesByType;
+        public static ConfigEntry<bool> NewDefaultColours;
+
+        private static readonly Dictionary<string, ConfigEntry<string>> KindColourEntries =
+            new Dictionary<string, ConfigEntry<string>>();
+
+        /// The colour setting for a kind (or category, for the ones with no kinds), or null.
+        public static ConfigEntry<string> KindColourEntry(string key) =>
+            key != null && KindColourEntries.TryGetValue(key, out ConfigEntry<string> e) ? e : null;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<DeleteConfirm> ConfirmDelete;
         public static ConfigEntry<bool> HideCollidingLabels;
@@ -919,6 +932,10 @@ namespace CarturMapPins
                         ? $"Repointed {changed} pin(s) to their current icons."
                         : "Every recorded pin already carries its current icon.");
                 });
+
+            new Terminal.ConsoleCommand("carturpins_applycolours",
+                "Gives every pin this mod placed that has no colour of its own the default colour of its kind (Kind Colours). Pins you coloured are left alone.",
+                args => args.Context?.AddString($"{KindColours.ApplyToExisting()} pins coloured."));
 
             new Terminal.ConsoleCommand("carturpins_setup",
                 "Opens the setup menu Hugin brings on first install: choose what Map Pins marks.",

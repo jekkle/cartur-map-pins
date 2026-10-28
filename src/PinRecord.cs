@@ -1570,6 +1570,16 @@ namespace CarturMapPins
         }
 
         /// Every distinct record key in this world, sorted, for the label template file.
+        /// Every record's position and key ("Ore:Copper"), for operations over the whole record.
+        internal static List<KeyValuePair<Vector3, string>> AllPositionsAndKeys()
+        {
+            EnsureLoaded();
+            var result = new List<KeyValuePair<Vector3, string>>(Entries.Count);
+            foreach (Entry e in Entries)
+                result.Add(new KeyValuePair<Vector3, string>(e.Pos, e.Key));
+            return result;
+        }
+
         internal static List<string> Keys()
         {
             EnsureLoaded();
