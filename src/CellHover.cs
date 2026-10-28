@@ -44,8 +44,23 @@ namespace CarturMapPins
                 _border.color = IconGrid.Resting;
         }
 
+        // Cartur's UI adds its HoverFx to a Button the moment it is first enabled, which for a
+        // cell built under a closed map is after IconGrid.YieldHover looked (measured with the
+        // pilot's pickpop: HoverFx enabled on our cells and the game's buttons, which held the
+        // pop to its 1.05 while Epic Loot's, moved in later, reached 1.14). So for a few frames
+        // after this cell is enabled, any HoverFx on it is switched off again.
+        private int _yieldFrames;
+
+        private void OnEnable() => _yieldFrames = 12;
+
         private void Update()
         {
+            if (_yieldFrames > 0)
+            {
+                _yieldFrames--;
+                IconGrid.YieldHover(gameObject);
+            }
+
             if (!_animating)
                 return;
 
