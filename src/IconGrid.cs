@@ -185,9 +185,13 @@ namespace CarturMapPins
             if (!Collapsed.TryGetValue(title, out bool collapsed))
                 Collapsed[title] = collapsed = startCollapsed;
 
+            // The heading is already a Graphic (its text), which is what a click lands on once it
+            // takes raycasts; Unity will not add a second Graphic to the same object, and the
+            // first version of this did (AddComponent<Image> returned null, the picker's Build threw
+            // after the sections were made and the favourites rows never appeared).
             TextMeshProUGUI label = heading.GetComponent<TextMeshProUGUI>();
-            var hit = heading.gameObject.AddComponent<Image>();
-            hit.color = new Color(0f, 0f, 0f, 0f);
+            if (label != null)
+                label.raycastTarget = true;
             var button = heading.gameObject.AddComponent<Button>();
             button.transition = Selectable.Transition.None;
             void Apply()
