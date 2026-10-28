@@ -29,6 +29,11 @@ namespace CarturMapPins
 
         private static readonly Dictionary<Minimap.PinData, int> Leaders = new Dictionary<Minimap.PinData, int>();
         private static readonly List<Minimap.PinData> Members = new List<Minimap.PinData>();
+        private static readonly Dictionary<Minimap.PinData, List<Minimap.PinData>> Groups = new Dictionary<Minimap.PinData, List<Minimap.PinData>>();
+
+        /// The pins a badge stands for, itself first (the popup lists them).
+        public static IReadOnlyList<Minimap.PinData> GroupOf(Minimap.PinData leader) =>
+            leader != null && Groups.TryGetValue(leader, out List<Minimap.PinData> group) ? group : null;
         private static int _level = int.MinValue;
         private static string _signature;
 
@@ -61,6 +66,7 @@ namespace CarturMapPins
                 {
                     Leaders.Clear();
                     Members.Clear();
+                    Groups.Clear();
                     _signature = null;
                 }
                 return;
@@ -90,6 +96,7 @@ namespace CarturMapPins
         {
             Leaders.Clear();
             Members.Clear();
+            Groups.Clear();
             if (!IncludeAll)
                 PinRecord.IndexByPosition();
 
@@ -160,12 +167,15 @@ namespace CarturMapPins
                     if (1 + near.Count < MinimumPins)
                         continue;
 
+                    var group = new List<Minimap.PinData> { list[i] };
                     foreach (int j in near)
                     {
                         taken[j] = true;
                         Members.Add(list[j]);
+                        group.Add(list[j]);
                     }
                     Leaders[list[i]] = weight;
+                    Groups[list[i]] = group;
                 }
             }
         }

@@ -78,6 +78,7 @@ namespace CarturMapPins
             {
                 if (_tag != null)
                     _tag.gameObject.SetActive(false);
+                ClusterPopup.Hide();
                 return;
             }
             if (_tag == null)
@@ -99,6 +100,13 @@ namespace CarturMapPins
             int stands = Clusters.CountOf(pin);
             _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to zoom in)"
                 : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
+            // A group opens its list instead of the one-line tag.
+            if (stands > 1 && ClusterPopup.Show(pin, root))
+            {
+                _tag.gameObject.SetActive(false);
+                return;
+            }
+            ClusterPopup.Hide();
             _tag.gameObject.SetActive(true);
             _tag.transform.SetAsLastSibling();
         }
@@ -107,9 +115,13 @@ namespace CarturMapPins
         /// root's own units, which is where the tag lives.
         private static void PlaceTag(Minimap.PinData pin)
         {
-            if (_tag == null || pin?.m_iconElement == null || !_tag.gameObject.activeSelf)
+            if (pin?.m_iconElement == null)
                 return;
-            Vector2 cursor = LabelCrowding.CursorIn(pin.m_iconElement);
+            Vector2 at = LabelCrowding.CursorIn(pin.m_iconElement);
+            ClusterPopup.Place(new Vector3(at.x + CursorGap, at.y - 8f, 0f));
+            if (_tag == null || !_tag.gameObject.activeSelf)
+                return;
+            Vector2 cursor = at;
             _tag.rectTransform.localPosition = new Vector3(cursor.x + CursorGap, cursor.y, 0f);
         }
 
