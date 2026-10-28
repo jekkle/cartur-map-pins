@@ -189,6 +189,8 @@ namespace CarturMapPins
             TintOreByType = Config.Bind(Sections.Of("Ore", "TintByType"), "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
+            ClusterPins = Config.Bind(Sections.Of("General", "ClusterPins"), "ClusterPins", false,
+                "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
                 "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. Hugin's setup menu has the same switch and an Apply button for the existing pins.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
@@ -740,6 +742,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintOreByType;
         public static ConfigEntry<bool> TintBerriesByType;
         public static ConfigEntry<bool> NewDefaultColours;
+        public static ConfigEntry<bool> ClusterPins;
 
         private static readonly Dictionary<string, ConfigEntry<string>> KindColourEntries =
             new Dictionary<string, ConfigEntry<string>>();

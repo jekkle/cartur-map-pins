@@ -96,7 +96,9 @@ namespace CarturMapPins
                 _tag.transform.SetParent(root, false);
             TMP_Text name = pin.m_NamePinData?.PinNameText;
             _tag.fontSize = name != null ? name.fontSize * 0.8f : 14f;
-            _tag.text = pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
+            int stands = Clusters.CountOf(pin);
+            _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to zoom in)"
+                : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
             _tag.gameObject.SetActive(true);
             _tag.transform.SetAsLastSibling();
         }

@@ -69,6 +69,15 @@ namespace CarturMapPins
                 if (target == null)
                     return false;
 
+                // A group's pin stands for several: deleting it would take one pin and leave the
+                // badge lying about the rest. It has to be a single pin again first.
+                if (Clusters.CountOf(target) > 1)
+                {
+                    MessageHud.instance?.ShowMessage(MessageHud.MessageType.Center,
+                        $"This stands for {Clusters.CountOf(target)} pins - zoom in to remove one");
+                    return false;
+                }
+
                 bool ours = PinRecord.IsOurs(target);
                 DeleteConfirm mode = Plugin.ConfirmDelete.Value;
                 if ((mode == DeleteConfirm.All || (mode == DeleteConfirm.AutoPinsOnly && ours)) &&

@@ -82,6 +82,8 @@ namespace CarturMapPins
                 if (pin.m_iconElement.enabled != visible)
                     pin.m_iconElement.enabled = visible;
 
+                ClusterBadge.Sync(pin);
+
                 Transform icon = pin.m_iconElement.transform;
                 float wantedScale = ScaleFor(pin);
                 // Capped at ScaleSpeed of its own size per second: at a grid step a crowded pin's

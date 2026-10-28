@@ -373,6 +373,7 @@ namespace CarturMapPins
                 return;
 
             Crowding.Measure(pins);
+            Clusters.Measure(pins);
             LabelTemplates.Apply(pins);
             LabelCrowding.Apply(pins);
 

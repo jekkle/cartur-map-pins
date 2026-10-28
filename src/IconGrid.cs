@@ -468,6 +468,30 @@ namespace CarturMapPins
             return _border;
         }
 
+        private static Sprite _ring;
+
+        /// A thin ring, drawn once, for the count badge's rim.
+        public static Sprite Ring()
+        {
+            if (_ring != null)
+                return _ring;
+            const int size = 48;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            float c = size * 0.5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float d = Mathf.Sqrt((x + 0.5f - c) * (x + 0.5f - c) + (y + 0.5f - c) * (y + 0.5f - c));
+                    float outer = Mathf.Clamp01(c - 0.5f - d + 1f), inner = Mathf.Clamp01(d - (c - 6f) + 0.5f);
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Min(outer, inner)));
+                }
+            }
+            tex.Apply();
+            _ring = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return _ring;
+        }
+
         private static Sprite _disc;
 
         /// A filled circle, drawn once, for slider handles. Its edge is softened by alpha rather

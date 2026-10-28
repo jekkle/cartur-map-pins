@@ -106,6 +106,12 @@ namespace CarturMapPins
         /// world. The raw zoom value is not a usable number to set a threshold in - it runs from
         /// m_minZoom 0.015 to m_maxZoom 1, both read from the live component - so every setting
         /// that takes a zoom takes it in these terms instead.
+        /// How many world metres one icon covers right now (unsnapped), for the cluster radius.
+        internal static float IconMetres(Minimap map) => CellMetres(map);
+
+        /// Clusters.Measure hides the pins a badge stands for through the same set as everything else.
+        internal static void MarkNotDrawn(Minimap.PinData pin) => NotDrawn.Add(pin);
+
         public static float ZoomOutPercent() => ZoomOutPercent(Minimap.instance);
 
         public static float ZoomOutPercent(Minimap map)
