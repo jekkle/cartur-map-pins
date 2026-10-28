@@ -70,13 +70,15 @@ namespace CarturMapPins
             _hide.name = "CarturHidePins";
             _hideLabel = _hide.transform.Find("Label").GetComponent<TextMeshProUGUI>();
             _hideLabel.text = NextAction();
-            _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 32f, true);
+            AddGap(_hide);
+            _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 30f, true);
 
             // Change Icon: label, then the Shift key with the mouse button laid on it, just right of
             // the "t" (owner, 2026-10-27), so it reads as one gesture: shift + click.
             _change = Object.Instantiate(add.gameObject, row);
             _change.name = "CarturChangeIcon";
             _change.transform.Find("Label").GetComponent<TextMeshProUGUI>().text = "Change Icon";
+            AddGap(_change);
             Image mouse = _change.transform.Find("keyboard_hint").GetComponent<Image>();
 
             var wrap = new GameObject("ShiftClick", typeof(RectTransform), typeof(LayoutElement));
@@ -91,10 +93,10 @@ namespace CarturMapPins
             shift.alignment = TextAlignmentOptions.MidlineLeft;
             shift.rectTransform.offsetMin = new Vector2(7f, 0f);
             float textWidth = shift.GetPreferredValues("Shift").x;
-            const float MouseSize = 26f;
+            const float MouseSize = 30f;
             // The key runs under the whole mouse icon, so the icon sits ON it.
             float capWidth = 7f + textWidth + 2f + MouseSize + 4f;
-            crt.sizeDelta = new Vector2(capWidth, 28f);
+            crt.sizeDelta = new Vector2(capWidth, CapHeight);
             crt.anchoredPosition = Vector2.zero;
 
             mouse.transform.SetParent(wrap.transform, false);
@@ -110,6 +112,19 @@ namespace CarturMapPins
             layout.preferredHeight = 32f;
         }
 
+        /// The game's mouse icons carry about 7 px of empty sprite on each side, so the text-to-icon
+        /// gap it shows is its layout spacing plus that. A drawn cap has no such margin, so the
+        /// same amount is added to the entry's spacing and the three kinds of hint space alike.
+        private const float SpritePadding = 7f;
+        private const float CapHeight = 30f;   // the mouse icon's visible body
+
+        private static void AddGap(GameObject entry)
+        {
+            HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
+            if (group != null)
+                group.spacing += SpritePadding;
+        }
+
         /// Turns a key image into a drawn cap: dark face, the picker's frame, the key name.
         private static TextMeshProUGUI KeyCap(Image face, string text, float width, bool inLayout)
         {
@@ -119,9 +134,9 @@ namespace CarturMapPins
             {
                 var layout = face.GetComponent<LayoutElement>() ?? face.gameObject.AddComponent<LayoutElement>();
                 layout.preferredWidth = width;
-                layout.preferredHeight = 26f;
+                layout.preferredHeight = CapHeight;
                 layout.minWidth = width;
-                layout.minHeight = 26f;
+                layout.minHeight = CapHeight;
             }
 
             var frame = new GameObject("Frame", typeof(RectTransform), typeof(Image));
@@ -144,7 +159,7 @@ namespace CarturMapPins
             lrt.offsetMin = lrt.offsetMax = Vector2.zero;
             TextMeshProUGUI label = Fonts.AddLabel(letter);
             label.text = text;
-            label.fontSize = 16f;
+            label.fontSize = 18f;
             label.color = Color.white;
             label.alignment = TextAlignmentOptions.Center;
             label.raycastTarget = false;
