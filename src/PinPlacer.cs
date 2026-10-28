@@ -1008,6 +1008,13 @@ namespace CarturMapPins
                     }
                     break;
 
+                case PinCategory.Portal:
+                    // The name the player gave it (the tag in the ZDO), so a pin reads "Home" or
+                    // "Mines" rather than "Portal Wood"; an unnamed portal is just a portal.
+                    TeleportWorld portal = go.GetComponent<TeleportWorld>();
+                    string tag = portal != null ? portal.GetText() : null;
+                    return string.IsNullOrWhiteSpace(tag) ? "Portal" : tag.Trim();
+
                 case PinCategory.Beehive:
                     Beehive hive = go.GetComponent<Beehive>();
                     if (hive != null && !string.IsNullOrEmpty(hive.m_name))

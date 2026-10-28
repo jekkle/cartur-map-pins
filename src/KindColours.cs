@@ -71,7 +71,7 @@ namespace CarturMapPins
             t["Stone Golem"] = "9A9A9A"; t["Serpent"] = "6FA8D0";
 
             // Categories with no kinds
-            t["Chest"] = "D9A840"; t["Beehive"] = "F2C33D"; t["Runestone"] = "7FB0E0"; t["LoreStone"] = "7FB0E0";
+            t["Portal"] = "8FA0FF"; t["Chest"] = "D9A840"; t["Beehive"] = "F2C33D"; t["Runestone"] = "7FB0E0"; t["LoreStone"] = "7FB0E0";
             t["Leviathan"] = "5FA0D0"; t["Wisp"] = "9CE8FF"; t["Home"] = "EDE0B8";
             return t;
         }

@@ -21,7 +21,8 @@ namespace CarturMapPins
         Landmark,
         Prop,
         Miniboss,
-        Home
+        Home,
+        Portal
     }
 
     /// Which bucket a pickable falls into. Pickables are by far the most numerous thing in the
@@ -277,6 +278,14 @@ namespace CarturMapPins
             if (prefab.GetComponent<Beehive>() != null || prefab.name == "Beehive")
             {
                 category = PinCategory.Beehive;
+                return true;
+            }
+            // A portal is a player piece with a TeleportWorld (read from the decompile: tag in the
+            // ZDO, GetText() returns it). Not in PlayerBuildable: every portal is player-built, and
+            // that is exactly what is wanted marked.
+            if (prefab.GetComponent<TeleportWorld>() != null)
+            {
+                category = PinCategory.Portal;
                 return true;
             }
             if (prefab.GetComponent<Pickable>() != null || prefab.GetComponent<PickableItem>() != null)

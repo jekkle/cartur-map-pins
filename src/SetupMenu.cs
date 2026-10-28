@@ -149,6 +149,7 @@ namespace CarturMapPins
             AddCategory(other, PinCategory.Wisp, "Wisp fountains");
             AddCategory(other, PinCategory.Prop, "Maypole");
             AddCategory(other, PinCategory.Home, "Your bed (home)");
+            AddCategory(other, PinCategory.Portal, "Portals");
             AddKinds(other, PinCategory.Trader, Subtypes.Traders, "Traders");
             pages.Add(other);
 

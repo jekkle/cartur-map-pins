@@ -61,6 +61,7 @@ namespace CarturMapPins
             { PinCategory.Landmark, "A landmark with nothing inside it." },
             { PinCategory.Spawner, "A spawner that keeps making creatures until you break it." },
             { PinCategory.Trader, "A trader." },
+            { PinCategory.Portal, "Your portals, named with the tag you gave them." },
         };
 
         private static readonly Dictionary<PickableGroup, string> Groups = new Dictionary<PickableGroup, string>

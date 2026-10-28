@@ -326,6 +326,9 @@ namespace CarturMapPins
             Bind(PinCategory.Wisp, false, Minimap.PinType.Icon3, 20f,
                 "Wisp spawners in the Mistlands. OFF by default - they are numerous.",
                 iconIndex: 85);   // star
+            Bind(PinCategory.Portal, true, Minimap.PinType.Icon4, 5f,
+                "Marks your portals, named with the tag you gave each one. Pinned once you come within DiscoveryRadius of a portal, so every portal you build or pass is on the map. Player-built, which is the point: this category is not skipped as 'somebody's base'.",
+                iconIndex: 46);   // a stone arch; pick a different one in the setup menu or the settings
             Bind(PinCategory.Home, true, Minimap.PinType.Bed, 5f,
                 "Marks a bed as home when you claim it as your spawn. Vanilla marks only your current spawn and moves that one marker when you sleep somewhere else, so an outpost you slept in last week leaves nothing behind - these pins stay.",
                 iconIndex: 70);   // house with a bed in it
@@ -546,7 +549,7 @@ namespace CarturMapPins
         private static readonly HashSet<PinCategory> MinimalCategories = new HashSet<PinCategory>
         {
             PinCategory.Ore, PinCategory.Dungeon, PinCategory.Chest,
-            PinCategory.BossAltar, PinCategory.Miniboss, PinCategory.Home,
+            PinCategory.BossAltar, PinCategory.Miniboss, PinCategory.Home, PinCategory.Portal,
         };
 
         /// Applies a preset and then clears itself.
