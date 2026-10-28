@@ -32,11 +32,17 @@ The first time you load a world after installing or updating, Hugin lands and of
 
 The menu opens on your own settings, and pressing Done writes only what you changed, so updating never touches a setup you already made. **Not now** changes nothing. `carturpins_setup` opens it again at any time. If you play with the game's tutorials switched off, Hugin does not land; use the command.
 
+![Hugin welcome page](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/hugin-welcome-2.0.jpg)
+
+![A Hugin page with a hover description](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/hugin-page-2.0.jpg)
+
 ## Colours
 
 Shift-click a pin and the editor has a **colour wheel**, a brightness bar, your **last five colours** and an Original button. The same wheel is in Hugin's menu, beside every item.
 
 With **New default colours** on (`General / NewDefaultColours`), every new pin takes the colour of the thing it marks: copper brown, tin pale, each berry its own colour, a Fuling village orange, Eikthyr lightning blue, and so on, a colour for every kind. Only pins placed from then on are affected. The **Apply to existing pins** button in Hugin's menu (or `carturpins_applycolours`) gives the pins already on your map the same colours, leaving any you coloured yourself. Every kind's colour is a setting of its own under *Kind Colours*, as a hex code.
+
+![The colour wheel in the pin editor](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/colour-wheel-2.0.jpg)
 
 ## On the map screen
 
@@ -44,6 +50,12 @@ With **New default colours** on (`General / NewDefaultColours`), every new pin t
 - **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
 - **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
 - Zooming is smooth: pins and names fade rather than flicker or jump.
+
+![The new icon picker and hint bar](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-screen-2.0.jpg)
+
+![Favourites and Recent rows](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/favourites-2.0.jpg)
+
+![The three states of H](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/hide-pins-2.0.jpg)
 
 ## Portals
 
@@ -55,6 +67,8 @@ Both are off by default.
 
 - **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are; nothing moves. Hover the badge for a list of what it stands for and how far away it is. Click it to zoom in. It cannot be ticked off or deleted until you are zoomed in to a single pin. Your own pins and other players' pins are never grouped.
 - **`General / PriorityZoomOut`:** when the map is zoomed far out, pickables drop first, then landmarks, nests and hives, then ore, chests and stones. Bosses, dungeons, camps, portals, traders and home always stay.
+
+![Cluster badges with the hover list](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/clusters-2.0.jpg)
 
 ## Keeping the map readable
 
