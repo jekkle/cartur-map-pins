@@ -40,6 +40,13 @@ namespace CarturMapPins
         private static string _shownName = string.Empty;
 
         private static PinStyles.Style _style = PinStyles.Default;
+
+        /// A marker the game draws itself (your spawn point, your last death) and does not save:
+        /// its name and icon would be gone the next time the world loads, so only what is stored
+        /// by position is offered - colour, size and opacity. Owner, 2026-10-27: "can I not
+        /// shift click spawn and other vanilla pins? I need to be able to."
+        private static bool _markerOnly;
+        private static TMPro.TextMeshProUGUI _markerNote;
         private static ColourWheel _wheel;
         private static Slider _sizeSlider;
         private static Slider _alphaSlider;
@@ -64,6 +71,7 @@ namespace CarturMapPins
                 return;
 
             _target = pin;
+            SetMarkerMode(!pin.m_save);
 
             // The localized name, not the raw one: a vanilla pin's m_name is a token such as
             // "$location_x", which the box would show as code and Confirm would then strip to
@@ -81,6 +89,44 @@ namespace CarturMapPins
             RefreshHighlights();
             _panel.SetActive(true);
             PlaceBeside(pin);
+        }
+
+        private static void AddMarkerNote(Transform parent)
+        {
+            var go = new GameObject("MarkerNote", typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = new Vector2(0f, 1f);
+            rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(10f, -HeaderHeight);
+            rt.offsetMax = new Vector2(-10f, -4f);
+            _markerNote = Fonts.AddLabel(go);
+            _markerNote.fontSize = 14f;
+            _markerNote.color = new Color(0.95f, 0.92f, 0.82f, 0.9f);
+            _markerNote.alignment = TMPro.TextAlignmentOptions.MidlineLeft;
+            _markerNote.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+            _markerNote.raycastTarget = false;
+            _markerNote.text = "GAME MARKER  <size=11><alpha=#99>colour, size and opacity</size>";
+            go.SetActive(false);
+        }
+
+        /// Shows only the style controls for a marker the game draws itself: the name box and the
+        /// icon grid go, and the panel is as tall as what is left.
+        private static void SetMarkerMode(bool markerOnly)
+        {
+            _markerOnly = markerOnly;
+            if (_nameInput != null)
+                _nameInput.gameObject.SetActive(!markerOnly);
+            foreach (string part in new[] { "Viewport", "Scrollbar" })
+            {
+                Transform t = _panel.transform.Find(part);
+                if (t != null)
+                    t.gameObject.SetActive(!markerOnly);
+            }
+            _markerNote?.gameObject.SetActive(markerOnly);
+            float full = IconGrid.PanelHeight(VisibleRows) + HeaderHeight + FooterHeight + StyleHeight;
+            _panelRect.sizeDelta = new Vector2(IconGrid.PanelWidth(Columns), markerOnly ? HeaderHeight + FooterHeight + StyleHeight : full);
         }
 
         public static void Close()
@@ -160,6 +206,7 @@ namespace CarturMapPins
                             new Color(0.35f, 0.30f, 0.20f, 0.95f));
 
             AddStyleControls(_panel.transform);
+            AddMarkerNote(_panel.transform);
 
             _highlights = IconGrid.Build(_panel, IconGrid.FindTemplateButton(map),
                                          Choose, HeaderHeight, FooterHeight + StyleHeight);
@@ -469,7 +516,7 @@ namespace CarturMapPins
                 changed = true;
             }
 
-            if (_nameInput != null)
+            if (_nameInput != null && !_markerOnly)
             {
                 // The three characters vanilla's OnPinTextEntered strips: $ opens a localisation
                 // token and < > open rich text, and the label would render either.
@@ -486,7 +533,7 @@ namespace CarturMapPins
                 }
             }
 
-            if (_pending >= 0)
+            if (_pending >= 0 && !_markerOnly)
             {
                 Minimap.PinType wanted = CustomIcons.TypeForPicker(_pending);
                 if (wanted != _target.m_type && PinRecord.Repoint(_map, _target, wanted))

@@ -715,6 +715,11 @@ namespace CarturMapPins
                 best = other;
             }
 
+            // No saved pin on the spot: the marker itself, for colour, size and opacity only
+            // (PinEditor.SetMarkerMode). Only the two the game keeps for you, not shared pins.
+            if (best == null && pin.m_ownerID == 0L && (pin.m_type == Minimap.PinType.Bed || pin.m_type == Minimap.PinType.Death))
+                return pin;
+
             return best;
         }
 
