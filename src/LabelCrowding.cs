@@ -100,6 +100,12 @@ namespace CarturMapPins
                 if (!name.PinNameGameObject.activeInHierarchy || string.IsNullOrEmpty(pin.m_name))
                     continue;
 
+                // A name HideOutOfSight has just asked to fade out is still active for a few
+                // frames; ranking it here would Show it again, and the names of hidden pins
+                // (the hide key, merged repeats) never went away (owner, 2026-10-27).
+                if (Crowding.OutOfSight(pin))
+                    continue;
+
                 // A name that does not match the search is noise while searching, and the pin it
                 // belongs to is still on the map, dimmed.
                 if (!PinFilter.Matches(pin.m_name))
