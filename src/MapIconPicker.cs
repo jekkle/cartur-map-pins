@@ -62,9 +62,19 @@ namespace CarturMapPins
             }
             _panel.SetActive(visible);
             if (visible)
+            {
                 Absorb(Minimap.instance);
+                if (_publicVanilla != null)
+                {
+                    _publicVanilla.alpha = 0f;
+                    _publicVanilla.blocksRaycasts = false;
+                }
+            }
             else
+            {
                 RestoreAbsorbed();
+                RestoreVanillaPublic();
+            }
             if (_searchBar != null)
                 _searchBar.SetActive(visible);
 
@@ -122,8 +132,7 @@ namespace CarturMapPins
 
             _canvasCamera = IconGrid.CameraFor(_panel);
 
-            AddCaption(_panel);
-            AddDragHandle(_panel);
+            AddHeader(_panel, map);
             BuildSearchBar(map);
 
             _highlights.Clear();
@@ -349,60 +358,46 @@ namespace CarturMapPins
             go.GetComponent<Image>().raycastTarget = false;
         }
 
-        /// A line above the grid saying how to change a pin you have already placed. Shift-click
-        /// is the only way to reach the editor and nothing else on screen says so; the grid is
-        /// where somebody is already looking when thinking about icons.
-        private static void AddCaption(GameObject panel)
-        {
-            var go = new GameObject("Caption");
-            go.transform.SetParent(panel.transform, false);
+        private const float HandleSize = 12f;
 
-            RectTransform rt = go.AddComponent<RectTransform>();
+        private static Toggle _public;
+        private static CanvasGroup _publicVanilla;
+
+        /// The picker's top bar: grip, title, and the "Visible to other players" checkbox, and the
+        /// WHOLE bar drags the panel (owner, 2026-10-27), not a handle in the corner. The checkbox
+        /// is a child with its own raycast target, so a click on it never starts a drag.
+        ///
+        /// The checkbox drives vanilla's own Minimap.m_publicPosition toggle (its handler,
+        /// SetPublicReferencePosition, is what the game runs), and the toggle's panel at the
+        /// bottom of the map is made invisible rather than switched off, so the game's own
+        /// bookkeeping on it carries on. Where the panel ends up is written to MapPickerRight /
+        /// MapPickerBottom, so it survives a restart and can still be typed in by hand.
+        private static void AddHeader(GameObject panel, Minimap map)
+        {
+            var header = new GameObject("Header", typeof(RectTransform), typeof(Image));
+            header.transform.SetParent(panel.transform, false);
+            var rt = (RectTransform)header.transform;
             rt.anchorMin = new Vector2(0f, 1f);
             rt.anchorMax = new Vector2(1f, 1f);
             rt.pivot = new Vector2(0.5f, 1f);
-            // Left inset clears the grab handle, right inset matches it so the sentence stays
-            // centred in what is left.
-            rt.offsetMin = new Vector2(HandleSize + 14f, -CaptionHeight);
-            rt.offsetMax = new Vector2(-10f, -2f);
+            rt.offsetMin = new Vector2(0f, -CaptionHeight);
+            rt.offsetMax = new Vector2(0f, -2f);
+            Image back = header.GetComponent<Image>();
+            back.color = new Color(0f, 0f, 0f, 0f);
+            back.raycastTarget = true;
+            header.AddComponent<PanelDrag>().Init(_panelRect, CommitPosition);
 
-            TextMeshProUGUI text = Fonts.AddLabel(go);
-            text.text = "PINS  <size=11><alpha=#88>shift-click a pin to change it</size>";
-            text.fontSize = 17f;
-            text.color = new Color(0.95f, 0.92f, 0.82f, 1f);
-            text.alignment = TextAlignmentOptions.Left;
-            text.raycastTarget = false;
-        }
-
-        private const float HandleSize = 12f;
-
-        /// A grab handle in the caption row, top left.
-        ///
-        /// Small and in the corner because the panel is mostly a grid of things you click, and a
-        /// drag surface over any of that would make a misjudged click on an icon nudge the panel
-        /// instead of choosing the icon. Gold, matching the selected-icon border.
-        ///
-        /// Where it ends up is written to MapPickerRight / MapPickerBottom, the two settings that
-        /// position this panel, so it survives a restart and can still be typed in by hand.
-        private static void AddDragHandle(GameObject panel)
-        {
-            var go = new GameObject("DragHandle");
-            go.transform.SetParent(panel.transform, false);
-
-            RectTransform rt = go.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0f, 1f);
-            rt.anchorMax = new Vector2(0f, 1f);
-            rt.pivot = new Vector2(0f, 1f);
-            rt.sizeDelta = new Vector2(HandleSize, HandleSize + 4f);
-            rt.anchoredPosition = new Vector2(8f, -7f);
-            // A clear hit area holding six dots: the usual "drag me" grip.
-            Image box = go.AddComponent<Image>();
-            box.color = new Color(0f, 0f, 0f, 0f);
-            box.raycastTarget = true;
+            // Six dots: the usual "drag me" grip, decoration only.
+            var grip = new GameObject("Grip", typeof(RectTransform));
+            grip.transform.SetParent(header.transform, false);
+            var grt = (RectTransform)grip.transform;
+            grt.anchorMin = grt.anchorMax = grt.pivot = new Vector2(0f, 0.5f);
+            grt.sizeDelta = new Vector2(HandleSize, HandleSize + 4f);
+            grt.anchoredPosition = new Vector2(8f, 0f);
             for (int i = 0; i < 6; i++)
             {
                 var dot = new GameObject("Dot", typeof(RectTransform), typeof(Image));
-                dot.transform.SetParent(go.transform, false);
+                dot.transform.SetParent(grip.transform, false);
                 var d = (RectTransform)dot.transform;
                 d.anchorMin = d.anchorMax = d.pivot = new Vector2(0f, 1f);
                 d.sizeDelta = new Vector2(3f, 3f);
@@ -411,8 +406,117 @@ namespace CarturMapPins
                 dot.GetComponent<Image>().raycastTarget = false;
             }
 
-            go.AddComponent<PanelDrag>().Init(_panelRect, CommitPosition);
-            go.AddComponent<CellHover>();
+            var titleGo = new GameObject("Title", typeof(RectTransform));
+            titleGo.transform.SetParent(header.transform, false);
+            var trt = (RectTransform)titleGo.transform;
+            trt.anchorMin = new Vector2(0f, 0f);
+            trt.anchorMax = new Vector2(0f, 1f);
+            trt.pivot = new Vector2(0f, 0.5f);
+            trt.anchoredPosition = new Vector2(26f, 0f);
+            trt.sizeDelta = new Vector2(60f, 0f);
+            TextMeshProUGUI title = Fonts.AddLabel(titleGo);
+            title.text = "PINS";
+            title.fontSize = 17f;
+            title.color = new Color(0.95f, 0.92f, 0.82f, 1f);
+            title.alignment = TextAlignmentOptions.MidlineLeft;
+            title.raycastTarget = false;
+
+            AddVisibleCheckbox(header.transform, map);
+        }
+
+        private static void AddVisibleCheckbox(Transform header, Minimap map)
+        {
+            _public = map.m_publicPosition;
+            if (_public == null)
+                return;
+
+            // The vanilla panel stays alive (the game sets the toggle's state through it), it is only not drawn or clickable.
+            Transform vanilla = _public.transform.parent;
+            if (vanilla != null)
+            {
+                _publicVanilla = vanilla.GetComponent<CanvasGroup>() ?? vanilla.gameObject.AddComponent<CanvasGroup>();
+                _publicVanilla.alpha = 0f;
+                _publicVanilla.blocksRaycasts = false;
+            }
+
+            var row = new GameObject("Visible", typeof(RectTransform), typeof(Image), typeof(Button));
+            row.transform.SetParent(header, false);
+            var rt = (RectTransform)row.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0.5f);
+            rt.anchoredPosition = new Vector2(-8f, 0f);
+            rt.sizeDelta = new Vector2(158f, 22f);
+            row.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0f);
+
+            var labelGo = new GameObject("Label", typeof(RectTransform));
+            labelGo.transform.SetParent(row.transform, false);
+            var lrt = (RectTransform)labelGo.transform;
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = Vector2.zero;
+            lrt.offsetMax = new Vector2(-20f, 0f);
+            TextMeshProUGUI label = Fonts.AddLabel(labelGo);
+            label.text = Localization.instance != null ? Localization.instance.Localize("$menu_visibletootherplayers") : "Visible to other players";
+            if (label.text.StartsWith("$") || label.text.StartsWith("["))
+                label.text = "Visible to other players";
+            label.fontSize = 11.5f;
+            label.alignment = TextAlignmentOptions.MidlineRight;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.raycastTarget = false;
+
+            // Our checkbox: the setup menu's bronze box, filled when on.
+            var box = new GameObject("Box", typeof(RectTransform), typeof(Image));
+            box.transform.SetParent(row.transform, false);
+            var brt = (RectTransform)box.transform;
+            brt.anchorMin = brt.anchorMax = brt.pivot = new Vector2(1f, 0.5f);
+            brt.anchoredPosition = new Vector2(-1f, 0f);
+            brt.sizeDelta = new Vector2(15f, 15f);
+            Image frame = box.GetComponent<Image>();
+            frame.sprite = IconGrid.Border;
+            frame.type = Image.Type.Sliced;
+            frame.color = IconGrid.Bronze;
+            frame.raycastTarget = false;
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(box.transform, false);
+            var frt = (RectTransform)fill.transform;
+            frt.anchorMin = Vector2.zero;
+            frt.anchorMax = Vector2.one;
+            frt.offsetMin = new Vector2(3.5f, 3.5f);
+            frt.offsetMax = new Vector2(-3.5f, -3.5f);
+            _publicTick = fill.GetComponent<Image>();
+            _publicTick.color = IconGrid.Bronze;
+            _publicTick.raycastTarget = false;
+
+            // Tint like the inventory's buttons: dimmer at rest, full under the mouse.
+            Button button = row.GetComponent<Button>();
+            button.targetGraphic = label;
+            IconGrid.SlotHover(button, label);
+            IconGrid.YieldHover(row);
+            button.onClick.AddListener(() =>
+            {
+                if (_public != null && _public.interactable)
+                    _public.isOn = !_public.isOn;
+            });
+            row.AddComponent<PublicSync>();
+        }
+
+        private static Image _publicTick;
+
+        /// Keeps our box in step with the vanilla toggle, whoever changed it.
+        private sealed class PublicSync : MonoBehaviour
+        {
+            private void Update()
+            {
+                if (_public != null && _publicTick != null && _publicTick.enabled != _public.isOn)
+                    _publicTick.enabled = _public.isOn;
+            }
+        }
+
+        private static void RestoreVanillaPublic()
+        {
+            if (_publicVanilla == null)
+                return;
+            _publicVanilla.alpha = 1f;
+            _publicVanilla.blocksRaycasts = true;
         }
 
         /// Turns where the panel now sits back into the two insets the config stores.

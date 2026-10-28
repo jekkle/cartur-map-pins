@@ -168,6 +168,7 @@ namespace CarturMapPins
             PinFade.Step(pins, Time.deltaTime);
             LabelCrowding.Step(pins, Time.deltaTime);
             LabelTemplates.Hover(__instance);
+            MapHints.Tick(__instance);
         }
     }
 
