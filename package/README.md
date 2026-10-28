@@ -141,6 +141,8 @@ It is a spelled-out dropdown rather than a tick box on purpose, because a stray 
 |---|---|
 | `carturpins_clear` | Removes every pin this mod placed. |
 | `carturpins_reicon` | Resets this mod's pins to their category's current icon. Hand-placed pins are left alone. |
+| `carturpins_setup` | Opens Hugin's setup menu. |
+| `carturpins_applycolours` | Gives pins you have not coloured the default colour of their kind. |
 | `carturpins_count` | How many are on record. |
 | `carturpins_forget_missing` | Forgets records whose pin is gone, so those places can be pinned again. |
 | `carturpins_dedupe` | Removes leftover duplicate pins no record points at. Counts only, unless you pass `yes`. |
