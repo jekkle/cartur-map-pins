@@ -70,29 +70,55 @@ namespace CarturMapPins
             _hide.name = "CarturHidePins";
             _hideLabel = _hide.transform.Find("Label").GetComponent<TextMeshProUGUI>();
             _hideLabel.text = NextAction();
-            _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 32f);
+            _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 32f, true);
 
-            // Change Icon: label, the Shift key, then the mouse button the game uses for Add pin.
+            // Change Icon: label, then the Shift key with the mouse button laid on it, just right of
+            // the "t" (owner, 2026-10-27), so it reads as one gesture: shift + click.
             _change = Object.Instantiate(add.gameObject, row);
             _change.name = "CarturChangeIcon";
             _change.transform.Find("Label").GetComponent<TextMeshProUGUI>().text = "Change Icon";
             Image mouse = _change.transform.Find("keyboard_hint").GetComponent<Image>();
-            GameObject shift = Object.Instantiate(mouse.gameObject, _change.transform);
-            shift.name = "keyboard_hint_shift";
-            shift.transform.SetSiblingIndex(mouse.transform.GetSiblingIndex());   // before the mouse
-            KeyCap(shift.GetComponent<Image>(), "Shift", 58f);
+
+            var wrap = new GameObject("ShiftClick", typeof(RectTransform), typeof(LayoutElement));
+            wrap.transform.SetParent(_change.transform, false);
+            wrap.transform.SetSiblingIndex(mouse.transform.GetSiblingIndex());
+            var cap = new GameObject("Cap", typeof(RectTransform), typeof(Image));
+            cap.transform.SetParent(wrap.transform, false);
+            var crt = (RectTransform)cap.transform;
+            crt.anchorMin = crt.anchorMax = crt.pivot = new Vector2(0f, 0.5f);
+            TextMeshProUGUI shift = KeyCap(cap.GetComponent<Image>(), "Shift", 0f, false);
+            float textWidth = shift.GetPreferredValues("Shift").x;
+            float capWidth = textWidth + 14f;
+            crt.sizeDelta = new Vector2(capWidth, 26f);
+            crt.anchoredPosition = Vector2.zero;
+
+            const float MouseSize = 26f;
+            mouse.transform.SetParent(wrap.transform, false);
+            var mrt = (RectTransform)mouse.transform;
+            mrt.anchorMin = mrt.anchorMax = new Vector2(0f, 0.5f);
+            mrt.pivot = new Vector2(0.5f, 0.5f);
+            mrt.sizeDelta = new Vector2(MouseSize, MouseSize);
+            mrt.anchoredPosition = new Vector2(7f + textWidth + 2f + MouseSize * 0.5f, 0f);
+            mouse.transform.SetAsLastSibling();   // on top of the key
+            mouse.raycastTarget = false;
+            var layout = wrap.GetComponent<LayoutElement>();
+            layout.preferredWidth = 7f + textWidth + 2f + MouseSize;
+            layout.preferredHeight = 32f;
         }
 
         /// Turns a key image into a drawn cap: dark face, the picker's frame, the key name.
-        private static TextMeshProUGUI KeyCap(Image face, string text, float width)
+        private static TextMeshProUGUI KeyCap(Image face, string text, float width, bool inLayout)
         {
             face.sprite = null;
             face.color = new Color(0.10f, 0.09f, 0.08f, 0.95f);
-            var layout = face.GetComponent<LayoutElement>() ?? face.gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = width;
-            layout.preferredHeight = 26f;
-            layout.minWidth = width;
-            layout.minHeight = 26f;
+            if (inLayout)
+            {
+                var layout = face.GetComponent<LayoutElement>() ?? face.gameObject.AddComponent<LayoutElement>();
+                layout.preferredWidth = width;
+                layout.preferredHeight = 26f;
+                layout.minWidth = width;
+                layout.minHeight = 26f;
+            }
 
             var frame = new GameObject("Frame", typeof(RectTransform), typeof(Image));
             frame.transform.SetParent(face.transform, false);
@@ -103,7 +129,7 @@ namespace CarturMapPins
             Image border = frame.GetComponent<Image>();
             border.sprite = IconGrid.Border;
             border.type = Image.Type.Sliced;
-            border.color = IconGrid.Bronze;
+            border.color = Color.white;   // the game's own hint white
             border.raycastTarget = false;
 
             var letter = new GameObject("Key", typeof(RectTransform));
@@ -115,7 +141,7 @@ namespace CarturMapPins
             TextMeshProUGUI label = Fonts.AddLabel(letter);
             label.text = text;
             label.fontSize = 16f;
-            label.color = new Color(0.95f, 0.92f, 0.82f, 1f);
+            label.color = Color.white;
             label.alignment = TextAlignmentOptions.Center;
             label.raycastTarget = false;
             return label;
