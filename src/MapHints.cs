@@ -112,10 +112,12 @@ namespace CarturMapPins
             layout.preferredHeight = 32f;
         }
 
-        /// The game's mouse icons carry about 7 px of empty sprite on each side, so the text-to-icon
-        /// gap it shows is its layout spacing plus that. A drawn cap has no such margin, so the
-        /// same amount is added to the entry's spacing and the three kinds of hint space alike.
-        private const float SpritePadding = 7f;
+        /// The game's mouse icons carry empty sprite on each side, so the text-to-icon gap they
+        /// show is their layout spacing (5) plus that. Measured from the owner's screenshot
+        /// (2026-10-27): the game's entries show about 27 screen px between text and icon, ours
+        /// showed 8 with the same 5 of spacing, i.e. a scale of 1.6, so the padding is about 12.
+        /// A drawn cap has no such margin, so it is added to the entry's spacing and the gaps match.
+        private const float SpritePadding = 12f;
         private const float CapHeight = 30f;   // the mouse icon's visible body
 
         private static void AddGap(GameObject entry)
