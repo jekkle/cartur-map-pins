@@ -11,13 +11,16 @@ namespace CarturMapPins
     /// The scanner pins a new portal as soon as it is built, when its tag is still empty, so the
     /// pin starts as "Portal". The tag lives in the portal's ZDO (TeleportWorld.GetText, read from
     /// the decompile) and changes through an RPC the owner applies, so this does not hook a call:
-    /// every second and a half it reads the tag of each portal that is loaded and renames the pin
-    /// if the two differ. That covers naming it yourself, renaming it, and another player doing
-    /// either on a server. A pin whose name was changed by hand is left alone (the same test as
-    /// every other re-label: it must still read what this mod wrote).
+    /// every second and a half it reads the tag of each loaded portal that has no name yet and, the
+    /// first time it has one, puts it on the pin. After that the portal is not looked at again
+    /// (owner: "it will check just the first time"), so a later rename does not change the pin,
+    /// and a loaded world with fifty named portals costs nothing. A pin whose name was changed by
+    /// hand is left alone (the same test as every other re-label: it must still read what this
+    /// mod wrote).
     internal static class PortalNames
     {
         private static readonly HashSet<TeleportWorld> Live = new HashSet<TeleportWorld>();
+        private static readonly HashSet<TeleportWorld> Named = new HashSet<TeleportWorld>();
         private static float _timer;
 
         [HarmonyPatch(typeof(TeleportWorld), "Awake")]
@@ -38,11 +41,17 @@ namespace CarturMapPins
                 return;
 
             Live.RemoveWhere(p => p == null);
+            Named.RemoveWhere(p => p == null);
             foreach (TeleportWorld portal in Live)
             {
+                if (Named.Contains(portal))
+                    continue;
                 string tag = portal.GetText();
-                string label = string.IsNullOrWhiteSpace(tag) ? "Portal" : tag.Trim();
+                if (string.IsNullOrWhiteSpace(tag))
+                    continue;   // still unnamed: look again next time
+                string label = tag.Trim();
                 PinRecord.Rename("Portal", portal.transform.position, 3f, label, Labels.ForPin(label));
+                Named.Add(portal);   // named once, done; a pin that is not there yet is placed with this name anyway
             }
         }
     }
