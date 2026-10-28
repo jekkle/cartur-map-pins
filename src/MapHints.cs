@@ -117,14 +117,20 @@ namespace CarturMapPins
         /// (2026-10-27): the game's entries show about 27 screen px between text and icon, ours
         /// showed 8 with the same 5 of spacing, i.e. a scale of 1.6, so the padding is about 12.
         /// A drawn cap has no such margin, so it is added to the entry's spacing and the gaps match.
-        private const float SpritePadding = 12f;
+        /// Re-measured on a screenshot after the first try (pixels on the hint bar): Add pin 31,
+        /// Cross off 29, Remove 31, Ping 31, ours 27, so 12 became 14.5. The icons are as empty
+        /// on their right as on their left (entry-to-entry gap 48-50 against our 29), so the same
+        /// amount is added after the key.
+        private const float SpritePadding = 14.5f;
         private const float CapHeight = 30f;   // the mouse icon's visible body
 
         private static void AddGap(GameObject entry)
         {
             HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
-            if (group != null)
-                group.spacing += SpritePadding;
+            if (group == null)
+                return;
+            group.spacing += SpritePadding;
+            group.padding = new RectOffset(group.padding.left, group.padding.right + Mathf.RoundToInt(SpritePadding), group.padding.top, group.padding.bottom);
         }
 
         /// Turns a key image into a drawn cap: dark face, the picker's frame, the key name.
