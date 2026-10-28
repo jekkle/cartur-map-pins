@@ -842,6 +842,7 @@ namespace CarturMapPins
                 && !Minimap.InTextInput() && !Console.IsVisible() && !TextInput.IsVisible()
                 && !(Chat.instance != null && Chat.instance.HasFocus()))
                 PinHiding.Step();
+            PortalNames.Tick(UnityEngine.Time.deltaTime);
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
             Trackers.Tick(UnityEngine.Time.deltaTime);
         }

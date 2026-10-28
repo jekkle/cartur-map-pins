@@ -1574,6 +1574,43 @@ namespace CarturMapPins
         }
 
         /// Every distinct record key in this world, sorted, for the label template file.
+        /// Re-words the pin of a record if the thing it marks has since been renamed. Only a pin that
+        /// still reads exactly what this mod last wrote is touched: a pin the player renamed stays
+        /// theirs. True when a pin was renamed.
+        internal static bool Rename(string key, Vector3 near, float radius, string source, string written)
+        {
+            EnsureLoaded();
+            Minimap map = Minimap.instance;
+            if (map == null)
+                return false;
+            float sqr = radius * radius;
+            for (int i = 0; i < Entries.Count; i++)
+            {
+                Entry e = Entries[i];
+                if (e.Key != key)
+                    continue;
+                Vector3 d = e.Pos - near;
+                if (d.x * d.x + d.z * d.z > sqr)
+                    continue;
+                Minimap.PinData pin = FindPinAt(map, e.Pos);
+                if (pin == null || pin.m_name == written)
+                    return false;
+                // The pin must still read what was written, or be a record from before names were
+                // recorded and say the old default; anything else is the player's own wording.
+                bool untouched = string.IsNullOrEmpty(e.Written) ? pin.m_name == "Portal" : pin.m_name == e.Written;
+                if (!untouched)
+                    return false;
+                pin.m_name = written;
+                PinEditor.RefreshLabel(pin);
+                e.Source = source;
+                e.Written = written;
+                Entries[i] = e;
+                _dirty = true;
+                return true;
+            }
+            return false;
+        }
+
         /// Every record's position and key ("Ore:Copper"), for operations over the whole record.
         internal static List<KeyValuePair<Vector3, string>> AllPositionsAndKeys()
         {
