@@ -1542,6 +1542,10 @@ namespace CarturMapPins
             return false;
         }
 
+        /// The record key ("Ore:Copper") of the pin's record, whatever the pin has since been named, or null.
+        internal static string KeyOfIndexed(Minimap.PinData pin) =>
+            pin != null && pin.m_save && ByPosition.TryGetValue(PositionKey(pin.m_pos), out int i) && i < Entries.Count ? Entries[i].Key : null;
+
         /// IsOurs for a whole pass: a dictionary lookup against the index IndexByPosition just built.
         internal static bool IsIndexedOurs(Minimap.PinData pin) =>
             pin != null && pin.m_save && ByPosition.ContainsKey(PositionKey(pin.m_pos));

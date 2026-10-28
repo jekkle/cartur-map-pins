@@ -189,6 +189,8 @@ namespace CarturMapPins
             TintOreByType = Config.Bind(Sections.Of("Ore", "TintByType"), "TintByType", true,
                 "Colour each ore pin by what it is - copper warm brown, tin pale, flametal orange, and so on. The darkest ores are lifted towards grey rather than drawn true, because the map is dark and a black pin on it is a hole. A colour you set on a pin yourself always wins.");
 
+            PriorityZoomOut = Config.Bind(Sections.Of("General", "PriorityZoomOut"), "PriorityZoomOut", false,
+                "When the map is zoomed far out, drop the cheap-to-find pins first so the ones worth crossing a map for stay: pickables go past a third of the way out, landmarks, props, nests and hives past half, ore, chests and stones past three quarters. Bosses, dungeons, camps, portals, traders and home never drop, and neither do your own pins, shared pins, markers and pings. Only pins this mod placed are ever hidden, and they come back as you zoom in. Off by default.");
             ClusterPins = Config.Bind(Sections.Of("General", "ClusterPins"), "ClusterPins", false,
                 "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
@@ -743,6 +745,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintBerriesByType;
         public static ConfigEntry<bool> NewDefaultColours;
         public static ConfigEntry<bool> ClusterPins;
+        public static ConfigEntry<bool> PriorityZoomOut;
 
         private static readonly Dictionary<string, ConfigEntry<string>> KindColourEntries =
             new Dictionary<string, ConfigEntry<string>>();

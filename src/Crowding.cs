@@ -175,6 +175,9 @@ namespace CarturMapPins
 
             Minimap map = Minimap.instance;
             _zoom = ZoomScale(map);
+            PriorityZoom.Update(ZoomOutPercent(map));
+            if (PriorityZoom.Active)
+                PinRecord.IndexByPosition();
             if (map == null || pins == null)
                 return;
 
@@ -235,7 +238,7 @@ namespace CarturMapPins
                 if (pin == null || pin.m_worldSize > 0f || NotDrawn.Contains(pin))
                     continue;
 
-                if (IsVanillaSpawnDuplicate(pin))
+                if (IsVanillaSpawnDuplicate(pin) || PriorityZoom.Hides(pin))
                 {
                     NotDrawn.Add(pin);
                     continue;
