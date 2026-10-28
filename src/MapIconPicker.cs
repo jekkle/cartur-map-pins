@@ -153,6 +153,12 @@ namespace CarturMapPins
             ClampToScreen();
 
             Absorb(map);
+            if (!_subscribed)
+            {
+                _subscribed = true;
+                IconFavourites.Changed += RebuildTopRows;
+            }
+            RebuildTopRows();
             Plugin.Log.LogInfo($"Map icon picker built with {CustomIcons.Count} icons plus {CustomIcons.LegacyCount} from the old sheet.");
         }
 
@@ -175,6 +181,7 @@ namespace CarturMapPins
         private static readonly List<Origin> Moved = new List<Origin>();
         private static readonly List<GameObject> EmptiedColumns = new List<GameObject>();
         private static Transform _gameSection, _modSection;
+        private static bool _topRowsPending;
 
         private static readonly FieldInfo SelectedIcons = AccessTools.Field(typeof(Minimap), "m_selectedIcons");
 
@@ -222,6 +229,7 @@ namespace CarturMapPins
                 Transform modHeading = IconGrid.AddHeading(content, "FROM OTHER MODS");
                 modHeading.SetSiblingIndex(0);
                 _modSection.gameObject.name = "ModSection";
+                _topRowsPending = true;
                 modHeading.gameObject.name = "ModHeading";
                 _gameSection = IconGrid.AddSection(content, grid.constraintCount);
                 _gameSection.SetSiblingIndex(0);
@@ -233,6 +241,12 @@ namespace CarturMapPins
                 Move(b, _gameSection, Highlight(icons, b));
             foreach (RectTransform b in modButtons)
                 Move(b, _modSection, Highlight(icons, b));
+
+            if (_topRowsPending)
+            {
+                _topRowsPending = false;
+                RebuildTopRows();   // the sections above went in at the very top; the rows go back over them
+            }
 
             bool anyMod = _modSection.childCount > 0;
             _modSection.gameObject.SetActive(anyMod);
@@ -646,8 +660,71 @@ namespace CarturMapPins
             // refresh, so go through it.
             _selectIcon.Invoke(map, new object[] { type });
 
+            SetAllSelected(index);
+            IconFavourites.NoteUsed(index);
+        }
+
+        private static void SetAllSelected(int index)
+        {
             for (int i = 0; i < _highlights.Count; i++)
                 IconGrid.SetCellSelected(_highlights[i], i == index);
+            foreach ((int cellIndex, Image border) in _topHighlights)
+                IconGrid.SetCellSelected(border, cellIndex == index);
+        }
+
+        // ---- FAVOURITES and RECENT rows ---------------------------------------------------------
+
+        private static readonly List<(int index, Image border)> _topHighlights = new List<(int, Image)>();
+        private static readonly List<GameObject> _topRows = new List<GameObject>();
+        private static bool _subscribed;
+
+        /// Two rows above everything else: the icons the player starred, then the last few they
+        /// placed or picked (without the starred ones, so nothing shows twice). Rebuilt whenever
+        /// either list changes, and after Absorb has put its sections at the top.
+        internal static void RebuildTopRows()
+        {
+            if (_panel == null)
+                return;
+            Transform content = _panel.transform.Find("Viewport/Content");
+            GridLayoutGroup grid = content != null ? content.GetComponentInChildren<GridLayoutGroup>(true) : null;
+            if (grid == null)
+                return;
+
+            foreach (GameObject old in _topRows)
+                if (old != null)
+                    Object.Destroy(old);
+            _topRows.Clear();
+            _topHighlights.Clear();
+
+            var recent = new List<int>();
+            foreach (int i in IconFavourites.Recent)
+                if (!IconFavourites.IsFavourite(i))
+                    recent.Add(i);
+
+            int at = 0;
+            at = AddTopRow(content, grid.constraintCount, "FAVOURITES", IconFavourites.Favourites, at);
+            AddTopRow(content, grid.constraintCount, "RECENT", recent, at);
+            if (_selectedType?.GetValue(Minimap.instance) is Minimap.PinType active)
+                SetAllSelected(CustomIcons.PickerIndexFor(active));
+        }
+
+        private static int AddTopRow(Transform content, int columns, string title, IReadOnlyList<int> icons, int at)
+        {
+            if (icons.Count == 0)
+                return at;
+            Transform heading = IconGrid.AddHeading(content, title);
+            heading.SetSiblingIndex(at++);
+            Transform section = IconGrid.AddSection(content, columns);
+            section.SetSiblingIndex(at++);
+            _topRows.Add(heading.gameObject);
+            _topRows.Add(section.gameObject);
+            GameObject template = IconGrid.FindTemplateButton(Minimap.instance);
+            foreach (int index in icons)
+            {
+                Image border = IconGrid.CreateButton(section, template, index, i => Select(Minimap.instance, i));
+                _topHighlights.Add((index, border));
+            }
+            return at;
         }
 
         /// Private, and a thin forwarder onto GetClosestPin(pos, PinInteractRadius, true), which
@@ -729,11 +806,9 @@ namespace CarturMapPins
         {
             if (CustomIcons.IsCustom(type))
                 return;
-            foreach (Image highlight in _highlights)
-            {
-                if (highlight != null)
-                    highlight.enabled = false;
-            }
+            // Colour, not .enabled: SetCellSelected only sets the colour, so a frame switched off
+            // here would never come back for the next custom icon.
+            SetAllSelected(-1);
         }
     }
 

@@ -110,8 +110,9 @@ namespace CarturMapPins
 
             if (CustomIcons.LegacyCount > 0)
             {
-                AddHeading(content.transform, "PREVIOUS ICON SET");
+                Transform legacyHeading = AddHeading(content.transform, "PREVIOUS ICON SET");
                 Transform legacy = AddSection(content.transform, fit);
+                MakeCollapsible(legacyHeading, legacy, "PREVIOUS ICON SET", true);
                 for (int i = CustomIcons.Count; i < CustomIcons.PickerCount; i++)
                     highlights.Add(CreateButton(legacy, template, i, onClick));
             }
@@ -170,6 +171,119 @@ namespace CarturMapPins
             rule.GetComponent<Image>().color = new Color(Bronze.r, Bronze.g, Bronze.b, 0.35f);
             rule.GetComponent<Image>().raycastTarget = false;
             return go.transform;
+        }
+
+        // ---- collapsible sections ---------------------------------------------------------------
+
+        private static readonly Dictionary<string, bool> Collapsed = new Dictionary<string, bool>();
+
+        /// Click the heading to fold the section away or open it, with a + or - in front. The old
+        /// icon set starts folded: it is the part nobody picks from, so it is tucked away rather
+        /// than hidden (owner plan: "unused icons collapsed").
+        internal static void MakeCollapsible(Transform heading, Transform section, string title, bool startCollapsed)
+        {
+            if (!Collapsed.TryGetValue(title, out bool collapsed))
+                Collapsed[title] = collapsed = startCollapsed;
+
+            TextMeshProUGUI label = heading.GetComponent<TextMeshProUGUI>();
+            var hit = heading.gameObject.AddComponent<Image>();
+            hit.color = new Color(0f, 0f, 0f, 0f);
+            var button = heading.gameObject.AddComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            void Apply()
+            {
+                section.gameObject.SetActive(!Collapsed[title]);
+                if (label != null)
+                    label.text = (Collapsed[title] ? "+  " : "-  ") + title;
+            }
+            button.onClick.AddListener(() => { Collapsed[title] = !Collapsed[title]; Apply(); });
+            Apply();
+        }
+
+        // ---- favourite stars ----------------------------------------------------------------------
+
+        private static Sprite _star;
+
+        /// A five-point star, drawn once.
+        public static Sprite StarSprite()
+        {
+            if (_star != null)
+                return _star;
+            const int size = 32, samples = 3;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            var pts = new Vector2[10];
+            for (int i = 0; i < 10; i++)
+            {
+                float r = i % 2 == 0 ? 15f : 6.4f, a = Mathf.PI / 2f + i * Mathf.PI / 5f;
+                pts[i] = new Vector2(16f + Mathf.Cos(a) * r, 16f + Mathf.Sin(a) * r);
+            }
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int hit = 0;
+                    for (int sy = 0; sy < samples; sy++)
+                        for (int sx = 0; sx < samples; sx++)
+                            if (Inside(pts, new Vector2(x + (sx + 0.5f) / samples, y + (sy + 0.5f) / samples)))
+                                hit++;
+                    tex.SetPixel(x, y, new Color(1f, 1f, 1f, hit / (float)(samples * samples)));
+                }
+            }
+            tex.Apply();
+            _star = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return _star;
+        }
+
+        private static bool Inside(Vector2[] poly, Vector2 p)
+        {
+            bool inside = false;
+            for (int i = 0, j = poly.Length - 1; i < poly.Length; j = i++)
+                if ((poly[i].y > p.y) != (poly[j].y > p.y) &&
+                    p.x < (poly[j].x - poly[i].x) * (p.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x)
+                    inside = !inside;
+            return inside;
+        }
+
+        /// The star in a cell's top right: gold and always there when starred, faint white while
+        /// the mouse is on the cell, absent otherwise. Clicking it toggles the favourite and does
+        /// not select the icon (it is its own button, so the click stops on it).
+        private static void AddStar(GameObject cell, int index)
+        {
+            var go = new GameObject("Star", typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(cell.transform, false);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 1f);
+            rt.anchoredPosition = new Vector2(-1f, -1f);
+            rt.sizeDelta = new Vector2(15f, 15f);
+            Image star = go.GetComponent<Image>();
+            star.sprite = StarSprite();
+            star.color = new Color(1f, 1f, 1f, 0f);
+            var button = go.GetComponent<Button>();
+            button.transition = Selectable.Transition.None;
+            button.onClick.AddListener(() => IconFavourites.Toggle(index));
+            cell.AddComponent<StarShow>().Bind(star, index);
+        }
+
+        private sealed class StarShow : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+        {
+            private Image _star;
+            private int _index;
+            private bool _over;
+
+            public void Bind(Image star, int index) { _star = star; _index = index; }
+            public void OnPointerEnter(PointerEventData e) => _over = true;
+            public void OnPointerExit(PointerEventData e) => _over = false;
+
+            private void Update()
+            {
+                if (_star == null)
+                    return;
+                bool fav = IconFavourites.IsFavourite(_index);
+                Color target = fav ? new Color(SelectedGold.r, SelectedGold.g, SelectedGold.b, 1f)
+                                   : new Color(1f, 1f, 1f, _over ? 0.55f : 0f);
+                if (_star.color != target)
+                    _star.color = Color.Lerp(_star.color, target, 1f - Mathf.Exp(-24f * Time.unscaledDeltaTime));
+            }
         }
 
         /// A 4 px bar down the right edge, bronze handle, hidden when everything fits.
@@ -299,6 +413,7 @@ namespace CarturMapPins
         {
             if (border == null)
                 return;
+            border.enabled = true;
             border.sprite = SelectedFrame();
             border.type = Image.Type.Sliced;
             border.color = selected ? SelectedGold : Clear;
@@ -391,7 +506,7 @@ namespace CarturMapPins
         /// Vanilla's pin button is cloned for its size and its Button wiring, then stripped of its
         /// artwork - it is a gold-framed slab, and two frames on one cell means the selected one
         /// cannot be told from the rest.
-        private static Image CreateButton(Transform parent, GameObject template, int index, Action<int> onClick)
+        internal static Image CreateButton(Transform parent, GameObject template, int index, Action<int> onClick)
         {
             GameObject cell;
 
@@ -463,6 +578,8 @@ namespace CarturMapPins
 
             // Hover is the inventory's tint on the icon plus the lift; the frame is selection only.
             cell.AddComponent<CellHover>().Bind(null);
+
+            AddStar(cell, index);
 
             Button button = cell.GetComponent<Button>() ?? cell.AddComponent<Button>();
             SlotHover(button, icon);
