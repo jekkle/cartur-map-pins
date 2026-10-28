@@ -29,6 +29,21 @@ namespace CarturMapPins
             new Color(0.18f, 0.18f, 0.20f),   // black, lifted enough to read on a dark map
         };
 
+        /// A colour of the player's own choosing is stored in the same column as a palette index
+        /// (so older styles files still read): CustomFlag | 0xRRGGBB. Anything below the flag is an
+        /// index into Palette, 0 meaning leave the pin as it is.
+        public const int CustomFlag = 0x1000000;
+
+        public static int ToCode(Color c) =>
+            CustomFlag | (Mathf.RoundToInt(c.r * 255f) << 16) | (Mathf.RoundToInt(c.g * 255f) << 8) | Mathf.RoundToInt(c.b * 255f);
+
+        public static Color FromCode(int code)
+        {
+            if (code >= CustomFlag)
+                return new Color(((code >> 16) & 255) / 255f, ((code >> 8) & 255) / 255f, (code & 255) / 255f, 1f);
+            return code > 0 && code < Palette.Length ? Palette[code] : Color.white;
+        }
+
         public static readonly string[] PaletteNames =
             { "Original", "Red", "Orange", "Yellow", "Green", "Blue", "Purple", "Black" };
 
@@ -233,9 +248,7 @@ namespace CarturMapPins
             if (style.IsDefault)
                 return null;
 
-            Color colour = style.Colour > 0 && style.Colour < Palette.Length
-                ? Palette[style.Colour]
-                : Color.white;
+            Color colour = FromCode(style.Colour);
             colour.a = Mathf.Clamp01(style.Alpha);
             return colour;
         }

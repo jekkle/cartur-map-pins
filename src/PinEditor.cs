@@ -23,7 +23,7 @@ namespace CarturMapPins
         private const float VisibleRows = 5f;
         private const float HeaderHeight = 30f;   // name field
         private const float FooterHeight = 30f;   // cancel and confirm
-        private const float StyleHeight = 96f;    // colour swatches and the two sliders
+        private const float StyleHeight = 214f;   // colour wheel, recents and the two sliders
         private const float GapFromPin = 26f;     // keeps the pin itself uncovered
 
         private static GameObject _panel;
@@ -40,7 +40,7 @@ namespace CarturMapPins
         private static string _shownName = string.Empty;
 
         private static PinStyles.Style _style = PinStyles.Default;
-        private static readonly List<Image> _swatches = new List<Image>();
+        private static ColourWheel _wheel;
         private static Slider _sizeSlider;
         private static Slider _alphaSlider;
 
@@ -225,52 +225,11 @@ namespace CarturMapPins
 
             AddSectionLabel(strip.transform, "COLOUR", 0f);
 
-            _swatches.Clear();
-            int count = PinStyles.Palette.Length;
-            for (int i = 0; i < count; i++)
-            {
-                int index = i;
-                var go = new GameObject(PinStyles.PaletteNames[i]);
-                go.transform.SetParent(strip.transform, false);
+            _wheel = ColourWheel.Build(strip.transform, -16f, code => { _style.Colour = code; RefreshReadouts(); });
 
-                // Spread across the full width so the row reads as a palette.
-                float span = 1f / count;
-                RectTransform srt = go.AddComponent<RectTransform>();
-                srt.anchorMin = new Vector2(i * span, 1f);
-                srt.anchorMax = new Vector2((i + 1) * span, 1f);
-                srt.pivot = new Vector2(0.5f, 1f);
-                srt.offsetMin = new Vector2(2f, -40f);
-                srt.offsetMax = new Vector2(-2f, -16f);
-
-                Image swatch = go.AddComponent<Image>();
-                swatch.color = PinStyles.Palette[i];
-
-                Button button = go.AddComponent<Button>();
-                button.targetGraphic = swatch;
-                button.onClick = new Button.ButtonClickedEvent();
-                button.onClick.AddListener(() => ChooseColour(index));
-
-                // The frame shows the chosen colour; the swatch cannot, its colour is the thing
-                // being chosen.
-                var frameGo = new GameObject("Border");
-                frameGo.transform.SetParent(go.transform, false);
-                RectTransform frt = frameGo.AddComponent<RectTransform>();
-                frt.anchorMin = new Vector2(-0.12f, -0.12f);
-                frt.anchorMax = new Vector2(1.12f, 1.12f);
-                frt.offsetMin = Vector2.zero;
-                frt.offsetMax = Vector2.zero;
-
-                Image frame = frameGo.AddComponent<Image>();
-                frame.sprite = IconGrid.Border;
-                frame.type = Image.Type.Sliced;
-                frame.color = IconGrid.Resting;
-                frame.raycastTarget = false;
-                _swatches.Add(frame);
-            }
-
-            _sizeSlider = AddSlider(strip.transform, "SIZE", -46f, 0.5f, 2f,
+            _sizeSlider = AddSlider(strip.transform, "SIZE", -164f, 0.5f, 2f,
                                     v => { _style.Size = v; RefreshReadouts(); });
-            _alphaSlider = AddSlider(strip.transform, "OPACITY", -68f, 0.2f, 1f,
+            _alphaSlider = AddSlider(strip.transform, "OPACITY", -186f, 0.2f, 1f,
                                      v => { _style.Alpha = v; RefreshReadouts(); });
         }
 
@@ -415,16 +374,9 @@ namespace CarturMapPins
             label.raycastTarget = false;
         }
 
-        private static void ChooseColour(int index)
-        {
-            _style.Colour = index;
-            RefreshStyleControls();
-        }
-
         private static void RefreshStyleControls()
         {
-            for (int i = 0; i < _swatches.Count; i++)
-                IconGrid.SetSelected(_swatches[i], i == _style.Colour);
+            _wheel?.Show(_style.Colour);
 
             // Without firing the listeners: setting .value would call back into the fields being
             // loaded and overwrite them with the slider's old position.
@@ -512,6 +464,7 @@ namespace CarturMapPins
                 !Mathf.Approximately(existing.Alpha, _style.Alpha))
             {
                 PinStyles.Set(_target.m_pos, _style);
+                ColourWheel.Remember(_style.Colour);
                 RepaintPins();
                 changed = true;
             }
