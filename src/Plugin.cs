@@ -476,6 +476,17 @@ namespace CarturMapPins
             }
             RegisterCommands();
 
+            // Switching a kind of pin on while playing must pin what is already loaded, not only
+            // what loads next (PinPlacer.RescanLoaded).
+            foreach (CategorySettings category in Settings.Values)
+                category.Enabled.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
+            foreach (ConfigEntry<bool> kind in SubtypeToggles.Values)
+                kind.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
+            foreach (ConfigEntry<bool> group in new[] { _pickHighValue, _pickBerries, _pickCrops, _pickJunk, _pickOther })
+                if (group != null)
+                    group.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
+            AutoPinning.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
+
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         }
 

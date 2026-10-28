@@ -128,7 +128,15 @@ namespace CarturMapPins
         }
 #endif
 
-        private static void Postfix(ZDO zdo, ZNetView nview)
+        private static void Postfix(ZDO zdo, ZNetView nview) => Consider(zdo, nview);
+
+        /// What the game's own spawn call and a rescan both run. A rescan exists because this was
+        /// only ever asked once, when an object loaded: turning a switch ON while playing left every
+        /// object already loaded unpinned until its area reloaded, so berries and mushrooms looked
+        /// broken for a player who had just switched them on (GitHub #4: "I have berries and
+        /// mushroom pickables turned on ... the common red mushrooms do not"; measured: with the
+        /// switch on from the start, wild mushrooms within range are pinned).
+        internal static void Consider(ZDO zdo, ZNetView nview)
         {
             if (!PinCatalog.Built || zdo == null || nview == null)
                 return;

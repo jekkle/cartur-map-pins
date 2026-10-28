@@ -65,8 +65,33 @@ namespace CarturMapPins
             catch (System.Exception e) { Plugin.Log.LogWarning($"{name} step failed, carrying on: {e.Message}"); }
         }
 
+        private static float _rescanAt = -1f;
+        private static readonly System.Reflection.FieldInfo SceneInstances =
+            HarmonyLib.AccessTools.Field(typeof(ZNetScene), "m_instances");
+
+        /// A pin switch changed: ask every object that is already loaded again, a second from now
+        /// (a menu that changes thirty switches at once asks once). Objects that already have a
+        /// pin are caught by the dedupe, so this only ever adds what a newly switched-on kind was
+        /// missing.
+        internal static void RescanLoaded() => _rescanAt = Time.realtimeSinceStartup + 1f;
+
+        private static void RescanNow()
+        {
+            _rescanAt = -1f;
+            if (ZNetScene.instance == null || !(SceneInstances?.GetValue(ZNetScene.instance) is Dictionary<ZDO, ZNetView> loaded))
+                return;
+            var snapshot = new List<KeyValuePair<ZDO, ZNetView>>(loaded);
+            int before = PendingQueue.Count;
+            foreach (KeyValuePair<ZDO, ZNetView> instance in snapshot)
+                if (instance.Value != null)
+                    Patch_ZNetScene_AddInstance.Consider(instance.Key, instance.Value);
+            Plugin.Log.LogInfo($"A pin switch changed: looked at {snapshot.Count} loaded objects again, {PendingQueue.Count - before} queued.");
+        }
+
         public static void Tick(float dt)
         {
+            if (_rescanAt > 0f && Time.realtimeSinceStartup >= _rescanAt)
+                RescanNow();
             _timer -= dt;
             if (_timer > 0f)
                 return;
