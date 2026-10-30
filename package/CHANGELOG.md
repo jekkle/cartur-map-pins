@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+**Fix: the icon picker was almost invisible with a UI reskin mod such as AugaLite.** The picker copied the colours of the inventory slot's button, and AugaLite makes those a faint grey, so our white icons (and the "Visible to other players" label) were tinted to near nothing. The picker now uses its own fixed colours, so it looks the same with or without a UI mod. Checked with Auga 1.0.5 installed: icons draw at the same grey as without it.
+
+**New: default opacity per kind.** Next to a kind's colour in Hugin's menu is a percentage; click it to step 100, 75, 50, 25. It is saved when you press Done, applies to new pins, and **Apply to existing pins** (or `carturpins_applycolours`) applies it to the pins already on your map that you have not faded yourself. One setting per kind under *Kind Opacity*. Pin opacity in the shift-click editor works as before.
+
 ## 2.0.0
 
 **Hugin sets it up with you.** The first time you load a world after installing or updating, Hugin lands and offers to choose what gets pinned. Talk to him and a menu opens: one page per kind of place (ores, dungeons, camps, bosses, berries, landmarks, spawners, the rest), with a tick, an icon and a colour for every item, **Select all / Deselect all / Undo** on each page, and a hover description with where it is found. It opens on your own settings and writes back only what you change, so an update does not touch yours. Choose who sees your pins at the cartography table, and turn on **New default colours**. `carturpins_setup` opens it any time.

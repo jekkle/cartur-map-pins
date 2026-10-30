@@ -15,7 +15,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.0.0";
+        public const string PluginVersion = "2.0.1";
 
         internal static ManualLogSource Log;
 
@@ -198,6 +198,9 @@ namespace CarturMapPins
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
                 KindColourEntries[colour.Key] = Config.Bind(Sections.Of("Kind Colours"), colour.Key, colour.Value,
                     new ConfigDescription($"Colour new {colour.Key} pins are given when NewDefaultColours is on, as RRGGBB. Empty for none.", null, Attr(advanced: true)));
+            foreach (string key in KindColours.Table.Keys)
+                KindOpacityEntries[key] = Config.Bind(Sections.Of("Kind Opacity"), key, 100,
+                    new ConfigDescription($"Opacity, in percent, new {key} pins are given. 100 leaves the pin as the game draws it; lower fades it to cut clutter. Existing pins keep theirs until you ask for them to be updated.", new AcceptableValueRange<int>(10, 100), Attr(advanced: true)));
             TintBerriesByType = Config.Bind(Sections.Of("Pickables", "TintBerriesByType"), "TintBerriesByType", true,
                 "Colour each berry bush pin by its berry - raspberry red, blueberry blue, cloudberry yellow, lingonberry pink, vineberry purple. A colour you set on a pin yourself always wins. To drop the berry names as well, put e.g. Pickable:Raspberry= in carturpins_labels.txt.");
             ForgetMinedOre = Config.Bind(Sections.Of("Ore", "ForgetMined"), "ForgetMined", true,
@@ -764,6 +767,13 @@ namespace CarturMapPins
         /// The colour setting for a kind (or category, for the ones with no kinds), or null.
         public static ConfigEntry<string> KindColourEntry(string key) =>
             key != null && KindColourEntries.TryGetValue(key, out ConfigEntry<string> e) ? e : null;
+
+        private static readonly Dictionary<string, ConfigEntry<int>> KindOpacityEntries =
+            new Dictionary<string, ConfigEntry<int>>();
+
+        /// The opacity setting (percent) for a kind or category, same keys as the colours, or null.
+        public static ConfigEntry<int> KindOpacityEntry(string key) =>
+            key != null && KindOpacityEntries.TryGetValue(key, out ConfigEntry<int> e) ? e : null;
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<DeleteConfirm> ConfirmDelete;
         public static ConfigEntry<bool> HideCollidingLabels;
@@ -955,8 +965,8 @@ namespace CarturMapPins
                 });
 
             new Terminal.ConsoleCommand("carturpins_applycolours",
-                "Gives every pin this mod placed that has no colour of its own the default colour of its kind (Kind Colours). Pins you coloured are left alone.",
-                args => args.Context?.AddString($"{KindColours.ApplyToExisting()} pins coloured."));
+                "Gives every pin this mod placed that has no colour (or no fade) of its own the default colour and opacity of its kind (Kind Colours, Kind Opacity). Pins you styled are left alone.",
+                args => args.Context?.AddString($"{KindColours.ApplyToExisting()} pins updated."));
 
             new Terminal.ConsoleCommand("carturpins_setup",
                 "Opens the setup menu Hugin brings on first install: choose what Map Pins marks.",

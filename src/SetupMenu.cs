@@ -91,6 +91,8 @@ namespace CarturMapPins
             public string ColourKey;            // Kind Colours / <this>, or null when the item has no colour
             public BepInEx.Configuration.ConfigEntry<string> ColourEntry;
             public int Colour, OriginalColour;  // PinStyles codes, 0 = none
+            public BepInEx.Configuration.ConfigEntry<int> OpacityEntry;
+            public int Opacity, OriginalOpacity; // percent, 100 = as the game draws it
             public string Biomes;               // read from the game's location table, or null
             public ConfigEntry<bool> Entry;     // the kind's own switch, or the category's Enabled
             public PinCategory Category;        // whose Enabled follows the page (kinds only)
@@ -161,6 +163,8 @@ namespace CarturMapPins
                 item.OriginalIcon = item.Icon;
                 item.ColourEntry = item.ColourKey != null ? Plugin.KindColourEntry(item.ColourKey) : null;
                 item.Colour = item.OriginalColour = CodeOf(item.ColourEntry);
+                item.OpacityEntry = item.ColourKey != null ? Plugin.KindOpacityEntry(item.ColourKey) : null;
+                item.Opacity = item.OriginalOpacity = item.OpacityEntry?.Value ?? 100;
             }
             return pages.Where(p => p.IsWelcome || p.Items.Count > 0).ToList();
         }
@@ -284,6 +288,8 @@ namespace CarturMapPins
                     item.ColourEntry.Value = item.Colour == 0 ? string.Empty : ColorUtility.ToHtmlStringRGB(PinStyles.FromCode(item.Colour));
                     ColourWheel.Remember(item.Colour);
                 }
+                if (item.OpacityEntry != null && item.Opacity != item.OriginalOpacity)
+                    item.OpacityEntry.Value = item.Opacity;
                 if (item.On == item.OriginalOn)
                     continue;
                 item.Entry.Value = item.On;
@@ -324,6 +330,7 @@ namespace CarturMapPins
         private static TextMeshProUGUI _applyLabel;
         private static Item _colourItem;
         private static readonly Dictionary<Item, Image> Dots = new Dictionary<Item, Image>();
+        private static readonly Dictionary<Item, TextMeshProUGUI> Fades = new Dictionary<Item, TextMeshProUGUI>();
         private static readonly List<GameObject> PageButtons = new List<GameObject>();
         private static readonly List<(Plugin.PinSharingMode mode, Image box, TextMeshProUGUI label, RectTransform rect)> ShareRows =
             new List<(Plugin.PinSharingMode, Image, TextMeshProUGUI, RectTransform)>();
@@ -357,6 +364,7 @@ namespace CarturMapPins
             Rows.Clear();
             RowRects.Clear();
             Dots.Clear();
+            Fades.Clear();
             _colourItem = null;
             _picker = null;
             _tip = null;
@@ -436,6 +444,7 @@ namespace CarturMapPins
             Rows.Clear();
             RowRects.Clear();
             Dots.Clear();
+            Fades.Clear();
             ClosePicker();
 
             // Three columns, filled top to bottom; a heading takes a whole row.
@@ -558,10 +567,15 @@ namespace CarturMapPins
         private static void ApplyColours()
         {
             var pending = new Dictionary<string, int>();
+            var pendingOpacity = new Dictionary<string, int>();
             foreach (Item item in _pages.SelectMany(p => p.Items))
+            {
                 if (item.ColourKey != null && item.Colour != item.OriginalColour)
                     pending[item.ColourKey] = item.Colour;
-            int changed = KindColours.ApplyToExisting(pending);
+                if (item.ColourKey != null && item.Opacity != item.OriginalOpacity)
+                    pendingOpacity[item.ColourKey] = item.Opacity;
+            }
+            int changed = KindColours.ApplyToExisting(pending, pendingOpacity);
             if (_applyLabel != null)
                 _applyLabel.text = changed == 1 ? "Updated 1 pin" : $"Updated {changed} pins";
         }
@@ -634,7 +648,26 @@ namespace CarturMapPins
                 nameX = 92f;
             }
 
-            TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(nameX, 0f), new Vector2(width - nameX - 4f, height));
+            // The kind's default opacity beside its colour, at the row's right edge: click steps
+            // 100, 75, 50, 25 and back, saved with the rest (Kind Opacity / <kind>).
+            float nameRight = 4f;
+            if (item.OpacityEntry != null)
+            {
+                TextMeshProUGUI fade = Label(rt, "Opacity", 14f, Bronze, TextAlignmentOptions.Right, Vector2.zero, new Vector2(40f, height));
+                var frt = (RectTransform)fade.transform;
+                frt.anchorMin = frt.anchorMax = frt.pivot = new Vector2(1f, 0.5f);
+                frt.anchoredPosition = new Vector2(-4f, 0f);
+                fade.raycastTarget = true;
+                fade.gameObject.AddComponent<Button>().onClick.AddListener(() =>
+                {
+                    item.Opacity = item.Opacity > 75 ? 75 : item.Opacity > 50 ? 50 : item.Opacity > 25 ? 25 : 100;
+                    Refresh();
+                });
+                Fades[item] = fade;
+                nameRight = 44f;
+            }
+
+            TextMeshProUGUI label = Label(rt, "Name", 17f, Warm, TextAlignmentOptions.Left, new Vector2(nameX, 0f), new Vector2(width - nameX - nameRight, height));
             var labelRt = (RectTransform)label.transform;
             labelRt.anchorMin = labelRt.anchorMax = labelRt.pivot = new Vector2(0f, 0.5f);
             labelRt.anchoredPosition = new Vector2(nameX, 0f);
@@ -660,6 +693,8 @@ namespace CarturMapPins
                 d.Value.color = d.Key.Colour != 0 ? PinStyles.FromCode(d.Key.Colour) : new Color(1f, 1f, 1f, 0.12f);
                 d.Value.transform.GetChild(0).GetComponent<Image>().color = d.Key == _colourItem ? IconGrid.SelectedGold : IconGrid.Resting;
             }
+            foreach (KeyValuePair<Item, TextMeshProUGUI> f in Fades)
+                f.Value.text = f.Key.Opacity + "%";
             foreach (var (item, box, icon, label) in Rows)
             {
                 box.color = item.On ? Bronze : new Color(Bronze.r, Bronze.g, Bronze.b, 0.25f);
@@ -846,7 +881,8 @@ namespace CarturMapPins
                             (hovered.Biomes != null ? $"\n\n{Gold("Found in:")} {hovered.Biomes}" : "\n") +
                             $"\n{Gold("On by default:")} {(defaultOn ? "yes" : "no")}" +
                             (hovered.ColourEntry != null ? $"\n{Gold("Pin colour:")} {(hovered.Colour != 0 ? "#" + ColorUtility.ToHtmlStringRGB(PinStyles.FromCode(hovered.Colour)) : "none")}" : "") +
-                            (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it" + (hovered.ColourEntry != null ? ", or the square for its colour" : "") + ".</size>" : "");
+                            (hovered.OpacityEntry != null ? $"\n{Gold("Pin opacity:")} {hovered.Opacity}%" : "") +
+                            (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it" + (hovered.ColourEntry != null ? ", the square for its colour, the percentage for its opacity" : "") + ".</size>" : "");
         }
 
         private static void ShowTip(string text, Vector2 pointer)

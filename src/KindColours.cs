@@ -90,17 +90,25 @@ namespace CarturMapPins
             return ColorUtility.TryParseHtmlString("#" + entry.Value.Trim().TrimStart('#'), out Color c) ? c : (Color?)null;
         }
 
-        /// Gives every pin this mod has placed that has no colour of its own the colour of its
-        /// kind. A pin the player coloured is left as they made it. Returns how many were changed.
+        /// What a new pin of this kind gets for opacity, 1 when the setting is 100 or absent.
+        public static float OpacityFor(PinCategory category, string subtype) =>
+            Plugin.KindOpacityEntry(KeyFor(category, subtype)) is BepInEx.Configuration.ConfigEntry<int> e
+                ? Mathf.Clamp(e.Value, 10, 100) / 100f : 1f;
+
+        /// Gives every pin this mod has placed that has no colour (or no fade) of its own the
+        /// colour (and opacity) of its kind. A pin the player styled is left as they made it.
+        /// Returns how many were changed.
         private static readonly System.Reflection.FieldInfo UpdateRequired =
             HarmonyLib.AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
 
-        public static int ApplyToExisting(Dictionary<string, int> pending = null)
+        public static int ApplyToExisting(Dictionary<string, int> pending = null, Dictionary<string, int> pendingOpacity = null)
         {
             int changed = 0;
             foreach (KeyValuePair<Vector3, string> record in PinRecord.AllPositionsAndKeys())
             {
-                if (PinStyles.For(record.Key).Colour != 0)
+                PinStyles.Style style = PinStyles.For(record.Key);
+                bool needColour = style.Colour == 0, needAlpha = Mathf.Approximately(style.Alpha, 1f);
+                if (!needColour && !needAlpha)
                     continue;
                 string[] parts = (record.Value ?? string.Empty).Split(new[] { ':' }, 2);
                 if (parts.Length != 2 || !System.Enum.TryParse(parts[0], out PinCategory category))
@@ -111,10 +119,22 @@ namespace CarturMapPins
                 Color? colour = pending != null && pending.TryGetValue(key, out int code)
                     ? (code == 0 ? (Color?)null : PinStyles.FromCode(code))
                     : For(category, parts[1]);
-                if (!colour.HasValue)
+                float alpha = pendingOpacity != null && pendingOpacity.TryGetValue(key, out int percent)
+                    ? percent / 100f
+                    : OpacityFor(category, parts[1]);
+                bool touched = false;
+                if (needColour && colour.HasValue)
+                {
+                    style.Colour = PinStyles.ToCode(colour.Value);
+                    touched = true;
+                }
+                if (needAlpha && alpha < 1f)
+                {
+                    style.Alpha = alpha;
+                    touched = true;
+                }
+                if (!touched)
                     continue;
-                PinStyles.Style style = PinStyles.For(record.Key);
-                style.Colour = PinStyles.ToCode(colour.Value);
                 PinStyles.Set(record.Key, style);
                 changed++;
             }

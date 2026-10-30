@@ -1371,6 +1371,15 @@ namespace CarturMapPins
                 PinStyles.Set(pos, style);
             }
 
+            // Same rule for the kind's default opacity: only a pin with no fade of its own.
+            float kindAlpha = KindColours.OpacityFor(category, subtype);
+            if (kindAlpha < 1f && Mathf.Approximately(PinStyles.For(pos).Alpha, 1f))
+            {
+                PinStyles.Style style = PinStyles.For(pos);
+                style.Alpha = kindAlpha;
+                PinStyles.Set(pos, style);
+            }
+
             // Both the source and the written text go into the record, so a later language change
             // can re-word this pin and still tell our own wording from a hand rename.
             PinRecord.Add(key, pos, label, written);

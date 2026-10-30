@@ -661,7 +661,20 @@ namespace CarturMapPins
             if (button == null || slot == null || target == null)
                 return;
             button.transition = slot.transition;
-            button.colors = slot.colors;
+            // The ColorBlock is NOT copied from the slot at runtime any more. The picker's icons
+            // and its "Visible" label are this Button's target graphic, and ColorTint multiplies
+            // them by normalColor, so whatever a modpack's inventory mod does to the slot
+            // prefab's colours (a dark normalColor) darkened our white icons and text with it
+            // (Nexus report, Valheim Collection, 2.0). Vanilla's measured values are fixed
+            // instead: 0.86 rest, 1.0 hover, 0.72 pressed, 0.1 s, as in the comment above.
+            ColorBlock block = ColorBlock.defaultColorBlock;
+            block.normalColor = new Color(0.86f, 0.86f, 0.86f, 1f);
+            block.highlightedColor = Color.white;
+            block.selectedColor = Color.white;
+            block.pressedColor = new Color(0.72f, 0.72f, 0.72f, 1f);
+            block.fadeDuration = 0.1f;
+            block.colorMultiplier = 1f;
+            button.colors = block;
             button.spriteState = slot.spriteState;
             button.targetGraphic = target;
             SlotSounds(button.gameObject);

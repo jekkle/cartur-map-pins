@@ -40,7 +40,9 @@ The menu opens on your own settings, and pressing Done writes only what you chan
 
 Shift-click a pin and the editor has a **colour wheel**, a brightness bar, your **last five colours** and an Original button. The same wheel is in Hugin's menu, beside every item.
 
-With **New default colours** on (`General / NewDefaultColours`), every new pin takes the colour of the thing it marks: copper brown, tin pale, each berry its own colour, a Fuling village orange, Eikthyr lightning blue, and so on, a colour for every kind. Only pins placed from then on are affected. The **Apply to existing pins** button in Hugin's menu (or `carturpins_applycolours`) gives the pins already on your map the same colours, leaving any you coloured yourself. Every kind's colour is a setting of its own under *Kind Colours*, as a hex code.
+With **New default colours** on (`General / NewDefaultColours`), every new pin takes the colour of the thing it marks: copper brown, tin pale, each berry its own colour, a Fuling village orange, Eikthyr lightning blue, and so on, a colour for every kind. Only pins placed from then on are affected. The **Apply to existing pins** button in Hugin's menu (or `carturpins_applycolours`) gives the pins already on your map the same colours, leaving any colour you chose yourself. Every kind's colour is a setting of its own under *Kind Colours*, as a hex code.
+
+Opacity works the same way. Click the percentage next to a kind's colour in Hugin's menu to step it through 100, 75, 50 and 25; it is saved when you press Done, applies to new pins, and **Apply to existing pins** applies it to pins you have not faded yourself. Each kind's opacity is a setting under *Kind Opacity*.
 
 ![The colour wheel in the pin editor](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/colour-wheel-2.0.jpg)
 
@@ -156,7 +158,7 @@ It is a spelled-out dropdown rather than a tick box on purpose, because a stray 
 | `carturpins_clear` | Removes every pin this mod placed. |
 | `carturpins_reicon` | Resets this mod's pins to their category's current icon. Hand-placed pins are left alone. |
 | `carturpins_setup` | Opens Hugin's setup menu. |
-| `carturpins_applycolours` | Gives pins you have not coloured the default colour of their kind. |
+| `carturpins_applycolours` | Gives pins you have not coloured or faded the default colour and opacity of their kind. |
 | `carturpins_count` | How many are on record. |
 | `carturpins_forget_missing` | Forgets records whose pin is gone, so those places can be pinned again. |
 | `carturpins_dedupe` | Removes leftover duplicate pins no record points at. Counts only, unless you pass `yes`. |
