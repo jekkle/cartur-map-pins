@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.1.0
+
+**Overlapping map names, fixed properly.**
+- Name collision now uses the size of the text. It used the 32 px icon box, so names that did not overlap hid each other and names that did were left on top of each other.
+- Pointing at a pin reveals only the pin nearest the cursor, and names are decided again when the map is at rest.
+- Measured on a portal 14-22 m from a dungeon: text overlap went from 26-65 px to 0 at the zoom levels tested (one pair kept 7 px at the widest zoom).
+- **Names are 30% smaller by default.** New setting `General / LabelScale` (default 0.7, range 0.3-2.0, applies at once). Because it is a new setting, existing players get 0.7 too; set it to 1 for the game's size.
+- **Pins that stand for a group draw without a name** (cluster badges, merged repeats, crowded patches); point at one and its name shows. `General / HideGroupedLabels`, on by default.
+- **Smoother name fades.** A fade now takes 0.2 s with an ease instead of about 0.07 s, names settle 0.3 s after you stop zooming, and the names of grouped pins stay up while you zoom in. The biggest per-frame jump in a name's opacity went from 0.37 to about 0.19-0.25.
+
+**H shows where you are, not where you are going.** The bar now says the current state (All Pins, Mine Only, Auto Only, None) instead of what the next press does.
+
+**New H mode: Auto only.** The cycle is All, Mine only, Auto only, None. Auto only shows just the pins this mod placed.
+
+**Icon names on hover.** Pointing at an icon in the map's icon picker and in Hugin's picker shows its name, in your language when your translation file has the key.
+
+**Hugin's setup menu:**
+- It waits until Hugin has finished talking before it opens; it used to open over his speech.
+- Pin names and descriptions follow your translation file. New keys `carturpins_desc_*` and `carturpins_row_*` are in `carturpins_names_english_template.txt`; an older template gets them appended the next time the game starts. Page titles, buttons and the welcome text are not translated.
+
+**Hide emptied chests.** New setting `Chest / LootedDisplay`: Faded (the default, as before) or Hidden. Hidden does not draw the pin of an opened, emptied chest, and brings it back if the chest is filled again. Config only, no menu entry.
+
+Not yet tested: multiplayer or a dedicated server, Epic Loot, gamepad, `LabelScale` at 0.3 and 2.0, and how the fades look on screen (only their numbers were measured).
+
 ## 2.0.1
 
 **Fix: the icon picker was almost invisible with a UI reskin mod such as AugaLite.** The picker copied the colours of the inventory slot's button, and AugaLite makes those a faint grey, so our white icons (and the "Visible to other players" label) were tinted to near nothing. The picker now uses its own fixed colours, so it looks the same with or without a UI mod. Checked with Auga 1.0.5 installed: icons draw at the same grey as without it.

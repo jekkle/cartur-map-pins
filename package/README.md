@@ -48,7 +48,7 @@ Opacity works the same way. Click the percentage next to a kind's colour in Hugi
 
 ## On the map screen
 
-- **Hide pins with H.** First press hides every pin, the second shows only the ones you placed, the third shows them all again. Names go with the pins. Nothing is deleted. The key is a setting (`General / HidePinsKey`), and the bottom bar always says what the next press does.
+- **Hide pins with H.** Each press steps through All Pins, Mine Only (the ones you placed), Auto Only (only the ones this mod placed), None, and back to All. Names go with the pins. Nothing is deleted. The key is a setting (`General / HidePinsKey`), and the bottom bar always says which state you are in now.
 - **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
 - **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
 - Zooming is smooth: pins and names fade rather than flicker or jump.
@@ -57,7 +57,7 @@ Opacity works the same way. Click the percentage next to a kind's colour in Hugi
 
 ![Favourites and Recent rows](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/favourites-2.0.jpg)
 
-![The three states of H](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/hide-pins-2.0.jpg)
+![The H states as of 2.0 (2.1 adds Auto Only)](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/hide-pins-2.0.jpg)
 
 ## Portals
 
@@ -100,7 +100,7 @@ Only what is drawn changes. The saved name stays, so search, the rename box and 
 
 ## Names and languages
 
-Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through `carturpins_names_<language>.txt`. `carturpins_names_english_template.txt` is written to `BepInEx/config` the first time you start the game. Copy it to `carturpins_names_french.txt` (or `german`, `spanish`, and so on: the game's own language name), translate the text after each `=` and restart the game. `carturpins_labels.txt` is for short labels, not translation.
+Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through `carturpins_names_<language>.txt`. `carturpins_names_english_template.txt` is written to `BepInEx/config` the first time you start the game. Copy it to `carturpins_names_french.txt` (or `german`, `spanish`, and so on: the game's own language name), translate the text after each `=` and restart the game. The same file translates the names and descriptions in Hugin's setup menu (`carturpins_desc_*` and `carturpins_row_*`; page titles, buttons and the welcome text are not translated) and the name shown when you point at an icon in the icon pickers. An older template gets the new keys appended the next time the game starts. `carturpins_labels.txt` is for short labels, not translation.
 
 What counts as ore, a beehive or a pickable is worked out at runtime from components rather than from a list of prefab names, which is why it should survive game updates and pick up modded content. Player-built beehives and containers are never pinned.
 
@@ -115,6 +115,8 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `AutoPinningKey` | F8 | Key that toggles `AutoPinning` in game. |
 | `ShowPinLabels` | true | Draw the name under each pin this mod places. Your own pins keep their names. |
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
+| `HideGroupedLabels` | true | No name on a pin that stands for a group (cluster badge, merged repeat, crowded patch); point at it and the name shows. |
+| `LabelScale` | 0.7 | How big names are drawn, 0.3 to 2. 1 is the game's own size. Applies at once. |
 | `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
@@ -132,6 +134,7 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `Pickables / TintBerriesByType` | true | Colour berry bush pins by their berry. |
 | `Ore / ForgetMined` | true | Remove an ore pin once its deposit is mined out. |
 | `Chest / LootedIcon` | Chest open | Icon an emptied chest switches to. |
+| `Chest / LootedDisplay` | Faded | Faded keeps an emptied chest's pin at half strength; Hidden does not draw it until the chest is filled again. |
 | `Dungeon / TickWhenLooted` | true | Tick a dungeon off once it is cleared. |
 | `Home / ReplaceBedMarker` | true | Give vanilla's spawn marker the same house icon. |
 | `CustomIcons / MapPicker` | true | Show the icon grid on the large map. |

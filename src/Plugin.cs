@@ -15,7 +15,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.0.1";
+        public const string PluginVersion = "2.1.0";
 
         internal static ManualLogSource Log;
 
