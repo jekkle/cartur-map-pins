@@ -12,8 +12,8 @@ namespace CarturMapPins
     /// cloned from the game's own Ping and Add pin ones, so spacing, font and fitting are the
     /// game's. The key image becomes a drawn key cap, since there is no sprite for a letter.
     ///
-    /// The H entry names what the NEXT press does, so it is always true: all pins showing, "Hide
-    /// Pins"; all hidden, "My Pins Only"; only my pins showing, "Show All Pins".
+    /// The H entry names what the map is showing NOW (owner, 2026-10-30; it used to name the next
+    /// press, which read as the current state to totya).
     internal static class MapHints
     {
         private static GameObject _hide, _change;
@@ -31,7 +31,7 @@ namespace CarturMapPins
             }
             if (_hideLabel == null)
                 return;
-            string text = NextAction();
+            string text = CurrentState();
             if (_hideLabel.text != text)
                 _hideLabel.text = text;
             string key = KeyName(Plugin.HidePinsKey.Value.MainKey);
@@ -39,13 +39,14 @@ namespace CarturMapPins
                 _hideKey.text = key;
         }
 
-        private static string NextAction()
+        private static string CurrentState()
         {
             switch (PinHiding.Cycle)
             {
-                case PinHiding.Shown.None: return "My Pins Only";
-                case PinHiding.Shown.Yours: return "Show All Pins";
-                default: return "Hide Pins";
+                case PinHiding.Shown.Yours: return "Mine Only";
+                case PinHiding.Shown.Auto: return "Auto Only";
+                case PinHiding.Shown.None: return "None";
+                default: return "All Pins";
             }
         }
 
@@ -69,7 +70,7 @@ namespace CarturMapPins
             _hide = Object.Instantiate(ping.gameObject, row);
             _hide.name = "CarturHidePins";
             _hideLabel = _hide.transform.Find("Label").GetComponent<TextMeshProUGUI>();
-            _hideLabel.text = NextAction();
+            _hideLabel.text = CurrentState();
             AddGap(_hide);
             _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 30f, true);
 

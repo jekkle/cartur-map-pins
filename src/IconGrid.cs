@@ -606,6 +606,7 @@ namespace CarturMapPins
 
             // Hover is the inventory's tint on the icon plus the lift; the frame is selection only.
             cell.AddComponent<CellHover>().Bind(null);
+            cell.AddComponent<IconTip>().Text = NameOf(index);
 
             AddStar(cell, index);
 
@@ -645,6 +646,76 @@ namespace CarturMapPins
             }
 
             return border;
+        }
+
+        private static readonly string[] CategoryPrefixes =
+            { "Spawner", "Dungeon", "Poi", "Npc", "Boss", "Util", "Plant", "Mushroom", "Resource", "Ore", "Creature" };
+
+        /// What an icon is called, for its hover tip: the PinIcon name without its category prefix,
+        /// split into words ("DungeonSunkenCrypt" -> "Sunken Crypt"), in the player's language when
+        /// the translation file (or the game) has the name. The old sheet has no enum, only the
+        /// names LegacyIconNames kept. Null when there is none.
+        internal static string NameOf(int index)
+        {
+            string raw = index < CustomIcons.Count
+                ? ((PinIcon)index).ToString()
+                : LegacyIconNames.NameFor((PinIcon)(LegacyIconNames.LegacyBase + index - CustomIcons.Count));
+            if (string.IsNullOrEmpty(raw))
+                return null;
+            foreach (string prefix in CategoryPrefixes)
+            {
+                if (raw.Length > prefix.Length && raw.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    // "Common" alone says nothing, "Common Mushroom" does.
+                    raw = prefix == "Mushroom" ? raw.Substring(prefix.Length) + "Mushroom" : raw.Substring(prefix.Length);
+                    break;
+                }
+            }
+            string english = System.Text.RegularExpressions.Regex.Replace(raw, "(?<=[a-z])(?=[A-Z])", " ");
+            return Translations.IsRegistered(english) ? Labels.Localize(Translations.Token(english)) : english;
+        }
+
+        /// The icon's name in the setup menu's hover box, following the pointer while it is on the
+        /// cell. One box for the whole game, built under whichever canvas the cell is in (the map's
+        /// or the setup menu's) and rebuilt when that canvas changes.
+        private sealed class IconTip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+        {
+            public string Text;
+            private static RectTransform _tip;
+            private static TextMeshProUGUI _label;
+            private static IconTip _over;
+
+            public void OnPointerEnter(PointerEventData eventData)
+            {
+                if (string.IsNullOrEmpty(Text))
+                    return;
+                RectTransform root = (RectTransform)GetComponentInParent<Canvas>().rootCanvas.transform;
+                if (_tip == null || _tip.parent != root)
+                {
+                    if (_tip != null)
+                        Destroy(_tip.gameObject);
+                    _tip = SetupMenu.NewTip(root, 240f, out _label);
+                }
+                _over = this;
+            }
+
+            public void OnPointerExit(PointerEventData eventData) => Hide();
+            private void OnDisable() => Hide();
+
+            private void Hide()
+            {
+                if (_over != this)
+                    return;
+                _over = null;
+                if (_tip != null)
+                    _tip.gameObject.SetActive(false);
+            }
+
+            private void Update()
+            {
+                if (_over == this && _tip != null)
+                    SetupMenu.PlaceTip(_tip, _label, (RectTransform)_tip.parent, CameraFor(gameObject), 240f, Text, ZInput.pointerPosition);
+            }
         }
 
         /// Gives a cell the inventory's own hover: InventoryElement keeps its look in the Button's

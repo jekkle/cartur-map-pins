@@ -157,10 +157,12 @@ Fully quit and relaunch Valheim afterwards — BepInEx only scans plugins at sta
 ### User files (all in `BepInEx/config`, written on first launch)
 
 - `carturpins_names_english_template.txt` — every name the mod invents ("Sunken Crypt",
-  "Copper"...). Copy it to `carturpins_names_<language>.txt` using the game's own language
+  "Copper"...), plus the names and descriptions in Hugin's setup menu (`carturpins_desc_*`,
+  `carturpins_row_*`). Copy it to `carturpins_names_<language>.txt` using the game's own language
   name (`french`, `german`...), translate the text after each `=`, restart the game. Names
   the game already has (berries, traders, creatures, locations) follow the game language
-  with no file.
+  with no file. The same names show as the hover name on every icon in the icon pickers. An older
+  template gets the new keys appended at its end the next time the game starts.
 - `carturpins_labels.txt` — your own short labels (`Pickable:Raspberry=R{qty}`). Every line
   starts commented out. Not a translation file.
 

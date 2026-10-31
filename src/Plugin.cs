@@ -164,6 +164,15 @@ namespace CarturMapPins
             HideCollidingLabels = Config.Bind(Sections.Of("General", "HideCollidingLabels"), "HideCollidingLabels", true,
                 "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
 
+            LabelScale = Config.Bind(Sections.Of("General", "LabelScale"), "LabelScale", 0.7f,
+                new ConfigDescription("How big pin names are drawn, as a fraction of the game's own size (the default is 0.7, 30% smaller than before). 1 is the game's size. Changes show at once.",
+                    new AcceptableValueRange<float>(0.3f, 2f), Attr(order: 5)));
+            LabelScale.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
+
+            HideGroupedLabels = Config.Bind(Sections.Of("General", "HideGroupedLabels"), "HideGroupedLabels", true,
+                "Draw no name on a pin that stands for a group - a cluster badge, a merged repeat, or one of the crowded pins that are drawn smaller - and show it when you point at the pin. Ungrouped pins keep their names.");
+            HideGroupedLabels.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
+
             // The only control here that reaches pins already on the map: turning a category off
             // stops new pins and leaves the old ones; this puts them away and brings them back,
             // with nothing lost either way.
@@ -322,6 +331,10 @@ namespace CarturMapPins
                 new ConfigDescription(
                     "Icon a chest pin switches to once you've emptied it, so cleared chests are distinguishable at a glance. Default leaves looted chests on the normal chest icon.",
                     null, IconAttr(order: 1))));
+            LootedChestDisplay = Config.Bind(Sections.Of("Chest", "LootedDisplay"), "LootedDisplay", LootedDisplayMode.Faded,
+                new ConfigDescription(
+                    "What a chest pin does once the chest is empty. Faded: it stays on the map at half strength. Hidden: it is not drawn until the chest is filled again. Needs a LootedIcon other than Default, which is how an emptied chest is told apart. The pin and its record are kept either way.",
+                    null, Attr(order: 2)));
 
             Bind(PinCategory.Trader, true, Minimap.PinType.Icon3, 5f,
                 "Traders (Haldor, Hildir, the Bog Witch). Vanilla already marks their location with an unnamed icon; this adds a named, saved pin.",
@@ -752,6 +765,8 @@ namespace CarturMapPins
         }
 
         public static ConfigEntry<PinIcon> LootedChestIcon;
+        public enum LootedDisplayMode { Faded, Hidden }
+        public static ConfigEntry<LootedDisplayMode> LootedChestDisplay;
         public static ConfigEntry<bool> ForgetMinedOre;
         public static ConfigEntry<bool> ReplaceBedMarker;
         public static ConfigEntry<bool> TickLootedDungeons;
@@ -777,6 +792,8 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ShrinkCrowdedPins;
         public static ConfigEntry<DeleteConfirm> ConfirmDelete;
         public static ConfigEntry<bool> HideCollidingLabels;
+        public static ConfigEntry<bool> HideGroupedLabels;
+        public static ConfigEntry<float> LabelScale;
         public static ConfigEntry<string> HiddenPins;
         public static ConfigEntry<bool> ShowPinLabels;
         public static ConfigEntry<float> HideLabelsFromZoom;

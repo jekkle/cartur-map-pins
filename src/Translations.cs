@@ -125,6 +125,16 @@ namespace CarturMapPins
             // Written straight into ResolveLabel, not from a table, so it would otherwise be the one
             // auto-pin name with no way to translate it.
             English[Prefix + Key(Leviathan)] = Leviathan;
+
+            // The setup wizard's row names and descriptions.
+            SetupText.Words(English);
+        }
+
+        /// The translation of one wizard line, or its English when the key was never registered.
+        public static string Say(string key, string english)
+        {
+            Build();
+            return English.ContainsKey(key) ? Localization.instance.Localize("$" + key) : english;
         }
 
         public const string Leviathan = "Leviathan";
@@ -221,7 +231,10 @@ namespace CarturMapPins
         {
             string path = Path.Combine(directory, "carturpins_names_english_template.txt");
             if (File.Exists(path))
+            {
+                AppendMissing(path);
                 return;
+            }
 
             try
             {
@@ -245,6 +258,40 @@ namespace CarturMapPins
             catch (Exception e)
             {
                 Plugin.Log.LogWarning($"Could not write the translation template: {e.Message}");
+            }
+        }
+
+        /// A template written by an older version lacks the keys added since (the setup wizard's).
+        /// They are appended rather than rewriting the file, which a translator may have edited
+        /// in place.
+        private static void AppendMissing(string path)
+        {
+            try
+            {
+                string text = File.ReadAllText(path, Encoding.UTF8);
+                var have = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string line in text.Split('\n'))
+                {
+                    int eq = line.IndexOf('=');
+                    if (eq > 0)
+                        have.Add(line.Substring(0, eq).Trim());
+                }
+
+                var sb = new StringBuilder();
+                var keys = new List<string>(English.Keys);
+                keys.Sort(StringComparer.Ordinal);
+                foreach (string key in keys)
+                {
+                    if (!have.Contains(key))
+                        sb.AppendLine(key + "=" + English[key]);
+                }
+
+                if (sb.Length > 0)
+                    File.AppendAllText(path, "\n# Added later: the setup menu's names and descriptions.\n" + sb, new UTF8Encoding(false));
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"Could not update the translation template: {e.Message}");
             }
         }
     }

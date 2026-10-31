@@ -60,6 +60,7 @@ namespace CarturMapPins
             Shown.Clear();
             Ordered.Clear();
             NameCounts.Clear();
+            ScaleLabels(pins);
 
             // ShowPinLabels is this mod's switch for this mod's names. Through 1.8.9 it hid every
             // pin's name, so a player who turned it off also lost the names of their own pins and
@@ -106,6 +107,17 @@ namespace CarturMapPins
                 if (Crowding.OutOfSight(pin))
                     continue;
 
+                // A pin that stands for a group (a cluster badge, a merged repeat) or sits in a
+                // crowded patch (the ones the mod already shrinks) draws no name; pointing at it
+                // gives the name back. A cluster's badge is the exception to the exception: its
+                // hover popup already lists every name in it, so its own label stays off.
+                if (Plugin.HideGroupedLabels.Value && Crowding.IsGrouped(pin) &&
+                    !(ReferenceEquals(pin, PinHover.Current) && Clusters.CountOf(pin) <= 1))
+                {
+                    Hide(name);
+                    continue;
+                }
+
                 // A name that does not match the search is noise while searching, and the pin it
                 // belongs to is still on the map, dimmed.
                 if (!PinFilter.Matches(pin.m_name))
@@ -139,10 +151,16 @@ namespace CarturMapPins
             // overlap resolution cascades: B hides behind a rarer C, which frees A's spot, A comes
             // back, then collides with C and goes again (pilot mapsweep timeline, Troll Cave:
             // off/on/off/on/off in one zoom-out). Zooming out squeezes names together, so they
-            // may only go; zooming in or standing still spreads or keeps them, so a name already
-            // up stays and a hidden one comes back only where nothing that is up overlaps it.
+            // may only go; zooming in spreads or keeps them, so a name already up stays and a hidden
+            // one comes back only where nothing that is up overlaps it.
+            //
+            // Standing still (direction 0) used to be the zooming-in rule, so a name that had been
+            // forced up - by the cursor, or by a box too small to see the overlap - stayed up
+            // forever, on top of its neighbour. At rest nothing is moving, so there is no cascade
+            // to guard against: every name is decided again, in rarity order, with the same margin
+            // hysteresis, and the answer is the same on every pass until something changes.
             int direction = ZoomDirection();
-            if (hideColliding && direction <= 0)
+            if (hideColliding && direction < 0)
             {
                 foreach (Ranked ranked in Ordered)
                 {
@@ -152,16 +170,33 @@ namespace CarturMapPins
                 }
             }
 
+            // The ONE pin nearest the cursor, within RevealRadius. Every pin within the radius used
+            // to be forced on, so pointing at a pair of close pins lit both names on top of each
+            // other (the reveal is not a collision-checked label).
+            Minimap.PinData pointedAt = null;
+            float nearestPx = RevealRadius;
+            foreach (Ranked ranked in Ordered)
+            {
+                UnityEngine.UI.Image icon = ranked.Pin.m_iconElement;
+                if (icon == null)
+                    continue;
+                float px = Vector2.Distance((Vector2)icon.rectTransform.localPosition, cursor);
+                if (px < nearestPx)
+                {
+                    nearestPx = px;
+                    pointedAt = ranked.Pin;
+                }
+            }
+
             foreach (Ranked ranked in Ordered)
             {
                 Minimap.PinData pin = ranked.Pin;
                 Minimap.PinNameData name = pin.m_NamePinData;
-                Rect mine = RectOf(name.PinNameRectTransform);
+                Rect mine = RectOf(name);
 
                 // Under the cursor wins outright, including over an earlier label: pointing at a
                 // pin is asking what it is.
-                bool revealed = pin.m_iconElement != null &&
-                                Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius;
+                bool revealed = ReferenceEquals(pin, pointedAt);
 
                 // Collides only when collision hiding is on: an active search alone must dim
                 // non-matches, not also hide labels that overlap.
@@ -172,7 +207,7 @@ namespace CarturMapPins
                 bool wasShown = !known || had.Want;
                 if (hideColliding && known && !revealed)
                 {
-                    if (direction <= 0 && wasShown)
+                    if (direction < 0 && wasShown)
                     {
                         Show(name);   // already in Shown
                         continue;
@@ -194,6 +229,35 @@ namespace CarturMapPins
                 }
 
                 Hide(name);
+            }
+        }
+
+        private static float _prefabMax, _prefabMin;
+        private static readonly System.Reflection.FieldInfo NamePrefab = AccessTools.Field(typeof(Minimap), "m_pinNamePrefab");
+
+        /// Name size is the game's own prefab size times LabelScale. The prefab's label is TMP
+        /// auto-sized between 16 and 18 (measured: autosize on, min 16, max 18) and sets
+        /// fontSize itself on every layout, so a written fontSize does not stick: the min and max
+        /// are scaled instead. Only written when they differ, so a settled map costs a compare per
+        /// label. The crowding rects read the text's preferred size (RectOf), so they follow it.
+        private static void ScaleLabels(List<Minimap.PinData> pins)
+        {
+            if (_prefabMax <= 0f)
+            {
+                TMPro.TMP_Text prefab = (NamePrefab?.GetValue(Minimap.instance) as GameObject)?.GetComponentInChildren<TMPro.TMP_Text>(true);
+                if (prefab == null)
+                    return;
+                _prefabMax = prefab.fontSizeMax;
+                _prefabMin = prefab.fontSizeMin;
+            }
+            float max = _prefabMax * Plugin.LabelScale.Value, min = _prefabMin * Plugin.LabelScale.Value;
+            foreach (Minimap.PinData pin in pins)
+            {
+                TMPro.TMP_Text text = pin?.m_NamePinData?.PinNameText;
+                if (text == null || (Mathf.Approximately(text.fontSizeMax, max) && Mathf.Approximately(text.fontSizeMin, min)))
+                    continue;
+                text.fontSizeMax = max;
+                text.fontSizeMin = min;
             }
         }
 
@@ -359,7 +423,7 @@ namespace CarturMapPins
         {
             foreach (Minimap.PinNameData other in Shown)
             {
-                if (other.PinNameRectTransform != null && RectOf(other.PinNameRectTransform).Overlaps(mine))
+                if (other.PinNameRectTransform != null && RectOf(other).Overlaps(mine))
                     return true;
             }
             return false;
@@ -394,12 +458,27 @@ namespace CarturMapPins
         internal static Vector3 Pointer =>
             ZInput.IsMouseActive() ? ZInput.pointerPosition : new Vector3(Screen.width / 2, Screen.height / 2);
 
-        private static Rect RectOf(RectTransform rt)
+        /// Where the words are, in the same space as the pin's anchoredPosition.
+        ///
+        /// The label object's own rect is a 32 x 32 box ON the pin; the text is a child that hangs
+        /// BELOW it (pivot top-centre, top edge 16 below the pin, 150 wide, text centred in it).
+        /// Colliding the 32 x 32 box, as this did through 2.0.1, said nothing about two names
+        /// 33 to 75 px apart on the same row: their words overlapped and the boxes did not
+        /// (probe, Home Portal beside Sunken Crypt, 2026-10-30: text 101 px wide on a 43 px box).
+        /// TMP caches preferredWidth/Height until the text changes, so this costs no layout.
+        private static Rect RectOf(Minimap.PinNameData name)
         {
-            Vector2 pos = rt.anchoredPosition;
-            Vector2 size = rt.rect.size;
-            return new Rect(pos.x - size.x * 0.5f, pos.y - size.y * 0.5f, size.x, size.y);
+            RectTransform root = name.PinNameRectTransform;
+            Vector2 pos = root.anchoredPosition;
+            TMPro.TMP_Text text = name.PinNameText;
+            RectTransform t = text.rectTransform;
+            float w = Mathf.Min(text.preferredWidth, t.rect.width), h = text.preferredHeight;
+            float top = pos.y + t.localPosition.y + (1f - t.pivot.y) * t.rect.height;
+            float centre = pos.x + t.localPosition.x + (0.5f - t.pivot.x) * t.rect.width;
+            return new Rect(centre - w * 0.5f, top - h, w, h);
         }
+
+
     }
 
     /// Hides a new label in the same frame vanilla shows it.

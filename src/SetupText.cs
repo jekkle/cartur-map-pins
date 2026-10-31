@@ -4,6 +4,10 @@ namespace CarturMapPins
 {
     /// The hover descriptions in the setup menu. Player-facing text only; where a kind has no line
     /// of its own it gets its category's, and the biome line under it is read from the game.
+    ///
+    /// Every line here is also a translation key (Words, read by Translations.Build), so the
+    /// wizard follows the same carturpins_names_<language>.txt as the map labels. The wizard's
+    /// first version drew plain English whatever the player's file said (totya, 2026-10-30).
     internal static class SetupText
     {
         private static readonly Dictionary<string, string> Kinds = new Dictionary<string, string>
@@ -73,18 +77,77 @@ namespace CarturMapPins
             { PickableGroup.Other, "Anything you can pick that Map Pins does not recognise." },
         };
 
+        /// The wizard's own row names, for rows that are a whole category or group rather than a kind.
+        private static readonly Dictionary<PinCategory, string> RowNames = new Dictionary<PinCategory, string>
+        {
+            { PinCategory.Chest, "Chests" },
+            { PinCategory.Beehive, "Wild beehives" },
+            { PinCategory.Runestone, "Runestones" },
+            { PinCategory.LoreStone, "Lore stones" },
+            { PinCategory.Leviathan, "Leviathans" },
+            { PinCategory.Wisp, "Wisp fountains" },
+            { PinCategory.Prop, "Maypole" },
+            { PinCategory.Home, "Your bed (home)" },
+            { PinCategory.Portal, "Portals" },
+        };
+
+        private static readonly Dictionary<PickableGroup, string> GroupNames = new Dictionary<PickableGroup, string>
+        {
+            { PickableGroup.HighValue, "Valuable finds" },
+            { PickableGroup.Berries, "Berries and mushrooms" },
+            { PickableGroup.Crops, "Crops and herbs" },
+            { PickableGroup.Junk, "Branches, stones and flint" },
+            { PickableGroup.Other, "Anything else you can pick" },
+        };
+
+        private const string GiantArmorName = "Giant swords and helmets";
+
+        private static string Key(string kind, object part) => Translations.Prefix + kind + "_" + Translations.Key(part.ToString());
+
+        /// Every English line above as (key, text), for Translations to register and put in the template.
+        public static void Words(Dictionary<string, string> into)
+        {
+            foreach (var kv in Kinds) into[Key("desc", kv.Key)] = kv.Value;
+            foreach (var kv in Categories) into[Key("desc_category", kv.Key)] = kv.Value;
+            foreach (var kv in Groups) into[Key("desc_group", kv.Key)] = kv.Value;
+            foreach (var kv in GroupNames) into[Key("row_group", kv.Key)] = kv.Value;
+            into[Key("row", PinCatalog.GiantArmor)] = GiantArmorName;
+            foreach (var kv in RowNames)
+            {
+                into[Key("row", kv.Key)] = kv.Value;
+                // The row's description is the category's own config text, read when the keys are built.
+                string config = Plugin.SettingsFor(kv.Key)?.Enabled.Description.Description;
+                if (!string.IsNullOrEmpty(config))
+                    into[Key("desc_row", kv.Key)] = FirstSentence(config);
+            }
+        }
+
+        public static string KindName(string kind) =>
+            kind == PinCatalog.GiantArmor ? Translations.Say(Key("row", kind), GiantArmorName)
+            : Labels.Localize(Translations.Token(kind));
+
+        public static string RowName(PinCategory category) => Translations.Say(Key("row", category), RowNames[category]);
+
+        public static string GroupName(PickableGroup group) => Translations.Say(Key("row_group", group), GroupNames[group]);
+
         public static string For(string kind, PinCategory category) =>
-            Kinds.TryGetValue(kind, out string text) ? text
-            : Categories.TryGetValue(category, out string general) ? general
+            Kinds.TryGetValue(kind, out string text) ? Translations.Say(Key("desc", kind), text)
+            : Categories.TryGetValue(category, out string general) ? Translations.Say(Key("desc_category", category), general)
             : "";
 
         public static string ForGroup(PickableGroup group) =>
-            Groups.TryGetValue(group, out string text) ? text : "";
+            Groups.TryGetValue(group, out string text) ? Translations.Say(Key("desc_group", group), text) : "";
 
         /// A category's own settings description, up to its first full stop: the config text is
         /// already written for players, and the rest of it is about defaults, which the menu shows
         /// on its own line.
         public static string ForCategory(PinCategory category, string configText)
+        {
+            string english = FirstSentence(configText);
+            return english.Length == 0 ? "" : Translations.Say(Key("desc_row", category), english);
+        }
+
+        private static string FirstSentence(string configText)
         {
             if (string.IsNullOrEmpty(configText))
                 return "";

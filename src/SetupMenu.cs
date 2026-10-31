@@ -65,14 +65,26 @@ namespace CarturMapPins
             private static void Postfix(Player __instance, string name)
             {
                 if (name == Key)
-                    __instance.StartCoroutine(OpenAfter(4f));
+                    __instance.StartCoroutine(OpenAfterTalk());
             }
         }
 
-        /// Hugin's line goes up in his speech bubble first; the menu follows once it can be read.
-        private static System.Collections.IEnumerator OpenAfter(float seconds)
+        /// Raven.Talk (decompiled) calls SetSeenTutorial BEFORE Say, so at this postfix Hugin's
+        /// speech bubble does not exist yet: wait for it, then until Chat reports no
+        /// dialog for him (it clears on the timeout, or when the player clicks him again). The
+        /// menu used to open on a fixed timer and landed on top of his text.
+        private static System.Collections.IEnumerator OpenAfterTalk()
         {
-            yield return new WaitForSecondsRealtime(seconds);
+            Raven raven = Object.FindFirstObjectByType<Raven>();
+            if (raven != null && Chat.instance != null)
+            {
+                // The bubble turns visible on Chat's next update, so give it up to a second to appear.
+                for (float waited = 0f; waited < 1f && !Chat.instance.IsDialogVisible(raven.gameObject); waited += Time.unscaledDeltaTime)
+                    yield return null;
+                // Capped: his long line is up for 10 s, so 20 s only passes if something holds it.
+                for (float waited = 0f; raven != null && waited < 20f && Chat.instance.IsDialogVisible(raven.gameObject); waited += Time.unscaledDeltaTime)
+                    yield return null;
+            }
             Open();
         }
 
@@ -109,12 +121,6 @@ namespace CarturMapPins
             public bool[] Snapshot;
         }
 
-        /// Player-facing names where the config key is not one.
-        private static readonly Dictionary<string, string> Names = new Dictionary<string, string>
-        {
-            { PinCatalog.GiantArmor, "Giant swords and helmets" },
-        };
-
         private static List<Page> BuildPages()
         {
             _sharing = Plugin.PinSharing.Value;
@@ -132,26 +138,26 @@ namespace CarturMapPins
             pages.Add(bosses);
 
             Page picks = new Page { Title = "Berries and things to pick" };
-            AddGroup(picks, PickableGroup.HighValue, "Valuable finds");
-            AddGroup(picks, PickableGroup.Berries, "Berries and mushrooms");
-            AddGroup(picks, PickableGroup.Crops, "Crops and herbs");
-            AddGroup(picks, PickableGroup.Junk, "Branches, stones and flint");
-            AddGroup(picks, PickableGroup.Other, "Anything else you can pick");
+            AddGroup(picks, PickableGroup.HighValue);
+            AddGroup(picks, PickableGroup.Berries);
+            AddGroup(picks, PickableGroup.Crops);
+            AddGroup(picks, PickableGroup.Junk);
+            AddGroup(picks, PickableGroup.Other);
             pages.Add(picks);
 
             pages.Add(KindPage("Landmarks", PinCategory.Landmark, Subtypes.Landmarks));
             pages.Add(KindPage("Creature spawners", PinCategory.Spawner, Subtypes.Spawners));
 
             Page other = new Page { Title = "Everything else" };
-            AddCategory(other, PinCategory.Chest, "Chests");
-            AddCategory(other, PinCategory.Beehive, "Wild beehives");
-            AddCategory(other, PinCategory.Runestone, "Runestones");
-            AddCategory(other, PinCategory.LoreStone, "Lore stones");
-            AddCategory(other, PinCategory.Leviathan, "Leviathans");
-            AddCategory(other, PinCategory.Wisp, "Wisp fountains");
-            AddCategory(other, PinCategory.Prop, "Maypole");
-            AddCategory(other, PinCategory.Home, "Your bed (home)");
-            AddCategory(other, PinCategory.Portal, "Portals");
+            AddCategory(other, PinCategory.Chest);
+            AddCategory(other, PinCategory.Beehive);
+            AddCategory(other, PinCategory.Runestone);
+            AddCategory(other, PinCategory.LoreStone);
+            AddCategory(other, PinCategory.Leviathan);
+            AddCategory(other, PinCategory.Wisp);
+            AddCategory(other, PinCategory.Prop);
+            AddCategory(other, PinCategory.Home);
+            AddCategory(other, PinCategory.Portal);
             AddKinds(other, PinCategory.Trader, Subtypes.Traders, "Traders");
             pages.Add(other);
 
@@ -188,7 +194,7 @@ namespace CarturMapPins
                 ConfigEntry<PinIcon> iconEntry = Plugin.KindIcon(e.Name);
                 page.Items.Add(new Item
                 {
-                    Name = Names.TryGetValue(e.Name, out string n) ? n : e.Name,
+                    Name = SetupText.KindName(e.Name),
                     IconEntry = iconEntry,
                     Icon = iconEntry != null ? (int)iconEntry.Value : -1,
                     DefaultIcon = iconEntry != null ? (int)(PinIcon)iconEntry.DefaultValue : -1,
@@ -206,14 +212,14 @@ namespace CarturMapPins
             }
         }
 
-        private static void AddCategory(Page page, PinCategory category, string name)
+        private static void AddCategory(Page page, PinCategory category)
         {
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             if (settings == null)
                 return;
             page.Items.Add(new Item
             {
-                Name = name, IconEntry = settings.IconIndex, Icon = (int)settings.IconIndex.Value,
+                Name = SetupText.RowName(category), IconEntry = settings.IconIndex, Icon = (int)settings.IconIndex.Value,
                 DefaultIcon = (int)(PinIcon)settings.IconIndex.DefaultValue, FallbackIcon = -1,
                 Description = SetupText.ForCategory(category, settings.Enabled.Description.Description),
                 Entry = settings.Enabled, Category = category, On = settings.Enabled.Value,
@@ -221,7 +227,7 @@ namespace CarturMapPins
             });
         }
 
-        private static void AddGroup(Page page, PickableGroup group, string name)
+        private static void AddGroup(Page page, PickableGroup group)
         {
             ConfigEntry<bool> entry = Plugin.PickableSwitch(group);
             Plugin.CategorySettings pick = Plugin.SettingsFor(PinCategory.Pickable);
@@ -229,7 +235,7 @@ namespace CarturMapPins
                 return;
             page.Items.Add(new Item
             {
-                Name = name, Entry = entry,
+                Name = SetupText.GroupName(group), Entry = entry,
                 IconEntry = Plugin.PickableIcon(group),
                 Icon = Plugin.PickableIcon(group) != null ? (int)Plugin.PickableIcon(group).Value : -1,
                 DefaultIcon = Plugin.PickableIcon(group) != null ? (int)(PinIcon)Plugin.PickableIcon(group).DefaultValue : -1,
@@ -818,15 +824,20 @@ namespace CarturMapPins
 
         private const float TipWidth = 340f;
 
-        private static void BuildTip()
+        private static void BuildTip() => _tip = NewTip(_root.transform, TipWidth, out _tipText);
+
+        /// The hover pop-up, also used by the icon grids (IconGrid.IconTip) so a cell's name wears
+        /// the same box as a row's description.
+        internal static RectTransform NewTip(Transform root, float width, out TextMeshProUGUI text)
         {
-            _tip = Box(_root.transform, "Tip", new Color(0.02f, 0.02f, 0.015f, 0.96f), new Vector2(TipWidth, 10f));
-            _tip.anchorMin = _tip.anchorMax = new Vector2(0.5f, 0.5f);
-            _tip.pivot = new Vector2(0f, 1f);
-            Edge(_tip, true);
-            _tipText = Label(_tip, "Text", 16f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(TipWidth - 28f, 10f));
-            _tipText.textWrappingMode = TextWrappingModes.Normal;
-            _tip.gameObject.SetActive(false);
+            RectTransform tip = Box(root, "Tip", new Color(0.02f, 0.02f, 0.015f, 0.96f), new Vector2(width, 10f));
+            tip.anchorMin = tip.anchorMax = new Vector2(0.5f, 0.5f);
+            tip.pivot = new Vector2(0f, 1f);
+            Edge(tip, true);
+            text = Label(tip, "Text", 16f, Warm, TextAlignmentOptions.TopLeft, new Vector2(14f, -12f), new Vector2(width - 28f, 10f));
+            text.textWrappingMode = TextWrappingModes.Normal;
+            tip.gameObject.SetActive(false);
+            return tip;
         }
 
         private static string Gold(string text) => $"<color=#{ColorUtility.ToHtmlStringRGB(Bronze)}>{text}</color>";
@@ -885,20 +896,24 @@ namespace CarturMapPins
                             (hovered.IconEntry != null ? "\n\n<size=14><alpha=#99>Click the icon to change it" + (hovered.ColourEntry != null ? ", the square for its colour, the percentage for its opacity" : "") + ".</size>" : "");
         }
 
-        private static void ShowTip(string text, Vector2 pointer)
-        {
-            _tipText.text = text;
-            float height = _tipText.GetPreferredValues(_tipText.text, TipWidth - 28f, 0f).y + 26f;
-            ((RectTransform)_tipText.transform).sizeDelta = new Vector2(TipWidth - 28f, height);
-            _tip.sizeDelta = new Vector2(TipWidth, height);
+        private static void ShowTip(string text, Vector2 pointer) =>
+            PlaceTip(_tip, _tipText, (RectTransform)_root.transform, null, TipWidth, text, pointer);
 
-            var root = (RectTransform)_root.transform;
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, pointer, null, out Vector2 local);
+        /// Sizes the pop-up to its text and puts it just right of the pointer, kept on screen.
+        internal static void PlaceTip(RectTransform tip, TextMeshProUGUI label, RectTransform root, Camera camera,
+                                      float width, string text, Vector2 pointer)
+        {
+            label.text = text;
+            float height = label.GetPreferredValues(label.text, width - 28f, 0f).y + 26f;
+            ((RectTransform)label.transform).sizeDelta = new Vector2(width - 28f, height);
+            tip.sizeDelta = new Vector2(width, height);
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(root, pointer, camera, out Vector2 local);
             Vector2 half = root.rect.size * 0.5f;
-            _tip.anchoredPosition = new Vector2(Mathf.Min(local.x + 24f, half.x - TipWidth - 8f),
-                                                Mathf.Max(local.y - 8f, -half.y + height + 8f));
-            _tip.SetAsLastSibling();
-            _tip.gameObject.SetActive(true);
+            tip.anchoredPosition = new Vector2(Mathf.Min(local.x + 24f, half.x - width - 8f),
+                                               Mathf.Max(local.y - 8f, -half.y + height + 8f));
+            tip.SetAsLastSibling();
+            tip.gameObject.SetActive(true);
         }
 
         // ---- building blocks ------------------------------------------------------------------
