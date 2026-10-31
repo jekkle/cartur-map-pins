@@ -93,6 +93,7 @@ namespace CarturMapPins
             if (!hideColliding && !PinFilter.Active)
                 return;
 
+            int direction = ZoomDirection();
             foreach (Minimap.PinData pin in pins)
             {
                 Minimap.PinNameData name = pin?.m_NamePinData;
@@ -111,8 +112,19 @@ namespace CarturMapPins
                 // crowded patch (the ones the mod already shrinks) draws no name; pointing at it
                 // gives the name back. A cluster's badge is the exception to the exception: its
                 // hover popup already lists every name in it, so its own label stays off.
-                if (Plugin.HideGroupedLabels.Value && Crowding.IsGrouped(pin) &&
-                    !(ReferenceEquals(pin, PinHover.Current) && Clusters.CountOf(pin) <= 1))
+                //
+                // Grouped is decided per grid level, and a pin can be alone at one level and
+                // crowded at the next (the rarest-first winner of a patch changes as repeats
+                // merge, measured: one pin grouped at zoom 0.065, free at 0.134, grouped again
+                // at 0.096 on the way back), so its name went off and on as the zoom passed
+                // levels. Zooming in only ever brings names back, so a name that is up stays up
+                // until the zoom rests, then this decides it; the collision rule below does the
+                // same for names that overlap.
+                bool grouped = Plugin.HideGroupedLabels.Value && Crowding.IsGrouped(pin) &&
+                    !(ReferenceEquals(pin, PinHover.Current) && Clusters.CountOf(pin) <= 1);
+                if (grouped && direction < 0 && Fades.TryGetValue(name.PinNameGameObject, out Fade up) && up.Want)
+                    grouped = false;
+                if (grouped)
                 {
                     Hide(name);
                     continue;
@@ -159,7 +171,6 @@ namespace CarturMapPins
             // forever, on top of its neighbour. At rest nothing is moving, so there is no cascade
             // to guard against: every name is decided again, in rarity order, with the same margin
             // hysteresis, and the answer is the same on every pass until something changes.
-            int direction = ZoomDirection();
             if (hideColliding && direction < 0)
             {
                 foreach (Ranked ranked in Ordered)
@@ -329,6 +340,9 @@ namespace CarturMapPins
         {
             public CanvasGroup Group;
             public bool Want;
+            /// How far through the fade it is, 0 to 1, moved at a steady rate by Step. The alpha
+            /// drawn is its smoothstep, so a name eases in and out instead of lunging.
+            public float Level;
         }
 
         private static readonly ConditionalWeakTable<GameObject, Fade> Fades = new ConditionalWeakTable<GameObject, Fade>();
@@ -336,7 +350,13 @@ namespace CarturMapPins
 
         /// 12% of the label's size, inside the 8-15% band from research/pin-clustering/ux_reference.md.
         private const float Margin = 0.12f;
-        private const float FadeRate = 14f;
+
+        /// A name takes this long to go from nothing to full and back. It used to close 14/s of
+        /// the remaining gap, which is most of the way in the first 70 ms (a per-frame alpha step
+        /// of 0.16-0.22 at 80 fps, measured), so it read as a pop. A steady rate on the progress,
+        /// with the alpha drawn as its smoothstep, starts and ends gently and takes the same time
+        /// at any frame rate.
+        private const float FadeSeconds = 0.2f;
         private const float Invisible = 0.02f;
 
         private static Fade FadeFor(GameObject go)
@@ -377,16 +397,16 @@ namespace CarturMapPins
                 PinUpdateRequired?.SetValue(Minimap.instance, true);
             }
 
-            float t = 1f - Mathf.Exp(-FadeRate * Mathf.Min(dt, PinFade.MaxStep));
+            // A long frame counts as at most a 30 fps one, as in PinFade, so a hitch does not skip a fade.
+            float step = Mathf.Min(dt, PinFade.MaxStep) / FadeSeconds;
             foreach (Minimap.PinData pin in pins)
             {
                 GameObject go = pin?.m_NamePinData?.PinNameGameObject;
                 if (go == null || !go.activeSelf || !Fades.TryGetValue(go, out Fade f) || f.Group == null)
                     continue;
                 float want = f.Want ? 1f : 0f;
-                float alpha = Mathf.Lerp(f.Group.alpha, want, t);
-                if (Mathf.Abs(alpha - want) < Invisible)
-                    alpha = want;
+                f.Level = Mathf.MoveTowards(f.Level, want, step);
+                float alpha = f.Level * f.Level * (3f - 2f * f.Level);
                 if (!Mathf.Approximately(f.Group.alpha, alpha))
                     f.Group.alpha = alpha;
                 if (!f.Want && alpha <= Invisible)
@@ -398,7 +418,8 @@ namespace CarturMapPins
         private static int _direction;
 
         /// +1 while the large map is zooming out, -1 zooming in, 0 once it has held still for
-        /// HoldSeconds (research: a ~0.15 s hold before re-deciding, ux_reference.md).
+        /// HoldSeconds. Names that were held back while it moved are decided again only then, and
+        /// the fade carries the change.
         private static int ZoomDirection()
         {
             Minimap map = Minimap.instance;
@@ -414,7 +435,7 @@ namespace CarturMapPins
             return _direction;
         }
 
-        private const float HoldSeconds = 0.15f;
+        private const float HoldSeconds = 0.3f;
 
         private static readonly System.Reflection.FieldInfo PinUpdateRequired =
             AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");

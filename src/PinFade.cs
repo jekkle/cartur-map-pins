@@ -168,7 +168,7 @@ namespace CarturMapPins
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
             PinHover.Find(__instance, pins);
             PinFade.Step(pins, Time.deltaTime);
-            LabelCrowding.Step(pins, Time.deltaTime);
+            LabelCrowding.Step(pins, Time.unscaledDeltaTime);
             LabelTemplates.Hover(__instance);
             MapHints.Tick(__instance);
         }
