@@ -49,6 +49,9 @@ Opacity works the same way. Click the percentage next to a kind's colour in Hugi
 ## On the map screen
 
 - **Hide pins with H.** Each press steps through All Pins, Mine Only (the ones you placed), Auto Only (only the ones this mod placed), None, and back to All. Names go with the pins. Nothing is deleted. The key is a setting (`General / HidePinsKey`), and the bottom bar always says which state you are in now.
+- **Hide names with Shift+H.** Switches every pin's name off and on again and leaves the icons alone. Point at a pin and its name shows. The bottom bar says **Labels On** or **Labels Off**. It lasts until you quit the game. The key is a setting (`General / HideLabelsKey`).
+- **Setup with P.** Opens Hugin's setup menu from the large map, the same as `carturpins_setup`, so it works when Hugin is not around. The bar shows it as **Setup**. The key is a setting (`General / SetupKey`).
+- **Point at a pin and its name wins.** Any other name that would overlap it fades out while the cursor stays on the icon, and comes back when you move off.
 - **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
 - **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
 - Zooming is smooth: pins and names fade rather than flicker or jump.
@@ -100,7 +103,7 @@ Only what is drawn changes. The saved name stays, so search, the rename box and 
 
 ## Names and languages
 
-Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through `carturpins_names_<language>.txt`. `carturpins_names_english_template.txt` is written to `BepInEx/config` the first time you start the game. Copy it to `carturpins_names_french.txt` (or `german`, `spanish`, and so on: the game's own language name), translate the text after each `=` and restart the game. The same file translates the names and descriptions in Hugin's setup menu (`carturpins_desc_*` and `carturpins_row_*`; page titles, buttons and the welcome text are not translated) and the name shown when you point at an icon in the icon pickers. An older template gets the new keys appended the next time the game starts. `carturpins_labels.txt` is for short labels, not translation.
+Names are stored as the game's own localisation tokens, so a crypt reads "Burial Chambers" in your language and is re-worded if you change language. A pin you renamed yourself is left alone. Names the mod makes up itself, such as Sunken Crypt, Frost Cave and Fuling Village, translate through `carturpins_names_<language>.txt`. `carturpins_names_english_template.txt` is written to `BepInEx/config` the first time you start the game. Copy it to `carturpins_names_french.txt` (or `german`, `spanish`, and so on: the game's own language name), translate the text after each `=` and restart the game. The same file translates the names and descriptions in Hugin's setup menu (`carturpins_desc_*` and `carturpins_row_*`; page titles, buttons and the welcome text are not translated) and the name shown when you point at an icon in the icon pickers (every icon name has a key, in the template; icons the game already has a word for, such as Resin or Workbench, follow the game's language when you have no file). An older template gets the new keys appended the next time the game starts. `carturpins_labels.txt` is for short labels, not translation.
 
 What counts as ore, a beehive or a pickable is worked out at runtime from components rather than from a list of prefab names, which is why it should survive game updates and pick up modded content. Player-built beehives and containers are never pinned.
 
@@ -123,7 +126,9 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
 | `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
-| `HidePinsKey` | H | On the large map: hide all pins, then only yours, then all again. |
+| `HidePinsKey` | H | On the large map: step through All pins, Mine only, Auto only, None. |
+| `HideLabelsKey` | Shift+H | On the large map: hide every pin's name, or show them again. Icons stay. |
+| `SetupKey` | P | On the large map: open Hugin's setup menu. |
 | `NewDefaultColours` | true | Each new pin takes the colour of what it marks. See Kind Colours. |
 | `ClusterPins` | false | Crowded pins with the same icon become one pin with a count badge. |
 | `PriorityZoomOut` | false | Far out, cheap-to-find pins drop first. Bosses, dungeons, camps and portals stay. |

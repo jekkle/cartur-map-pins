@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.1
+
+**Labels: the name you point at wins.** Pointing at an icon now hides every other name that overlaps its name, with the usual 0.2 s fade, and brings them back when you move off. In 2.1.0 the pointed-at name was only forced on, so it was drawn over whichever name already sat there. Measured on two pins 4 px and 21 px apart on one row (zoom 0.1): the overlap between the pointed-at name and the names around it went from 35x5 px and 38x16 px to 0, with the pointer on either pin, and the names crossfade in about 0.25 s. The automatic collision handling is unchanged.
+
+**New: Shift+H hides the names, not the pins.** The hint bar has a new **Labels On / Labels Off** entry beside H. H still steps All, Mine only, Auto only, None, and does not fire on Shift+H. While names are off, pointing at a pin shows only that pin's name. Not saved between sessions, like H. Rebind with `General / HideLabelsKey`.
+
+**New: P opens the setup menu from the large map**, shown as **Setup** in the hint bar. It is the same call as `carturpins_setup`, so it does not need Hugin. Rebind with `General / SetupKey`. S is not used because it is the game's Backward key and you can still walk with the map open.
+
+**Icon names are translatable, all of them.** Only names that were also pin names had a translation key, so "Skeleton Bones" and "Seeker Egg" stayed English beside a translated "Tar Pit". Every icon name now has a key (93 new ones, appended to your `carturpins_names_english_template.txt` at the next start), and 29 of them follow the game's own word when you have no file (Resin, Workbench, Karve, Hen, ...). A word in your file wins over the game's.
+
+**Hugin's menu: the hover box no longer takes clicks.** It sat on top of the right part of the rows below the one you point at, and a click there hit the box instead of the row (measured: pointer on Wraith, the top hit at Stone Golem and Serpent was the box). I could not make a row refuse a click in my game: 119 real clicks over every row of every page toggled all 119. So this is the one blocking fault I found and fixed, and I have not confirmed it is what you saw with Stone Golem and Serpent. If those two still do not toggle, please send BepInEx/LogOutput.log and your screen resolution.
+
+Tested in the game (the carturtest character, Dev profile): label overlap with the pointer on each of two close pins, 120 groups of pins for frame rate, Shift+H and H and P through BepInEx's own key layer (so its modifier check ran for real, not the keyboard), the hint bar at 2560x1600 and 1920x1080, icon names with an `English` translation file and with the game set to German, the setup menu's rows by click. Frame rate with 715 pins on the large map at 2560x1600 was 23 fps on average and 10 fps for the worst 5%, with no 2.1.0 run to compare against. Not tested: a physical keyboard, a gamepad, multiplayer or a dedicated server, other mods that might use Shift+H or P, your own Hungarian file (a made-up file for English was used), frame rate against 2.1.0.
+
 ## 2.1.0
 
 **Overlapping map names, fixed properly.**
