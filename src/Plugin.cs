@@ -913,19 +913,24 @@ namespace CarturMapPins
         /// one (the description is rebuilt with it; the text and range are carried over).
         private const string SettingsTab = "Settings";
 
-        private static readonly System.Reflection.PropertyInfo DescriptionProperty =
-            HarmonyLib.AccessTools.Property(typeof(ConfigEntryBase), nameof(ConfigEntryBase.Description));
+        /// ConfigEntryBase.Description has no setter, only its compiler-made field (measured: the
+        /// first version looked for a setter and 27 settings got no tag).
+        private static readonly System.Reflection.FieldInfo DescriptionField =
+            HarmonyLib.AccessTools.Field(typeof(ConfigEntryBase), "<Description>k__BackingField");
 
         private void ArrangeSettings()
         {
             var owned = new HashSet<ConfigEntryBase>(SetupMenu.Entries());
-            int hidden = 0, listed = 0;
+            int hidden = 0, listed = 0, untagged = 0;
             foreach (KeyValuePair<ConfigDefinition, ConfigEntryBase> pair in Config)
             {
                 ConfigEntryBase entry = pair.Value;
                 ConfigurationManagerAttributes tag = TagOf(entry);
                 if (tag == null)
+                {
+                    untagged++;
                     continue;
+                }
                 if (owned.Contains(entry))
                 {
                     tag.Browsable = false;
@@ -938,6 +943,8 @@ namespace CarturMapPins
                 }
             }
             Log.LogInfo($"Settings menu: {listed} settings under one tab, {hidden} left to Hugin's menu.");
+            if (untagged > 0)
+                Log.LogWarning($"Settings menu: {untagged} settings could not be arranged (ConfigEntryBase.Description changed?); they stay in their own sections.");
         }
 
         private static ConfigurationManagerAttributes TagOf(ConfigEntryBase entry)
@@ -946,11 +953,11 @@ namespace CarturMapPins
             foreach (object tag in description.Tags ?? new object[0])
                 if (tag is ConfigurationManagerAttributes found)
                     return found;
-            if (DescriptionProperty?.GetSetMethod(true) == null)
+            if (DescriptionField == null)
                 return null;
             var added = new ConfigurationManagerAttributes();
             var tags = new List<object>(description.Tags ?? new object[0]) { added };
-            DescriptionProperty.SetValue(entry, new ConfigDescription(description.Description, description.AcceptableValues, tags.ToArray()));
+            DescriptionField.SetValue(entry, new ConfigDescription(description.Description, description.AcceptableValues, tags.ToArray()));
             return added;
         }
 
