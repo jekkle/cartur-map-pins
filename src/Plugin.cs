@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -921,6 +922,11 @@ namespace CarturMapPins
         private void ArrangeSettings()
         {
             var owned = new HashSet<ConfigEntryBase>(SetupMenu.Entries());
+            // Kind Colours / Kind Opacity also hold a pair for things the menu has no row for: one per
+            // berry and mushroom (the menu has one row per group, Berries and Mushrooms), and one for
+            // some places that share a row. Nobody could set them in the menu, so they leave F1 too.
+            foreach (ConfigEntryBase style in KindColourEntries.Values.Cast<ConfigEntryBase>().Concat(KindOpacityEntries.Values.Cast<ConfigEntryBase>()))
+                owned.Add(style);
             int hidden = 0, listed = 0, untagged = 0;
             foreach (KeyValuePair<ConfigDefinition, ConfigEntryBase> pair in Config)
             {
@@ -942,7 +948,7 @@ namespace CarturMapPins
                     listed++;
                 }
             }
-            Log.LogInfo($"Settings menu: {listed} settings under one tab, {hidden} left to Hugin's menu.");
+            Log.LogInfo($"Settings menu: {listed} settings under one tab, {hidden} not listed (Hugin's menu, or no row for them).");
             if (untagged > 0)
                 Log.LogWarning($"Settings menu: {untagged} settings could not be arranged (ConfigEntryBase.Description changed?); they stay in their own sections.");
         }
