@@ -1,23 +1,26 @@
+using System.Linq;
+using BepInEx.Configuration;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace CarturMapPins
 {
-    /// Two entries on the large map's bottom hint bar, in the game's own style: "[H] Hide Pins" and
-    /// "[Shift] + click, Change Icon" (owner, 2026-10-27).
+    /// Four entries on the large map's bottom hint bar, in the game's own style: the pin cycle (H),
+    /// the names switch (Shift+H), Setup (P) and "[Shift] + click, Change Icon" (owner, 2026-10-27).
     ///
     /// The bar is Minimap.m_largeRoot/KeyHints/keyboard_hints, a HorizontalLayoutGroup whose entries
     /// are each a label and a 32 px key image (read with the pilot's maptree). The entries are
     /// cloned from the game's own Ping and Add pin ones, so spacing, font and fitting are the
     /// game's. The key image becomes a drawn key cap, since there is no sprite for a letter.
     ///
-    /// The H entry names what the map is showing NOW (owner, 2026-10-30; it used to name the next
-    /// press, which read as the current state to totya).
+    /// The H and Shift+H entries name what the map is showing NOW (owner, 2026-10-30; the H one used
+    /// to name the next press, which read as the current state to totya).
     internal static class MapHints
     {
-        private static GameObject _hide, _change;
-        private static TextMeshProUGUI _hideLabel, _hideKey;
+        private static GameObject _hide, _labels, _setup, _change;
+        private static TextMeshProUGUI _hideLabel, _hideKey, _labelsLabel, _labelsKey, _setupLabel, _setupKey;
+        private static KeyboardShortcut _labelsShown, _setupShown;
         private static Minimap _built;
 
         public static void Tick(Minimap map)
@@ -37,6 +40,15 @@ namespace CarturMapPins
             string key = KeyName(Plugin.HidePinsKey.Value.MainKey);
             if (_hideKey != null && _hideKey.text != key)
                 _hideKey.text = key;
+
+            string names = PinHiding.LabelsHidden ? "Labels Off" : "Labels On";
+            if (_labelsLabel != null && _labelsLabel.text != names)
+                _labelsLabel.text = names;
+            // The key caps follow a rebinding made while playing; the text is only built when it changed.
+            if (_labelsKey != null && !_labelsShown.Equals(Plugin.HideLabelsKey.Value))
+                SetCap(_labelsKey, KeyName(_labelsShown = Plugin.HideLabelsKey.Value));
+            if (_setupKey != null && !_setupShown.Equals(Plugin.SetupKey.Value))
+                SetCap(_setupKey, KeyName(_setupShown = Plugin.SetupKey.Value));
         }
 
         private static string CurrentState()
@@ -50,7 +62,37 @@ namespace CarturMapPins
             }
         }
 
-        private static string KeyName(KeyCode key) => key == KeyCode.None ? "-" : key.ToString().Replace("Alpha", "");
+        private static string KeyName(KeyCode key)
+        {
+            string name = key == KeyCode.None ? "-" : key.ToString().Replace("Alpha", "");
+            return name.EndsWith("Shift") ? "Shift" : name.EndsWith("Control") ? "Ctrl" : name.EndsWith("Alt") ? "Alt" : name;
+        }
+
+        /// "Shift+H": modifiers first, the way the config file writes them.
+        private static string KeyName(KeyboardShortcut shortcut) =>
+            string.Join("+", shortcut.Modifiers.Select(KeyName).Concat(new[] { KeyName(shortcut.MainKey) }));
+
+        /// A key cap as wide as its words, 30 at least (the width of a single letter).
+        private static void SetCap(TextMeshProUGUI key, string text)
+        {
+            key.text = text;
+            var layout = key.transform.parent.GetComponent<LayoutElement>();
+            layout.preferredWidth = layout.minWidth = Mathf.Max(30f, key.GetPreferredValues(text).x + 14f);
+        }
+
+        /// One entry cloned from the game's own Ping one: its label, then a drawn key cap.
+        private static GameObject Entry(Transform row, Transform template, string name, string text, string cap,
+                                        out TextMeshProUGUI label, out TextMeshProUGUI key)
+        {
+            GameObject entry = Object.Instantiate(template.gameObject, row);
+            entry.name = name;
+            label = entry.transform.Find("Label").GetComponent<TextMeshProUGUI>();
+            label.text = text;
+            AddGap(entry);
+            key = KeyCap(entry.transform.Find("keyboard_hint").GetComponent<Image>(), cap, 30f, true);
+            SetCap(key, cap);
+            return entry;
+        }
 
         private static void Build(Minimap map)
         {
@@ -59,20 +101,21 @@ namespace CarturMapPins
             Transform add = row != null ? row.Find("AddPin") : null;
             if (row == null || ping == null || add == null)
             {
-                Plugin.Log.LogWarning("Map hint bar not found - the Hide Pins and Change Icon hints are off.");
+                Plugin.Log.LogWarning("Map hint bar not found - the Hide Pins, Labels, Setup and Change Icon hints are off.");
                 return;
             }
 
             if (_hide != null) Object.Destroy(_hide);
+            if (_labels != null) Object.Destroy(_labels);
+            if (_setup != null) Object.Destroy(_setup);
             if (_change != null) Object.Destroy(_change);
 
-            // Hide Pins: label, then the key.
-            _hide = Object.Instantiate(ping.gameObject, row);
-            _hide.name = "CarturHidePins";
-            _hideLabel = _hide.transform.Find("Label").GetComponent<TextMeshProUGUI>();
-            _hideLabel.text = CurrentState();
-            AddGap(_hide);
-            _hideKey = KeyCap(_hide.transform.Find("keyboard_hint").GetComponent<Image>(), KeyName(Plugin.HidePinsKey.Value.MainKey), 30f, true);
+            // Hide Pins, then the names switch beside it, then Setup: label, then the key.
+            _hide = Entry(row, ping, "CarturHidePins", CurrentState(), KeyName(Plugin.HidePinsKey.Value.MainKey), out _hideLabel, out _hideKey);
+            _labelsShown = Plugin.HideLabelsKey.Value;
+            _labels = Entry(row, ping, "CarturHideLabels", PinHiding.LabelsHidden ? "Labels Off" : "Labels On", KeyName(_labelsShown), out _labelsLabel, out _labelsKey);
+            _setupShown = Plugin.SetupKey.Value;
+            _setup = Entry(row, ping, "CarturSetup", "Setup", KeyName(_setupShown), out _setupLabel, out _setupKey);
 
             // Change Icon: label, then the Shift key with the mouse button laid on it, just right of
             // the "t" (owner, 2026-10-27), so it reads as one gesture: shift + click.

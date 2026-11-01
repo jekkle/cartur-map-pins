@@ -67,6 +67,18 @@ namespace CarturMapPins
                 Cycle == Shown.Auto ? "Only auto pins shown" : "All pins shown");
         }
 
+        /// Every pin's name off, the icons untouched (Shift+H). Session only, like the cycle above.
+        /// LabelCrowding draws no names while it is set, bar the one under the cursor.
+        public static bool LabelsHidden { get; private set; }
+
+        public static void ToggleLabels()
+        {
+            LabelsHidden = !LabelsHidden;
+            if (Minimap.instance != null)
+                PinUpdateRequired?.SetValue(Minimap.instance, true);
+            Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft, LabelsHidden ? "Pin names hidden" : "Pin names shown");
+        }
+
         /// The death marker, pings and area circles stay whatever the key says: they are about
         /// what is happening now, not what you have found.
         public static bool CycleHides(Minimap.PinData pin)

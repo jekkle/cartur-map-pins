@@ -79,9 +79,9 @@ namespace CarturMapPins
             float band = Mathf.Max(1f, limit * 0.1f);
             float percent = Crowding.ZoomOutPercent();
             _zoomHidden = limit < 100f && (_zoomHidden ? percent > limit - band : percent > limit + band);
-            if (_zoomHidden)
+            if (_zoomHidden || PinHiding.LabelsHidden)
             {
-                HideAll(pins, oursOnly: false);
+                HideAll(pins, oursOnly: false, onlyPointed: PinHiding.LabelsHidden);
                 return;
             }
 
@@ -199,6 +199,14 @@ namespace CarturMapPins
                 }
             }
 
+            // The pin the cursor is ON (its icon, not merely near it) takes its words' space before
+            // anyone else's: every other name that overlaps them is hidden while the cursor stays.
+            // Through 2.1.0 the revealed name was only forced on, so it was drawn over whichever
+            // earlier-ranked or zoom-held name already sat there (totya: two icons on one row,
+            // worst when pointing at one; measured 2.1.1: Sunken Crypt over Portal by 38x16 px).
+            bool hasFocus = pointedAt != null && ReferenceEquals(pointedAt, PinHover.Current);
+            Rect focusRect = hasFocus ? RectOf(pointedAt.m_NamePinData) : default;
+
             foreach (Ranked ranked in Ordered)
             {
                 Minimap.PinData pin = ranked.Pin;
@@ -208,6 +216,12 @@ namespace CarturMapPins
                 // Under the cursor wins outright, including over an earlier label: pointing at a
                 // pin is asking what it is.
                 bool revealed = ReferenceEquals(pin, pointedAt);
+
+                if (hasFocus && !revealed && mine.Overlaps(focusRect))
+                {
+                    Hide(name);
+                    continue;
+                }
 
                 // Collides only when collision hiding is on: an active search alone must dim
                 // non-matches, not also hide labels that overlap.
@@ -290,7 +304,11 @@ namespace CarturMapPins
         /// Every label off, bar the one under the cursor: a map of unlabelled icons cannot be read
         /// without some way to ask what one is, and this is the same reveal the collision hiding
         /// uses.
-        private static void HideAll(List<Minimap.PinData> pins, bool oursOnly)
+        ///
+        /// onlyPointed is the names switch (Shift+H): that one is asked for, so only the pin the
+        /// cursor is on gets its name back, not every pin within RevealRadius, which on a crowded
+        /// patch is a dozen names on top of each other (measured: 12 labels, 41 overlapping pairs).
+        private static void HideAll(List<Minimap.PinData> pins, bool oursOnly, bool onlyPointed = false)
         {
             Vector2 cursor = CursorNear(pins);
             if (oursOnly)
@@ -305,7 +323,8 @@ namespace CarturMapPins
                     continue;
 
                 if (!Crowding.OutOfSight(pin) && pin.m_iconElement != null &&
-                    Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius)
+                    (onlyPointed ? ReferenceEquals(pin, PinHover.Current)
+                                 : Vector2.Distance((Vector2)pin.m_iconElement.rectTransform.localPosition, cursor) < RevealRadius))
                 {
                     Show(name);
                     continue;

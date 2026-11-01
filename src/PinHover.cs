@@ -56,9 +56,9 @@ namespace CarturMapPins
             if (!ReferenceEquals(found, Current))
             {
                 Current = found;
-                // A grouped pin's name is drawn only while it is pointed at (LabelCrowding).
-                if (Plugin.HideGroupedLabels.Value)
-                    MinimapAccess.RequestPinUpdate(map);
+                // A grouped pin's name is drawn only while it is pointed at, and the names that
+                // overlap a pointed-at name are hidden (LabelCrowding), both decided in a pass.
+                MinimapAccess.RequestPinUpdate(map);
                 if (found?.m_iconElement != null)
                     found.m_iconElement.transform.SetAsLastSibling();
                 SetTag(found);

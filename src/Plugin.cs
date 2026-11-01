@@ -22,7 +22,7 @@ namespace CarturMapPins
         public static ConfigEntry<float> DiscoveryRadius;
         public static ConfigEntry<bool> AutoPinning;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> AutoPinningKey;
-        public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> HidePinsKey;
+        public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> HidePinsKey, HideLabelsKey, SetupKey;
         public static ConfigEntry<float> ScanInterval;
 #if DIAGNOSTICS
         public static ConfigEntry<bool> AutoProbe;
@@ -366,7 +366,17 @@ namespace CarturMapPins
             // H has no binding in ZInput's defaults (read from the installed assembly_utils).
             HidePinsKey = Config.Bind(Sections.Of("General", "HidePinsKey"), "HidePinsKey",
                 new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.H),
-                "On the large map: the first press hides every pin, the second shows only the pins you placed yourself, the third shows them all again. Nothing is deleted; the death marker and pings always show.");
+                "On the large map: each press steps through All pins, Mine only, Auto only and None. Nothing is deleted; the death marker and pings always show.");
+            // Shift+H, because plain H is the pin cycle above: BepInEx's shortcut test refuses H while
+            // Shift is held and Shift+H while anything else is, so each press fires one of them only.
+            // P is free on the large map: S is the game's Backward, and the player can still walk with
+            // the map open on keyboard (PlayerController.TakeInput only stops it for a gamepad).
+            HideLabelsKey = Config.Bind(Sections.Of("General", "HideLabelsKey"), "HideLabelsKey",
+                new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.H, UnityEngine.KeyCode.LeftShift),
+                "On the large map: hides every pin's name and shows them again, leaving the icons alone. Pointing at a pin still shows its name. Lasts until you quit.");
+            SetupKey = Config.Bind(Sections.Of("General", "SetupKey"), "SetupKey",
+                new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.P),
+                "On the large map: opens Hugin's setup menu, the same as the carturpins_setup console command.");
             DiscoveryRadius = Config.Bind(Sections.Of("General", "DiscoveryRadius"), "DiscoveryRadius", 60f,
                 "How close (metres) you must get before something is pinned. Objects load from further away than you can see, so this is what makes pins appear on discovery rather than on load.");
             ScanInterval = Config.Bind(Sections.Of("General", "ScanIntervalSeconds"), "ScanIntervalSeconds", 0.33f,
@@ -876,14 +886,22 @@ namespace CarturMapPins
                 Player.m_localPlayer?.Message(MessageHud.MessageType.TopLeft,
                     AutoPinning.Value ? "Auto pins on" : "Auto pins paused");
             }
-            if (HidePinsKey.Value.IsDown() && Minimap.instance != null && Minimap.instance.m_mode == Minimap.MapMode.Large
-                && !Minimap.InTextInput() && !Console.IsVisible() && !TextInput.IsVisible()
-                && !(Chat.instance != null && Chat.instance.HasFocus()))
+            if (MapKeyDown(HidePinsKey))
                 PinHiding.Step();
+            if (MapKeyDown(HideLabelsKey))
+                PinHiding.ToggleLabels();
+            if (MapKeyDown(SetupKey))
+                SetupMenu.Open();
             PortalNames.Tick(UnityEngine.Time.deltaTime);
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
             Trackers.Tick(UnityEngine.Time.deltaTime);
         }
+
+        /// A key that is pressed this frame on the large map, and not while typing anywhere.
+        private static bool MapKeyDown(ConfigEntry<BepInEx.Configuration.KeyboardShortcut> key) =>
+            key.Value.IsDown() && Minimap.instance != null && Minimap.instance.m_mode == Minimap.MapMode.Large
+            && !Minimap.InTextInput() && !Console.IsVisible() && !TextInput.IsVisible()
+            && !(Chat.instance != null && Chat.instance.HasFocus());
 
         private static void RegisterCommands()
         {
