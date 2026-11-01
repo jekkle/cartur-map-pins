@@ -12,6 +12,10 @@
 
 **Hugin's menu: the hover box no longer takes clicks.** It sat on top of the right part of the rows below the one you point at, and a click there hit the box instead of the row (measured: pointer on Wraith, the top hit at Stone Golem and Serpent was the box). I could not make a row refuse a click in my game: 119 real clicks over every row of every page toggled all 119. So this is the one blocking fault I found and fixed, and I have not confirmed it is what you saw with Stone Golem and Serpent. If those two still do not toggle, please send BepInEx/LogOutput.log and your screen resolution.
 
+**Settings menu (F1): one tab, and a button for the setup menu.** Everything Hugin's menu chooses (what gets a pin, icons, colours, opacity, who sees your pins at the cartography table, New default colours) is no longer listed in F1, and the settings that are left are in one tab, Settings, with a new first entry, **Open Hugin's setup**. Nothing was removed or renamed in the `.cfg`: same sections, keys and values. The button closes the config manager so the menu does not open behind it.
+
+Not yet tested in the game: the settings tab, the hidden entries and the button.
+
 Tested in the game (the carturtest character, Dev profile): label overlap with the pointer on each of two close pins, 120 groups of pins for frame rate, Shift+H and H and P through BepInEx's own key layer (so its modifier check ran for real, not the keyboard), the hint bar at 2560x1600 and 1920x1080, icon names with an `English` translation file and with the game set to German, the setup menu's rows by click. Frame rate with 715 pins on the large map at 2560x1600 was 23 fps on average and 10 fps for the worst 5%, with no 2.1.0 run to compare against. Not tested: a physical keyboard, a gamepad, multiplayer or a dedicated server, other mods that might use Shift+H or P, your own Hungarian file (a made-up file for English was used), frame rate against 2.1.0.
 
 ## 2.1.0

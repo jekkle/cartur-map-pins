@@ -42,8 +42,8 @@ namespace CarturMapPins
             "Here is your chance to choose what I mark for you as you wander.";
 
         private const string MoreSettings =
-            "Every switch, icon and size can be changed later in the mod settings " +
-            "(BepInEx/config, or F1 with Configuration Manager).";
+            "Everything in this menu can be changed again: press P on the large map, or use the first button in the " +
+            "mod settings (F1 with Configuration Manager). The rest of the mod's settings are there too.";
 
         [HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
         private static class Patch_Land
@@ -121,6 +121,86 @@ namespace CarturMapPins
             public bool[] Snapshot;
         }
 
+        // What the pages are made of, so the settings menu can hide exactly these (Entries) and the
+        // pages themselves cannot drift from it.
+        private static readonly PinCategory[] KindCategories =
+        {
+            PinCategory.Ore, PinCategory.Dungeon, PinCategory.Camp, PinCategory.BossAltar, PinCategory.Miniboss,
+            PinCategory.Landmark, PinCategory.Spawner, PinCategory.Trader,
+        };
+
+        private static readonly PickableGroup[] PickGroups =
+            { PickableGroup.HighValue, PickableGroup.Berries, PickableGroup.Crops, PickableGroup.Junk, PickableGroup.Other };
+
+        private static readonly PinCategory[] RowCategories =
+        {
+            PinCategory.Chest, PinCategory.Beehive, PinCategory.Runestone, PinCategory.LoreStone, PinCategory.Leviathan,
+            PinCategory.Wisp, PinCategory.Prop, PinCategory.Home, PinCategory.Portal,
+        };
+
+        private static Subtypes.Entry[] TableOf(PinCategory category)
+        {
+            switch (category)
+            {
+                case PinCategory.Ore: return Subtypes.Ores;
+                case PinCategory.Dungeon: return Subtypes.Dungeons;
+                case PinCategory.Camp: return Subtypes.Camps;
+                case PinCategory.BossAltar: return Subtypes.Bosses;
+                case PinCategory.Miniboss: return Subtypes.Minibosses;
+                case PinCategory.Landmark: return Subtypes.Landmarks;
+                case PinCategory.Spawner: return Subtypes.Spawners;
+                default: return Subtypes.Traders;
+            }
+        }
+
+        /// Every setting the menu reads or writes, from the same lookups the pages use. The settings
+        /// menu (F1) leaves these out: they are chosen here, and stay in the .cfg unchanged.
+        internal static IEnumerable<BepInEx.Configuration.ConfigEntryBase> Entries()
+        {
+            var all = new List<BepInEx.Configuration.ConfigEntryBase> { Plugin.PinSharing, Plugin.NewDefaultColours };
+            void Look(string key)
+            {
+                all.Add(Plugin.KindColourEntry(key));
+                all.Add(Plugin.KindOpacityEntry(key));
+            }
+            foreach (PinCategory category in KindCategories)
+            {
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                if (settings == null)
+                    continue;
+                all.Add(settings.Enabled);
+                foreach (Subtypes.Entry e in Subtypes.DistinctOf(TableOf(category)))
+                {
+                    if (Plugin.KindSwitch(category, e.Name) == null)
+                        continue;
+                    all.Add(Plugin.KindSwitch(category, e.Name));
+                    all.Add(Plugin.KindIcon(e.Name));
+                    Look(KindColours.KeyFor(category, e.Name));
+                }
+            }
+            foreach (PinCategory category in RowCategories)
+            {
+                Plugin.CategorySettings settings = Plugin.SettingsFor(category);
+                if (settings == null)
+                    continue;
+                all.Add(settings.Enabled);
+                all.Add(settings.IconIndex);
+                Look(KindColours.KeyFor(category, null));
+            }
+            Plugin.CategorySettings pick = Plugin.SettingsFor(PinCategory.Pickable);
+            if (pick != null)
+            {
+                all.Add(pick.Enabled);
+                foreach (PickableGroup group in PickGroups)
+                {
+                    all.Add(Plugin.PickableSwitch(group));
+                    all.Add(Plugin.PickableIcon(group));
+                    Look(group.ToString());
+                }
+            }
+            return all.Where(e => e != null);
+        }
+
         private static List<Page> BuildPages()
         {
             _sharing = Plugin.PinSharing.Value;
@@ -128,37 +208,27 @@ namespace CarturMapPins
             var pages = new List<Page>
             {
                 new Page { Title = "Hugin's map", IsWelcome = true },
-                KindPage("Ores", PinCategory.Ore, Subtypes.Ores),
-                KindPage("Dungeons", PinCategory.Dungeon, Subtypes.Dungeons),
-                KindPage("Camps and villages", PinCategory.Camp, Subtypes.Camps),
+                KindPage("Ores", PinCategory.Ore),
+                KindPage("Dungeons", PinCategory.Dungeon),
+                KindPage("Camps and villages", PinCategory.Camp),
             };
 
-            Page bosses = KindPage("Bosses", PinCategory.BossAltar, Subtypes.Bosses, "Boss altars");
-            AddKinds(bosses, PinCategory.Miniboss, Subtypes.Minibosses, "Minibosses");
+            Page bosses = KindPage("Bosses", PinCategory.BossAltar, "Boss altars");
+            AddKinds(bosses, PinCategory.Miniboss, "Minibosses");
             pages.Add(bosses);
 
             Page picks = new Page { Title = "Berries and things to pick" };
-            AddGroup(picks, PickableGroup.HighValue);
-            AddGroup(picks, PickableGroup.Berries);
-            AddGroup(picks, PickableGroup.Crops);
-            AddGroup(picks, PickableGroup.Junk);
-            AddGroup(picks, PickableGroup.Other);
+            foreach (PickableGroup group in PickGroups)
+                AddGroup(picks, group);
             pages.Add(picks);
 
-            pages.Add(KindPage("Landmarks", PinCategory.Landmark, Subtypes.Landmarks));
-            pages.Add(KindPage("Creature spawners", PinCategory.Spawner, Subtypes.Spawners));
+            pages.Add(KindPage("Landmarks", PinCategory.Landmark));
+            pages.Add(KindPage("Creature spawners", PinCategory.Spawner));
 
             Page other = new Page { Title = "Everything else" };
-            AddCategory(other, PinCategory.Chest);
-            AddCategory(other, PinCategory.Beehive);
-            AddCategory(other, PinCategory.Runestone);
-            AddCategory(other, PinCategory.LoreStone);
-            AddCategory(other, PinCategory.Leviathan);
-            AddCategory(other, PinCategory.Wisp);
-            AddCategory(other, PinCategory.Prop);
-            AddCategory(other, PinCategory.Home);
-            AddCategory(other, PinCategory.Portal);
-            AddKinds(other, PinCategory.Trader, Subtypes.Traders, "Traders");
+            foreach (PinCategory category in RowCategories)
+                AddCategory(other, category);
+            AddKinds(other, PinCategory.Trader, "Traders");
             pages.Add(other);
 
             // A player updating has settings already; the menu opens on THEIR choices and only
@@ -175,15 +245,16 @@ namespace CarturMapPins
             return pages.Where(p => p.IsWelcome || p.Items.Count > 0).ToList();
         }
 
-        private static Page KindPage(string title, PinCategory category, Subtypes.Entry[] table, string heading = null)
+        private static Page KindPage(string title, PinCategory category, string heading = null)
         {
             var page = new Page { Title = title };
-            AddKinds(page, category, table, heading);
+            AddKinds(page, category, heading);
             return page;
         }
 
-        private static void AddKinds(Page page, PinCategory category, Subtypes.Entry[] table, string heading)
+        private static void AddKinds(Page page, PinCategory category, string heading)
         {
+            Subtypes.Entry[] table = TableOf(category);
             Plugin.CategorySettings settings = Plugin.SettingsFor(category);
             bool first = true;
             foreach (Subtypes.Entry e in Subtypes.DistinctOf(table))

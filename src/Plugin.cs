@@ -23,6 +23,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> AutoPinning;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> AutoPinningKey;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> HidePinsKey, HideLabelsKey, SetupKey;
+        public static ConfigEntry<bool> OpenSetup;
         public static ConfigEntry<float> ScanInterval;
 #if DIAGNOSTICS
         public static ConfigEntry<bool> AutoProbe;
@@ -138,6 +139,12 @@ namespace CarturMapPins
                     null, Attr(order: 100)));
             ApplyPreset.SettingChanged += (_, __) => Apply(ApplyPreset.Value);
 
+            // A button, not a setting: the drawer never writes the value, so the .cfg keeps one
+            // "OpenSetup = false" line for it and nothing else. Order above everything, so it is first.
+            OpenSetup = Config.Bind(Sections.Of("General", "OpenSetup"), "OpenSetup", false,
+                new ConfigDescription("Opens Hugin's setup menu, where what gets a pin, its icon, colour and opacity are chosen. The same as P on the large map or the carturpins_setup console command. Needs a world to be loaded.",
+                    null, new ConfigurationManagerAttributes { Order = 1000, CustomDrawer = SetupButton.Draw }));
+
             ConfirmDelete = Config.Bind(Sections.Of("General", "ConfirmDelete"), "ConfirmDelete", DeleteConfirm.Off,
                 "Ask before a right-click deletes a pin: the first click says what it is (auto pin or your pin) and a second click within 2 seconds deletes it. AutoPinsOnly asks only for pins this mod placed. Ctrl+Z on the large map brings back the last pins you deleted either way.");
             ShrinkCrowdedPins = Config.Bind(Sections.Of("General", "ShrinkCrowdedPins"), "ShrinkCrowdedPins", true,
@@ -203,7 +210,7 @@ namespace CarturMapPins
             ClusterPins = Config.Bind(Sections.Of("General", "ClusterPins"), "ClusterPins", false,
                 "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
-                "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. Hugin's setup menu has the same switch and an Apply button for the existing pins.");
+                "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. This switch, each kind's colour and opacity, and the Apply button for the existing pins are in Hugin's setup menu (P on the large map); they are not listed in the settings menu.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
                 KindColourEntries[colour.Key] = Config.Bind(Sections.Of("Kind Colours"), colour.Key, colour.Value,
                     new ConfigDescription($"Colour new {colour.Key} pins are given when NewDefaultColours is on, as RRGGBB. Empty for none.", null, Attr(advanced: true)));
@@ -512,6 +519,8 @@ namespace CarturMapPins
                 if (group != null)
                     group.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
             AutoPinning.SettingChanged += (_, __) => PinPlacer.RescanLoaded();
+
+            ArrangeSettings();
 
             Log.LogInfo($"{PluginName} {PluginVersion} loaded.");
         }
@@ -895,6 +904,54 @@ namespace CarturMapPins
             PortalNames.Tick(UnityEngine.Time.deltaTime);
             PinPlacer.Tick(UnityEngine.Time.deltaTime);
             Trackers.Tick(UnityEngine.Time.deltaTime);
+        }
+
+        /// The settings menu (F1) lists the settings Hugin's menu does not own, all under one tab, and
+        /// leaves the ones it does own out. Nothing moves in the .cfg: ConfigurationManager reads a
+        /// setting's tab and visibility from the ConfigurationManagerAttributes tag, and the section
+        /// stays what it was. A setting bound with a plain description has no tag to change, so it gets
+        /// one (the description is rebuilt with it; the text and range are carried over).
+        private const string SettingsTab = "Settings";
+
+        private static readonly System.Reflection.PropertyInfo DescriptionProperty =
+            HarmonyLib.AccessTools.Property(typeof(ConfigEntryBase), nameof(ConfigEntryBase.Description));
+
+        private void ArrangeSettings()
+        {
+            var owned = new HashSet<ConfigEntryBase>(SetupMenu.Entries());
+            int hidden = 0, listed = 0;
+            foreach (KeyValuePair<ConfigDefinition, ConfigEntryBase> pair in Config)
+            {
+                ConfigEntryBase entry = pair.Value;
+                ConfigurationManagerAttributes tag = TagOf(entry);
+                if (tag == null)
+                    continue;
+                if (owned.Contains(entry))
+                {
+                    tag.Browsable = false;
+                    hidden++;
+                }
+                else if (tag.Browsable != false)
+                {
+                    tag.Category = SettingsTab;
+                    listed++;
+                }
+            }
+            Log.LogInfo($"Settings menu: {listed} settings under one tab, {hidden} left to Hugin's menu.");
+        }
+
+        private static ConfigurationManagerAttributes TagOf(ConfigEntryBase entry)
+        {
+            ConfigDescription description = entry.Description;
+            foreach (object tag in description.Tags ?? new object[0])
+                if (tag is ConfigurationManagerAttributes found)
+                    return found;
+            if (DescriptionProperty?.GetSetMethod(true) == null)
+                return null;
+            var added = new ConfigurationManagerAttributes();
+            var tags = new List<object>(description.Tags ?? new object[0]) { added };
+            DescriptionProperty.SetValue(entry, new ConfigDescription(description.Description, description.AcceptableValues, tags.ToArray()));
+            return added;
         }
 
         /// A key that is pressed this frame on the large map, and not while typing anywhere.

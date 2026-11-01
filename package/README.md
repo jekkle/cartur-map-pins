@@ -111,6 +111,8 @@ What counts as ore, a beehive or a pickable is worked out at runtime from compon
 
 Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 
+In the config manager (F1) every setting is in one tab, **Settings**, and the first entry is a button, **Open Hugin's setup**. The setup menu is where what gets a pin, its icon, its colour and its opacity are chosen, plus who sees your pins at the cartography table and New default colours, so none of those are listed in F1. They are still in the `.cfg` file under the same names and values, and editing them there works as before. The button needs a world to be loaded, and closes the config manager so the menu is not hidden behind it. P on the large map and `carturpins_setup` open the same menu.
+
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `DiscoveryRadius` | 60 | Metres. How close you must get before something pins. |
@@ -129,12 +131,9 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `HidePinsKey` | H | On the large map: step through All pins, Mine only, Auto only, None. |
 | `HideLabelsKey` | Shift+H | On the large map: hide every pin's name, or show them again. Icons stay. |
 | `SetupKey` | P | On the large map: open Hugin's setup menu. |
-| `NewDefaultColours` | true | Each new pin takes the colour of what it marks. See Kind Colours. |
 | `ClusterPins` | false | Crowded pins with the same icon become one pin with a count badge. |
 | `PriorityZoomOut` | false | Far out, cheap-to-find pins drop first. Bosses, dungeons, camps and portals stay. |
 | `ConfirmDelete` | Off | Ask for a second click before right-click deletes a pin: Off, AutoPinsOnly or All. Ctrl+Z on the large map undoes a delete either way. |
-| `PinSharing` | Everything | What a cartography table publishes: Everything, HandPlacedOnly or Nothing. |
-| `Pickables / BerriesAndMushrooms` | false | Raspberry, blueberry, cloudberry, lingonberry and vineberry bushes, and mushrooms. Off by default: turn it on to pin berries. |
 | `Ore / TintByType` | true | Colour ore pins by what the ore is. |
 | `Pickables / TintBerriesByType` | true | Colour berry bush pins by their berry. |
 | `Ore / ForgetMined` | true | Remove an ore pin once its deposit is mined out. |
@@ -147,9 +146,7 @@ Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 | `General / ApplyPreset` | None | Sets every switch at once, see below. |
 | `General / ResetPins` | No | Starts a world's pins over, see below. |
 
-Each category also has `Enabled`, an `Icon`, and a `MinimumSpacing` (under Advanced), which is how far apart two of the same thing must be to earn separate pins.
-
-Most of the list is hidden until you tick Advanced in the config manager. There is a switch and an icon for every kind of thing the mod knows about, several hundred settings, and the seventeen categories are what you see otherwise.
+Each category also has a `MinimumSpacing` (under Advanced), which is how far apart two of the same thing must be to earn separate pins. Its `Enabled` and `Icon`, and a switch, icon, colour and opacity for every kind of thing the mod knows about, are the setup menu's.
 
 `ApplyPreset` sets every switch at once. Minimal keeps ore, dungeons, chests, boss altars, minibosses and home. Everything turns it all on. Defaults restores a fresh install. It is a button rather than a state, and returns to None once applied. It changes what gets pinned from then on, and pins already on the map stay.
 
