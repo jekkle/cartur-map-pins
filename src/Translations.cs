@@ -126,8 +126,23 @@ namespace CarturMapPins
             // auto-pin name with no way to translate it.
             English[Prefix + Key(Leviathan)] = Leviathan;
 
+            // The names the icon pickers show on hover. Only the ones that were also pin names had a
+            // key, so "Skeleton Bones" and "Seeker Egg" stayed English beside a translated "Tar Pit"
+            // (totya, 2026-10-31).
+            foreach (PinIcon icon in Enum.GetValues(typeof(PinIcon)))
+                AddIconName(icon == PinIcon.Default ? null : icon.ToString());
+            foreach (string old in LegacyIconNames.KeptNames)
+                AddIconName(old);
+
             // The setup wizard's row names and descriptions.
             SetupText.Words(English);
+        }
+
+        private static void AddIconName(string raw)
+        {
+            string name = IconGrid.EnglishName(raw);
+            if (name != null && !English.ContainsKey(Prefix + Key(name)))
+                English[Prefix + Key(name)] = name;
         }
 
         /// The translation of one wizard line, or its English when the key was never registered.
@@ -138,6 +153,32 @@ namespace CarturMapPins
         }
 
         public const string Leviathan = "Leviathan";
+
+        /// Icon names the game already has a word for, so they follow the game's language with no
+        /// translation file. Found by matching every picker name against the English language table
+        /// (pilot locmatch, 2026-11-01): each token's English text is exactly the name. A translation
+        /// file still wins over it, and a name not listed here keeps its Map Pins key alone.
+        private static readonly Dictionary<string, string> GameWords = new Dictionary<string, string>
+        {
+            { "Greydwarf Nest", "$enemy_greydwarfspawner" }, { "Fuling Totem", "$item_goblintotem" },
+            { "Portal", "$piece_portal" }, { "Runestone", "$piece_lorestone" }, { "Vegvisir", "$piece_vegvisir" },
+            { "Chest", "$piece_chestwood" }, { "Campfire", "$piece_firepit" }, { "Workbench", "$piece_workbench" },
+            { "Smelter", "$piece_smelter" }, { "Beehive", "$piece_beehive" }, { "Coins", "$item_coins" },
+            { "Resin", "$item_resin" }, { "Ancient Seed", "$item_ancientseed" }, { "Scrap Iron", "$item_ironscrap" },
+            { "Crystal", "$item_crystal" }, { "Soft Tissue", "$item_softtissue" }, { "Bell", "$item_bell" },
+            { "Armour", "$item_armor" }, { "Longship", "$ship_longship" }, { "Karve", "$ship_karve" },
+            { "Raft", "$ship_raft" }, { "Cart", "$tool_cart" }, { "Hen", "$enemy_hen" }, { "Chicken", "$enemy_chicken" },
+            { "Deer", "$enemy_deer" }, { "Seal", "$enemy_seal" }, { "Moose", "$enemy_moose" }, { "Neck", "$enemy_neck" },
+            { "Asksvin", "$enemy_asksvin" },
+        };
+
+        private static string GameWord(string english)
+        {
+            if (!GameWords.TryGetValue(english, out string token))
+                return null;
+            string word = Localization.instance.Localize(token);
+            return string.IsNullOrEmpty(word) || word[0] == '[' ? null : word;
+        }
 
         /// Registers English, then lets a translation file for the active language override it.
         ///
@@ -157,7 +198,7 @@ namespace CarturMapPins
             int translated = 0;
             foreach (KeyValuePair<string, string> pair in English)
             {
-                string text = pair.Value;
+                string text = GameWord(pair.Value) ?? pair.Value;
                 if (overrides != null && overrides.TryGetValue(pair.Key, out string custom) && !string.IsNullOrEmpty(custom))
                 {
                     text = custom;
@@ -287,7 +328,7 @@ namespace CarturMapPins
                 }
 
                 if (sb.Length > 0)
-                    File.AppendAllText(path, "\n# Added later: the setup menu's names and descriptions.\n" + sb, new UTF8Encoding(false));
+                    File.AppendAllText(path, "\n# Added later: the setup menu's names and descriptions, and the icon names.\n" + sb, new UTF8Encoding(false));
             }
             catch (Exception e)
             {

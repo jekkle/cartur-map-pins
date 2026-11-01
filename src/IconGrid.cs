@@ -657,9 +657,19 @@ namespace CarturMapPins
         /// names LegacyIconNames kept. Null when there is none.
         internal static string NameOf(int index)
         {
-            string raw = index < CustomIcons.Count
+            string english = EnglishNameOf(index);
+            return Translations.IsRegistered(english) ? Labels.Localize(Translations.Token(english)) : english;
+        }
+
+        internal static string EnglishNameOf(int index) =>
+            EnglishName(index < CustomIcons.Count
                 ? ((PinIcon)index).ToString()
-                : LegacyIconNames.NameFor((PinIcon)(LegacyIconNames.LegacyBase + index - CustomIcons.Count));
+                : LegacyIconNames.NameFor((PinIcon)(LegacyIconNames.LegacyBase + index - CustomIcons.Count)));
+
+        /// "SpawnerSkeletonBones" -> "Skeleton Bones". Translations registers every one of these, so
+        /// a name that is not also a pin name ("Skeleton Bones", "Seeker Egg") is translatable too.
+        internal static string EnglishName(string raw)
+        {
             if (string.IsNullOrEmpty(raw))
                 return null;
             foreach (string prefix in CategoryPrefixes)
@@ -671,8 +681,7 @@ namespace CarturMapPins
                     break;
                 }
             }
-            string english = System.Text.RegularExpressions.Regex.Replace(raw, "(?<=[a-z])(?=[A-Z])", " ");
-            return Translations.IsRegistered(english) ? Labels.Localize(Translations.Token(english)) : english;
+            return System.Text.RegularExpressions.Regex.Replace(raw, "(?<=[a-z])(?=[A-Z])", " ");
         }
 
         /// The icon's name in the setup menu's hover box, following the pointer while it is on the

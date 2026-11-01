@@ -149,6 +149,9 @@ namespace CarturMapPins
             return byValue;
         }
 
+        /// The old icons that have a name, for Translations.
+        public static IEnumerable<string> KeptNames => KeptOld.Keys;
+
         /// The PinIcon a 1.2.x name becomes, or null when the name is not one of 1.2.x's.
         public static PinIcon? Translate(string name)
         {
