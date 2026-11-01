@@ -831,6 +831,11 @@ namespace CarturMapPins
         internal static RectTransform NewTip(Transform root, float width, out TextMeshProUGUI text)
         {
             RectTransform tip = Box(root, "Tip", new Color(0.02f, 0.02f, 0.015f, 0.96f), new Vector2(width, 10f));
+            // A box that follows the pointer must never take its clicks. It sits 24 px right of the
+            // pointer and 8 below, so it covers the right of every row under the hovered one, and a
+            // click on one of those landed on the box (measured 2.1.1: hovering Wraith, the top hit
+            // at Stone Golem and Serpent +100 px was Tip).
+            tip.GetComponent<Image>().raycastTarget = false;
             tip.anchorMin = tip.anchorMax = new Vector2(0.5f, 0.5f);
             tip.pivot = new Vector2(0f, 1f);
             Edge(tip, true);
