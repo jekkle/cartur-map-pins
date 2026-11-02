@@ -907,12 +907,13 @@ namespace CarturMapPins
             Trackers.Tick(UnityEngine.Time.deltaTime);
         }
 
-        /// The settings menu (F1) lists the settings Hugin's menu does not own, all under one tab, and
-        /// leaves the ones it does own out. Nothing moves in the .cfg: ConfigurationManager reads a
-        /// setting's tab and visibility from the ConfigurationManagerAttributes tag, and the section
-        /// stays what it was. A setting bound with a plain description has no tag to change, so it gets
-        /// one (the description is rebuilt with it; the text and range are carried over).
-        private const string SettingsTab = "Settings";
+        /// The settings menu (F1) leaves out the settings Hugin's menu owns and keeps the rest in their
+        /// numbered sections. Nothing moves in the .cfg: ConfigurationManager reads a setting's
+        /// visibility from the ConfigurationManagerAttributes tag. A setting bound with a plain
+        /// description has no tag to change, so it gets one (the description is rebuilt with it; the
+        /// text and range are carried over).
+        /// 2.1.1 also put every setting in one Category, which flattened the sections into a single
+        /// list (totya, sighsorry's manager): a Category replaces the section as the group heading.
 
         /// ConfigEntryBase.Description has no setter, only its compiler-made field (measured: the
         /// first version looked for a setter and 27 settings got no tag).
@@ -943,12 +944,9 @@ namespace CarturMapPins
                     hidden++;
                 }
                 else if (tag.Browsable != false)
-                {
-                    tag.Category = SettingsTab;
                     listed++;
-                }
             }
-            Log.LogInfo($"Settings menu: {listed} settings under one tab, {hidden} not listed (Hugin's menu, or no row for them).");
+            Log.LogInfo($"Settings menu: {listed} settings listed in their sections, {hidden} not listed (Hugin's menu, or no row for them).");
             if (untagged > 0)
                 Log.LogWarning($"Settings menu: {untagged} settings could not be arranged (ConfigEntryBase.Description changed?); they stay in their own sections.");
         }

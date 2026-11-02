@@ -1,6 +1,16 @@
 # Changelog
 
-## 2.1.1
+## 2.1.2 (not released)
+
+From totya's report on 2.1.1.
+
+**Hint bar at the bottom of the large map: each key sits next to its own words.** The gap between a key and the words before it was the same as the gap to the next entry, so H looked like it belonged to "Labels Off" and Shift+H to "Setup". Every entry on the bar now has its own space after it, the game's Add pin, Cross off pin, Remove pin and Ping included, and the bar is centred between the map's left edge and the icon panel instead of running off the left. Checked in the game at 1920x1080 with a screenshot; not checked at other resolutions.
+
+**Settings menu (F1): the sections are back.** 2.1.1 put every setting into one list. That list replaced the section headings in sighsorry's ConfigurationManager, so the settings came out flat. The numbered sections are back, the settings Hugin's menu owns are still left out, and "Open Hugin's setup" is now first, in "01. Start Here". Nothing changes in the `.cfg` except that one line moving from `02. Map Display` to `01. Start Here`. Checked in the game from the tags ConfigurationManager reads (474 hidden, 200 listed, none in a shared tab); the manager itself was not opened.
+
+**Not fixed yet:**
+- Hugin's menu: Infested Tree, Serpent and Stone Golem still did not toggle on totya's machine (1920x1080, English, only BepInEx and Map Pins installed). I cannot reproduce it. Every click I could send toggled, but none of those came from a real mouse. A debug build that logs each press and release is the next step.
+- A name hidden by `HideGroupedLabels` although its text would fit ("Chest" beside "Log Cabin"). Not measured yet.
 
 **Labels: the name you point at wins.** Pointing at an icon now hides every other name that overlaps its name, with the usual 0.2 s fade, and brings them back when you move off. In 2.1.0 the pointed-at name was only forced on, so it was drawn over whichever name already sat there. Measured on two pins 4 px and 21 px apart on one row (zoom 0.1): the overlap between the pointed-at name and the names around it went from 35x5 px and 38x16 px to 0, with the pointer on either pin, and the names crossfade in about 0.25 s. The automatic collision handling is unchanged.
 

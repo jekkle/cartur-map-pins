@@ -10,8 +10,6 @@ namespace CarturMapPins
         public bool? Browsable;
         public bool? IsAdvanced;
         public int? Order;
-        /// The tab the setting is listed under in the manager; the .cfg section is not affected.
-        public string Category;
         public Action<BepInEx.Configuration.ConfigEntryBase> CustomDrawer;
     }
 }

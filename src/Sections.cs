@@ -30,6 +30,7 @@ namespace CarturMapPins
             new Dictionary<string, string>(System.StringComparer.Ordinal)
         {
             { "General/ApplyPreset",         "01. Start Here" },
+            { "General/OpenSetup",           "01. Start Here" },
             { "General/PinSharing",          "03. Multiplayer" },
             { "General/DiscoveryRadius",     "11. Advanced" },
             { "General/ScanIntervalSeconds", "11. Advanced" },

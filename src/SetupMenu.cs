@@ -677,6 +677,9 @@ namespace CarturMapPins
             var button = go.GetComponent<Button>();
             button.transition = Selectable.Transition.None;
             button.onClick.AddListener(() => { item.On = !item.On; Refresh(); });
+#if DIAGNOSTICS
+            button.onClick.AddListener(() => Plugin.Log.LogInfo($"[clickprobe] row click: {item.Name} now {(item.On ? "on" : "off")}"));
+#endif
             go.AddComponent<HoverFx>().Bind(back, RowRest, RowHover, 1.02f);
             IconGrid.SlotSounds(go);
 
@@ -1072,10 +1075,19 @@ namespace CarturMapPins
                 _grow = grow;
             }
 
-            public void OnPointerEnter(PointerEventData e) => _target = 1f;
-            public void OnPointerExit(PointerEventData e) { _target = 0f; _pressTarget = 1f; }
-            public void OnPointerDown(PointerEventData e) => _pressTarget = 0.97f;
-            public void OnPointerUp(PointerEventData e) => _pressTarget = 1f;
+            public void OnPointerEnter(PointerEventData e) { _target = 1f; Probe("enter", e); }
+            public void OnPointerExit(PointerEventData e) { _target = 0f; _pressTarget = 1f; Probe("exit", e); }
+            public void OnPointerDown(PointerEventData e) { _pressTarget = 0.97f; Probe("down", e); }
+            public void OnPointerUp(PointerEventData e) { _pressTarget = 1f; Probe("up", e); }
+
+            /// totya: a row's checkbox answers 1 click in 10 on a real mouse. What each press and
+            /// release reached, with the scale it happened at, so a lost click says why.
+            [System.Diagnostics.Conditional("DIAGNOSTICS")]
+            private void Probe(string what, PointerEventData e)
+            {
+                GameObject over = e.pointerCurrentRaycast.gameObject;
+                Plugin.Log.LogInfo($"[clickprobe] {what} on {name} at {e.position.x:0},{e.position.y:0} over {(over != null ? over.name : "nothing")} scale {transform.localScale.x:0.000}");
+            }
 
             private void Update()
             {
@@ -1090,6 +1102,7 @@ namespace CarturMapPins
                 transform.localScale = new Vector3(s, s, 1f);
             }
         }
+
 
         /// Keys, the hover description, and no map underneath.
         private sealed class Keys : MonoBehaviour

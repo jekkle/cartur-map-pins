@@ -154,21 +154,65 @@ namespace CarturMapPins
             var layout = wrap.GetComponent<LayoutElement>();
             layout.preferredWidth = capWidth;
             layout.preferredHeight = 32f;
+
+            // The game's own entries run together the same way (Ping's mouse sat as close to "All
+            // Pins" as to its own label), so every entry on the bar gets its own space.
+            foreach (Transform entry in row)
+            {
+                HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
+                if (group != null)
+                    PadAfter(group);
+            }
+            CentreBar(row);
         }
 
-        /// The game's mouse icons carry empty sprite on each side, so the text-to-icon gap they
-        /// show is their layout spacing (5) plus that. Measured from the owner's screenshot
-        /// (2026-10-27): the game's entries show about 27 screen px between text and icon, ours
-        /// showed 8 with the same 5 of spacing, i.e. a scale of 1.6, so the padding is about 12.
-        /// A drawn cap has no such margin, so it is added to the entry's spacing and the gaps match.
-        private const float SpritePadding = 12f;
+        /// The entries add up to more than the game's bar is wide once they have their room, and the
+        /// overflow ran off the left of the map (owner, 2026-11-02). KeyHints is stretched across the
+        /// map and shifted 177.5 left of its centre (read with the pilot's maptree). The room that is
+        /// free is the map's left edge to the icon panel on the right: measured at 1920x1080, frame
+        /// 150..1770 and panel from 1503, so its middle is 134 left of the map's centre. The row is
+        /// moved there and centres its entries, which a centred layout does evenly on both sides
+        /// when they overflow.
+        private const float BarShift = -134f;
+
+        private static void CentreBar(Transform row)
+        {
+            if (row.parent is RectTransform hints)
+            {
+                float move = BarShift - (hints.offsetMin.x + hints.offsetMax.x) * 0.5f;
+                hints.offsetMin += new Vector2(move, 0f);
+                hints.offsetMax += new Vector2(move, 0f);
+            }
+            HorizontalLayoutGroup bar = row.GetComponent<HorizontalLayoutGroup>();
+            if (bar == null)
+                return;
+            TextAnchor a = bar.childAlignment;
+            bar.childAlignment = a <= TextAnchor.UpperRight ? TextAnchor.UpperCenter
+                               : a <= TextAnchor.MiddleRight ? TextAnchor.MiddleCenter : TextAnchor.LowerCenter;
+        }
+
+        /// A key sits close to its own words and far from the next entry's (totya, 2026-11-02: with
+        /// an even gap either side, H read as belonging to "Labels Off" and Shift+H to "Setup", and
+        /// he thought the keys were broken). The label-to-key gap is the layout's spacing plus
+        /// SpritePadding, and PairGap is empty room after the entry, so the next one is clearly apart.
+        private const float SpritePadding = 2f;
+        private const float PairGap = 18f;
         private const float CapHeight = 30f;   // the mouse icon's visible body
 
         private static void AddGap(GameObject entry)
         {
             HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
-            if (group != null)
-                group.spacing += SpritePadding;
+            if (group == null)
+                return;
+            group.spacing += SpritePadding;
+            PadAfter(group);
+        }
+
+        /// Room after the entry's last item. A floor, not an addition, so it is safe to run twice.
+        private static void PadAfter(HorizontalLayoutGroup group)
+        {
+            if (group.padding.right < PairGap)
+                group.padding.right = (int)PairGap;
         }
 
         /// Turns a key image into a drawn cap: dark face, the picker's frame, the key name.
