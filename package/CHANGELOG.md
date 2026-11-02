@@ -14,6 +14,8 @@ From totya's report on 2.1.1.
 
 **Zoomed out past the name limit, only the pin under the pointer shows its name.** Until now every pin within 60 px of the pointer did, and past the limit a whole crowded patch sits inside 60 px, so pointing at a cluster brought back all of its names stacked on each other (83 at once with the pointer on a test cluster, 0 with it parked). Now it is the pin under the pointer only, the way Shift+H already works: 1 name with the pointer on a pin, 0 beside it, at zoom 0.25, 0.3 and 0.5.
 
+## 2.1.1
+
 **Labels: the name you point at wins.** Pointing at an icon now hides every other name that overlaps its name, with the usual 0.2 s fade, and brings them back when you move off. In 2.1.0 the pointed-at name was only forced on, so it was drawn over whichever name already sat there. Measured on two pins 4 px and 21 px apart on one row (zoom 0.1): the overlap between the pointed-at name and the names around it went from 35x5 px and 38x16 px to 0, with the pointer on either pin, and the names crossfade in about 0.25 s. The automatic collision handling is unchanged.
 
 **New: Shift+H hides the names, not the pins.** The hint bar has a new **Labels On / Labels Off** entry beside H. H still steps All, Mine only, Auto only, None, and does not fire on Shift+H. While names are off, pointing at a pin shows only that pin's name. Not saved between sessions, like H. Rebind with `General / HideLabelsKey`.
