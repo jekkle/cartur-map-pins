@@ -84,7 +84,11 @@ namespace CarturMapPins
             _zoomHidden = limit < 100f && (_zoomHidden ? percent > limit - band : percent > limit + band);
             if (_zoomHidden || PinHiding.LabelsHidden)
             {
-                HideAll(pins, oursOnly: false, onlyPointed: PinHiding.LabelsHidden);
+                // Only the pin under the pointer, as with Shift+H. Within 60 px of the pointer, as
+                // this was before 2.1.2, was every name of a crowded patch at once when zoomed out
+                // past the limit (measured 2026-11-02: 83 names stacked with the pointer on the
+                // cluster, 0 with it parked).
+                HideAll(pins, oursOnly: false, onlyPointed: true);
                 return;
             }
 
