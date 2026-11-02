@@ -178,7 +178,7 @@ namespace CarturMapPins
             LabelScale.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
 
             HideGroupedLabels = Config.Bind(Sections.Of("General", "HideGroupedLabels"), "HideGroupedLabels", true,
-                "Draw no name on a pin that stands for a group - a cluster badge, a merged repeat, or one of the crowded pins that are drawn smaller - and show it when you point at the pin. Ungrouped pins keep their names.");
+                "Draw no name on a pin that stands for a group - a cluster badge or a merged repeat - and show it when you point at the pin. Zoomed in close (under half of HideLabelsFromZoom) nothing is hidden for this, only for overlapping another name. Pins that are merely crowded keep their names unless they overlap another.");
             HideGroupedLabels.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
 
             // The only control here that reaches pins already on the map: turning a category off

@@ -447,13 +447,27 @@ namespace CarturMapPins
             _tip = null;
         }
 
+        /// The game's own HUD canvas drew over this menu: its HoverName text is a raycast target and
+        /// sat above the left of the rows in the middle of the screen, checkbox squares included, so
+        /// a click there did nothing while one on the name worked (totya: Infested Tree, Serpent and
+        /// Stone Golem; measured 2026-11-02, the top hit over the checkbox was HoverName). The menu
+        /// goes above every other overlay canvas instead of at a fixed 200.
+        private static int AboveGameCanvases(Canvas own)
+        {
+            int top = 200;
+            foreach (Canvas other in Object.FindObjectsOfType<Canvas>())
+                if (other != own && other.isRootCanvas && other.renderMode != RenderMode.WorldSpace)
+                    top = Mathf.Max(top, other.sortingOrder + 1);
+            return Mathf.Min(top, short.MaxValue);
+        }
+
         private static void Build()
         {
             _root = new GameObject("CarturPinsSetup");
             Object.DontDestroyOnLoad(_root);
             Canvas canvas = _root.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 200;
+            canvas.sortingOrder = AboveGameCanvases(canvas);
             CanvasScaler scaler = _root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);

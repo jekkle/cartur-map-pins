@@ -60,6 +60,9 @@ namespace CarturMapPins
             Shown.Clear();
             Ordered.Clear();
             NameCounts.Clear();
+#if DIAGNOSTICS
+            GroupedHidden.Clear();
+#endif
             ScaleLabels(pins);
 
             // ShowPinLabels is this mod's switch for this mod's names. Through 1.8.9 it hid every
@@ -94,6 +97,14 @@ namespace CarturMapPins
                 return;
 
             int direction = ZoomDirection();
+
+            // Only a pin that stands for several loses its name, and only from half way out to the
+            // zoom where every name goes: close in, the overlap rule below decides alone. totya
+            // (2.1.1): "Chest" stayed hidden beside "Log Cabin" with room for its text. Measured
+            // 2026-11-02 on 247 names hidden as grouped: 40% would not have overlapped a shown
+            // name, a share that fell from about half at 0-5% zoomed out to a quarter at 15%.
+            bool groupRule = Plugin.HideGroupedLabels.Value &&
+                             Crowding.ZoomOutPercent() > Plugin.HideLabelsFromZoom.Value * 0.5f;
             foreach (Minimap.PinData pin in pins)
             {
                 Minimap.PinNameData name = pin?.m_NamePinData;
@@ -120,13 +131,16 @@ namespace CarturMapPins
                 // levels. Zooming in only ever brings names back, so a name that is up stays up
                 // until the zoom rests, then this decides it; the collision rule below does the
                 // same for names that overlap.
-                bool grouped = Plugin.HideGroupedLabels.Value && Crowding.IsGrouped(pin) &&
+                bool grouped = groupRule && Crowding.StandsForSeveral(pin) &&
                     !(ReferenceEquals(pin, PinHover.Current) && Clusters.CountOf(pin) <= 1);
                 if (grouped && direction < 0 && Fades.TryGetValue(name.PinNameGameObject, out Fade up) && up.Want)
                     grouped = false;
                 if (grouped)
                 {
                     Hide(name);
+#if DIAGNOSTICS
+                    GroupedHidden.Add(pin);
+#endif
                     continue;
                 }
 
@@ -144,7 +158,12 @@ namespace CarturMapPins
             }
 
             if (Ordered.Count == 0)
+            {
+#if DIAGNOSTICS
+                ReportGroupedHidden();
+#endif
                 return;
+            }
 
             for (int i = 0; i < Ordered.Count; i++)
             {
@@ -255,7 +274,45 @@ namespace CarturMapPins
 
                 Hide(name);
             }
+#if DIAGNOSTICS
+            ReportGroupedHidden();
+#endif
         }
+
+#if DIAGNOSTICS
+        private static readonly List<Minimap.PinData> GroupedHidden = new List<Minimap.PinData>();
+        private static readonly HashSet<string> Reported = new HashSet<string>();
+
+        /// totya (2.1.1): "Chest" stayed hidden beside "Log Cabin" with no visible overlap, and
+        /// HideGroupedLabels is the suspect. For each name hidden as grouped, how far its text
+        /// would overlap the names that are showing; 0x0 means it would have fitted. Once per
+        /// pin and zoom step, so the log stays short.
+        private static void ReportGroupedHidden()
+        {
+            foreach (Minimap.PinData pin in GroupedHidden)
+            {
+                Minimap.PinNameData name = pin.m_NamePinData;
+                Rect mine = RectOf(name);
+                float ow = 0f, oh = 0f;
+                string other = "-";
+                foreach (Minimap.PinNameData shown in Shown)
+                {
+                    Rect r = RectOf(shown);
+                    float w = Mathf.Min(mine.xMax, r.xMax) - Mathf.Max(mine.xMin, r.xMin);
+                    float h = Mathf.Min(mine.yMax, r.yMax) - Mathf.Max(mine.yMin, r.yMin);
+                    if (w > 0f && h > 0f && w * h > ow * oh)
+                    {
+                        ow = w;
+                        oh = h;
+                        other = shown.PinNameText.text;
+                    }
+                }
+                string key = $"{pin.m_name}|{pin.m_pos.x:0}|{pin.m_pos.z:0}|{Mathf.RoundToInt(Crowding.ZoomOutPercent() / 5f)}";
+                if (Reported.Add(key))
+                    Plugin.Log.LogInfo($"[labelwhy] '{pin.m_name}' hidden as grouped (merged {Crowding.MergedCount(pin)}, cluster {Clusters.CountOf(pin)}); its text {mine.width:0}x{mine.height:0} px would overlap a shown name by {ow:0}x{oh:0} px ({other}); {Shown.Count} names shown, zoom-out {Crowding.ZoomOutPercent():0}%");
+            }
+        }
+#endif
 
         private static float _prefabMax, _prefabMin;
         private static readonly System.Reflection.FieldInfo NamePrefab = AccessTools.Field(typeof(Minimap), "m_pinNamePrefab");

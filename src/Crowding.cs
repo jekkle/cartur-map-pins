@@ -384,19 +384,11 @@ namespace CarturMapPins
         /// True when this pass decided not to draw this pin at all - out of range, or a repeat.
         public static bool OutOfSight(Minimap.PinData pin) => NotDrawn.Contains(pin);
 
-        /// Whether this pin is drawn for a group: a cluster badge (it or its members), a merged
-        /// repeat standing for several, or one of two or more pins in a patch that are shrunk
-        /// because of it (the cell's rarest pin keeps full size, so it is not one). The same
-        /// answers that decide the badge, the merge and the size, so the label follows them.
-        public static bool IsGrouped(Minimap.PinData pin)
-        {
-            if (pin == null || pin.m_worldSize > 0f)
-                return false;
-            if (Clusters.CountOf(pin) > 1 || MergedCount(pin) > 1)
-                return true;
-            return Counts.TryGetValue(CellFor(pin), out int count) && count > 1 &&
-                   !(Winners.TryGetValue(CellFor(pin), out Minimap.PinData best) && ReferenceEquals(best, pin));
-        }
+        /// A cluster badge (it or its members), or a repeat standing for the others merged into it.
+        /// These draw no name close to the zoom limit; a pin that is only crowded and shrunk keeps
+        /// its own, and the overlap rule decides.
+        public static bool StandsForSeveral(Minimap.PinData pin) =>
+            pin != null && pin.m_worldSize <= 0f && (Clusters.CountOf(pin) > 1 || MergedCount(pin) > 1);
 
         /// How much to shrink this pin: zoom always, crowding on top of it, never past half.
         public static float ScaleFor(Minimap.PinData pin)
