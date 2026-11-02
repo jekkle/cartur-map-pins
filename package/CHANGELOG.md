@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.1.2 (not released)
+## 2.1.2
 
 From totya's report on 2.1.1.
 

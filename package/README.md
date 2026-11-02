@@ -79,7 +79,7 @@ Both are off by default.
 
 An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
 
-Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is 20% zoomed out. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
+Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is 20% zoomed out; past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
 
 You can draw pins with no names at all, so the map reads as icons. The names stay searchable, they just are not drawn. You can also stop drawing pins further than a set distance from your character. That is off by default. The `HiddenPins` setting takes a list of names to hide without deleting the pins, and its settings row has a list to pick from your own map.
 
@@ -111,7 +111,7 @@ What counts as ore, a beehive or a pickable is worked out at runtime from compon
 
 Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 
-In the config manager (F1) every setting is in one tab, **Settings**, and the first entry is a button, **Open Hugin's setup**. The setup menu is where what gets a pin, its icon, its colour and its opacity are chosen, plus who sees your pins at the cartography table and New default colours, so none of those are listed in F1. They are still in the `.cfg` file under the same names and values, and editing them there works as before. The button needs a world to be loaded, and closes the config manager so the menu is not hidden behind it. P on the large map and `carturpins_setup` open the same menu.
+In the config manager (F1) the settings are in numbered sections, and the first one, **01. Start Here**, has a button, **Open Hugin's setup**. The setup menu is where what gets a pin, its icon, its colour and its opacity are chosen, plus who sees your pins at the cartography table and New default colours, so none of those are listed in F1. They are still in the `.cfg` file under the same names and values, and editing them there works as before. The button needs a world to be loaded, and closes the config manager so the menu is not hidden behind it. P on the large map and `carturpins_setup` open the same menu.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -120,7 +120,7 @@ In the config manager (F1) every setting is in one tab, **Settings**, and the fi
 | `AutoPinningKey` | F8 | Key that toggles `AutoPinning` in game. |
 | `ShowPinLabels` | true | Draw the name under each pin this mod places. Your own pins keep their names. |
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
-| `HideGroupedLabels` | true | No name on a pin that stands for a group (cluster badge, merged repeat, crowded patch); point at it and the name shows. |
+| `HideGroupedLabels` | true | No name on a pin that stands for several (cluster badge, merged repeat) once the map is zoomed out past half of `HideLabelsFromZoom`; point at it and the name shows. A pin that is only crowded keeps its name unless it overlaps another. |
 | `LabelScale` | 0.7 | How big names are drawn, 0.3 to 2. 1 is the game's own size. Applies at once. |
 | `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
