@@ -99,13 +99,20 @@ namespace CarturMapPins
             // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
             // map allows is 1.0, so the test is true at every zoom and no name is ever hidden by
             // it. Measured at runtime; the 0.5 in the assembly is only the field initializer.
-            // A band round the limit (10% of it, at least a quarter point) so a zoom resting on the
-            // line does not switch every name on and off. One point was six wheel steps each way at
-            // a limit of 3 (totya, 2.1.2): a wheel step is about a third of a point.
+            // A thin band round the limit, in zoom itself (1% each side) rather than in points of the
+            // 0 to 100 scale. The old band was at least a quarter of a point; at a limit of 2 that is
+            // about a notch and a half of the wheel each way, and with the 6% step it is more, so names
+            // took two or three notches to come back or go (totya, 2.1.3: "a single step would be the
+            // sensible behavior"). Zooming now settles on its target without overshoot, so a band only
+            // has to keep a zoom resting exactly on the line from flipping.
             float limit = Plugin.HideLabelsFromZoom.Value;
-            float band = Mathf.Max(0.25f, limit * 0.1f);
-            float percent = Crowding.ZoomOutPercent();
-            _zoomHidden = limit < 100f && (_zoomHidden ? percent > limit - band : percent > limit + band);
+            Minimap zoomMap = Minimap.instance;
+            if (zoomMap != null)
+            {
+                float zoomLimit = Mathf.Lerp(zoomMap.m_minZoom, zoomMap.m_maxZoom, limit / 100f);
+                float zoom = zoomMap.LargeZoom;
+                _zoomHidden = limit < 100f && (_zoomHidden ? zoom > zoomLimit * (1f - ZoomBand) : zoom > zoomLimit * (1f + ZoomBand));
+            }
             if (_zoomHidden || PinHiding.LabelsHidden)
             {
                 // Only the pin under the pointer, as with Shift+H. Within 60 px of the pointer, as
@@ -500,6 +507,7 @@ namespace CarturMapPins
 
         private static readonly ConditionalWeakTable<GameObject, Fade> Fades = new ConditionalWeakTable<GameObject, Fade>();
         private static bool _zoomHidden;
+        private const float ZoomBand = 0.01f;
 
         /// 12% of the label's size, inside the 8-15% band from research/pin-clustering/ux_reference.md.
         private const float Margin = 0.12f;
