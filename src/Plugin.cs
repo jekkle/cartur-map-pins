@@ -210,6 +210,19 @@ namespace CarturMapPins
                 "When the map is zoomed far out, drop the cheap-to-find pins first so the ones worth crossing a map for stay: pickables go past a third of the way out, landmarks, props, nests and hives past half, ore, chests and stones past three quarters. Bosses, dungeons, camps, portals, traders and home never drop, and neither do your own pins, shared pins, markers and pings. Only pins this mod placed are ever hidden, and they come back as you zoom in. Off by default.");
             ClusterPins = Config.Bind(Sections.Of("General", "ClusterPins"), "ClusterPins", false,
                 "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
+            SmoothMapZoom = Config.Bind(Sections.Of("General", "SmoothMapZoom"), "SmoothMapZoom", true,
+                "Ease the large map's mouse-wheel zoom instead of jumping, and keep the spot under the cursor where it is while zooming. Off gives the game's own zoom back. The M and Z keys, the controller and touch always use the game's own zoom.");
+            MapZoomStepPercent = Config.Bind(Sections.Of("General", "MapZoomStepPercent"), "MapZoomStepPercent", 6f,
+                new ConfigDescription("How much one wheel notch zooms the large map, in percent (the game's own step is 10).", new AcceptableValueRange<float>(1f, 25f)));
+            PrecisionZoomPercent = Config.Bind(Sections.Of("General", "PrecisionZoomPercent"), "PrecisionZoomPercent", 2f,
+                new ConfigDescription("How much one wheel notch zooms while the precision key is held, in percent.", new AcceptableValueRange<float>(1f, 10f)));
+            PrecisionZoomKey = Config.Bind(Sections.Of("General", "PrecisionZoomKey"), "PrecisionZoomKey",
+                new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.LeftShift),
+                "Hold this while using the wheel on the large map for the finer PrecisionZoomPercent step. Right Shift also counts when this is Left Shift.");
+            MapZoomDurationMs = Config.Bind(Sections.Of("General", "MapZoomDurationMs"), "MapZoomDurationMs", 160,
+                new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600)));
+            CursorCenteredZoom = Config.Bind(Sections.Of("General", "CursorCenteredZoom"), "CursorCenteredZoom", true,
+                "Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
                 "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. This switch, each kind's colour and opacity, and the Apply button for the existing pins are in Hugin's setup menu (P on the large map); they are not listed in the settings menu.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
@@ -794,6 +807,10 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintBerriesByType;
         public static ConfigEntry<bool> NewDefaultColours;
         public static ConfigEntry<bool> ClusterPins;
+        public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom;
+        public static ConfigEntry<float> MapZoomStepPercent, PrecisionZoomPercent;
+        public static ConfigEntry<int> MapZoomDurationMs;
+        public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> PrecisionZoomKey;
         public static ConfigEntry<bool> PriorityZoomOut;
 
         private static readonly Dictionary<string, ConfigEntry<string>> KindColourEntries =

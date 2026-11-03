@@ -853,6 +853,12 @@ namespace CarturMapPins
     {
         private static bool Prefix(ref float __result)
         {
+            // SmoothZoom has already read the wheel this frame and does the zooming itself.
+            if (SmoothZoom.Suppress)
+            {
+                __result = 0f;
+                return false;
+            }
             // Both panels scroll their own grid, so the wheel has to be withheld from the map
             // over either of them.
             if (!MapIconPicker.PointerOverPanel() && !PinEditor.PointerOverPanel())
