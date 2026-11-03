@@ -497,10 +497,12 @@ namespace CarturMapPins
 
             // Footer 16 from the bottom, not 28: the link buttons above end 76 up, so at 28 "Not now" sat
             // 10 px under them in the same column and read as one of them (totya, 2.1.2); now 22.
-            Button(panel, "Not now", new Vector2(36f, 16f), 140f, false, () => Close(false), anchorLeft: true);
-            _backButton = Button(panel, "Back", new Vector2(-188f, 16f), 140f, false, () => ShowPage(_page - 1)).transform.parent.gameObject;
+            // "Not now" sits left of "Next" with half a button's width between them, so it reads as part of
+            // the step buttons and not as one of the links above (totya, 2.1.3); Back keeps the far left.
+            Button(panel, "Not now", new Vector2(-246f, 16f), 140f, false, () => Close(false));
+            _backButton = Button(panel, "Back", new Vector2(36f, 16f), 140f, false, () => ShowPage(_page - 1), anchorLeft: true).transform.parent.gameObject;
             _footer = Label(panel, "Footer", 14f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.Left,
-                            new Vector2(196f, -584f), new Vector2(330f, 52f));
+                            new Vector2(196f, -584f), new Vector2(270f, 52f));
             _footer.textWrappingMode = TextWrappingModes.Normal;
             BuildTip();
             _next = Button(panel, "Next", new Vector2(-36f, 16f), 140f, false, () =>
@@ -652,7 +654,8 @@ namespace CarturMapPins
             Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(0f, -384f), new Vector2(788f, 26f))
                 .text = "MORE OF CARTUR'S MODS";
             LinkButton("Thunderstore", "https://thunderstore.io/c/valheim/p/Cartur/", new Vector2(0f, -414f));
-            LinkButton("Hexium", "https://valheim.hexium.gg/teams/Cartur", new Vector2(176f, -414f));
+            // The search for "Cartur" on Hexium lists every one of the mods; the team page is only a profile (totya, 2.1.3).
+            LinkButton("Hexium", "https://valheim.hexium.gg/?q=Cartur", new Vector2(176f, -414f));
             Refresh();
         }
 

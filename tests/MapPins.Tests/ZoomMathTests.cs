@@ -95,4 +95,34 @@ public class ZoomMathTests
         Assert.InRange(Math.Abs(vx - wx), 0, 0.5);
         Assert.InRange(Math.Abs(vz - wz), 0, 0.5);
     }
+    const float Min = 0.015f, Max = 1f;
+
+    [Fact]
+    public void LogScaleRoundTrips()
+    {
+        foreach (float p in new[] { 0f, 2f, 20f, 63f, 99.5f, 100f })
+            Assert.InRange(ZoomMath.LogPercent(ZoomMath.ZoomAtLogPercent(p, Min, Max), Min, Max), p - 0.01f, p + 0.01f);
+    }
+
+    [Fact]
+    public void OldValuesKeepTheirZoom()
+    {
+        // totya's 2.0 and the old default 20, on the straight scale, and their zoom
+        foreach (float old in new[] { 0f, 2f, 3f, 10f, 20f, 50f })
+        {
+            float zoom = Min + old / 100f * (Max - Min);
+            float converted = ZoomMath.OldPercentToLog(old, Min, Max);
+            Assert.InRange(ZoomMath.ZoomAtLogPercent(converted, Min, Max) / zoom, 0.999f, 1.001f);
+        }
+        Assert.Equal(100f, ZoomMath.OldPercentToLog(100f, Min, Max));
+        Assert.InRange(ZoomMath.OldPercentToLog(2f, Min, Max), 19.9f, 20.1f);
+        Assert.InRange(ZoomMath.OldPercentToLog(20f, Min, Max), 62.9f, 63.2f);
+    }
+
+    [Fact]
+    public void OneNotchIsAboutOnePointFour()
+    {
+        float a = ZoomMath.LogPercent(0.0347f, Min, Max), b = ZoomMath.LogPercent(0.0347f * 1.06f, Min, Max);
+        Assert.InRange(b - a, 1.3f, 1.5f);
+    }
 }

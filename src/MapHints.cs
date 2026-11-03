@@ -34,6 +34,7 @@ namespace CarturMapPins
             }
             if (_hideLabel == null)
                 return;
+            Spread(map);
             Recentre(map);
             string text = CurrentState();
             if (_hideLabel.text != text)
@@ -176,7 +177,8 @@ namespace CarturMapPins
         /// 2.1.2 used -134, which was right at 1920x1080 only (frame 150..1770, picker from 1503;
         /// totya's report on 2.1.2 named it). No picker, or one that is hidden, leaves the whole frame.
         private static float _centredOn = float.NaN;
-        private static RectTransform _hints;
+        private static RectTransform _hints, _row;
+        private static float _spreadAt = -10f;
         private static readonly Vector3[] Corners = new Vector3[4];
 
         private static void Recentre(Minimap map)
@@ -205,8 +207,56 @@ namespace CarturMapPins
             _centredOn = target;
         }
 
+        /// The room after each entry grows into the width the bar has to spare, up to MaxPairGap (totya,
+        /// 2.1.3: "Change Icon" too close to P, "Labels On" too close to H, a lot of unused room on the
+        /// right). The words stay as close to their own key as before; only the space between entries
+        /// moves, never below PairGap. Twice a second, since the words change width ("All Pins" to
+        /// "Mine Only") and the picker opening changes how much room there is.
+        private const float MaxPairGap = 56f;
+
+        private static void Spread(Minimap map)
+        {
+            if (_row == null || _hints == null || map.m_largeRoot == null || Time.unscaledTime - _spreadAt < 0.5f)
+                return;
+            _spreadAt = Time.unscaledTime;
+            float scale = _hints.lossyScale.x;
+            if (scale <= 0f)
+                return;
+
+            ((RectTransform)map.m_largeRoot.transform).GetWorldCorners(Corners);
+            float left = Corners[0].x, right = Corners[2].x;
+            RectTransform picker = MapIconPicker.PanelRect;
+            if (picker != null && picker.gameObject.activeInHierarchy)
+            {
+                picker.GetWorldCorners(Corners);
+                right = Corners[0].x;
+            }
+
+            var groups = new System.Collections.Generic.List<HorizontalLayoutGroup>();
+            foreach (Transform entry in _row)
+            {
+                HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
+                if (group != null && entry.gameObject.activeSelf)
+                    groups.Add(group);
+            }
+            if (groups.Count == 0)
+                return;
+
+            float room = (right - left) / scale;
+            float used = LayoutUtility.GetPreferredWidth(_row);
+            float gap = Mathf.Clamp(groups[0].padding.right + (room - used) * 0.9f / groups.Count, PairGap, MaxPairGap);
+            int pixels = Mathf.RoundToInt(gap);
+            if (groups[0].padding.right == pixels)
+                return;
+            foreach (HorizontalLayoutGroup group in groups)
+                group.padding.right = pixels;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_row);
+            _centredOn = float.NaN;   // the bar changed width, so it is centred again
+        }
+
         private static void CentreBar(Transform row)
         {
+            _row = row as RectTransform;
             _hints = row.parent as RectTransform;
             _centredOn = float.NaN;
             if (_built != null)

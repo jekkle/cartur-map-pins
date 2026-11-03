@@ -160,8 +160,17 @@ namespace CarturMapPins
             MergeRepeatedPins = Config.Bind(Sections.Of("General", "MergeRepeatedPins"), "MergeRepeatedPins", true,
                 "Where several pins with the same name sit on the same patch of screen, draw one of them. A tin field is a dozen separate deposits and so a dozen identical pins, which at map scale is one white blob you can neither count nor click - one icon says as much and leaves the map readable. Pins of different kinds sitting together are all still drawn, and zooming in separates the rest as it always did. Nothing is deleted: every pin is still on the map, still saved, still searchable.");
 
-            HideLabelsFromZoom = Config.Bind(Sections.Of("General", "HideLabelsFromZoom"), "HideLabelsFromZoom", 20f,
-                "Stop drawing pin names once the map is zoomed out past this percentage. 0 is fully zoomed in, 100 is the whole world; 100 never hides a name. The game has a setting of its own for this and it does nothing - m_showNamesZoom is 2 where the furthest the map zooms is 1, so its test is true at every zoom and no name is ever hidden by it.");
+            // Before 2.2 this was a straight percentage of the zoom range and the values that matter sat
+            // in the first two or three points of it. It is a log scale now. A value left in the file by
+            // an older version is converted once, the first time the map opens (the zoom limits are not
+            // known before then), and the marker below says whether that has happened. The marker starts
+            // at 0 only when an older file already had the setting; a new install starts at 1.
+            HideLabelsScale = Config.Bind(Sections.Of("General", "HideLabelsFromZoomScale"), "HideLabelsFromZoomScale",
+                Sections.HadValue("General", "HideLabelsFromZoom") ? 0 : 1,
+                new ConfigDescription("Internal, leave it. 0 means HideLabelsFromZoom still holds a value from before 2.2 and will be converted to the new scale when the map first opens; then this becomes 1.", null, Attr(browsable: false)));
+            HideLabelsFromZoom = Config.Bind(Sections.Of("General", "HideLabelsFromZoom"), "HideLabelsFromZoom", 63f,
+                new ConfigDescription("Stop drawing pin names once the map is zoomed out past this point. 0 is fully zoomed in, 100 is the whole world and never hides a name. The scale is logarithmic: every point is the same step of zoom, and one wheel notch is about 1.4 points, so the steps near the close end are as fine as near the far end. 63 is where this setting stood before 2.2 (20 on the old straight scale); an older value is converted for you. The game has a setting of its own for this and it does nothing - m_showNamesZoom is 2 where the furthest the map zooms is 1, so its test is true at every zoom and no name is ever hidden by it.",
+                    new AcceptableValueRange<float>(0f, 100f)));
 
             ShrinkPinsFromZoom = Config.Bind(Sections.Of("General", "ShrinkPinsFromZoom"), "ShrinkPinsFromZoom", 15f,
                 "How far out the map has to be zoomed before pins start shrinking, as a percentage. 0 is fully zoomed in and 100 is the whole world. Below this pins are full size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.");
@@ -847,6 +856,18 @@ namespace CarturMapPins
         public static ConfigEntry<string> HiddenPins;
         public static ConfigEntry<bool> ShowPinLabels;
         public static ConfigEntry<float> HideLabelsFromZoom;
+        public static ConfigEntry<int> HideLabelsScale;
+
+        /// Converts a pre-2.2 HideLabelsFromZoom (a straight percentage of the zoom range) to the log
+        /// scale, once, when the zoom limits are known. The same zoom stays the limit.
+        internal static void ConvertHideLimit(Minimap map)
+        {
+            float old = HideLabelsFromZoom.Value;
+            float converted = UnityEngine.Mathf.Round(ZoomMath.OldPercentToLog(old, map.m_minZoom, map.m_maxZoom) * 10f) / 10f;
+            HideLabelsFromZoom.Value = UnityEngine.Mathf.Clamp(converted, 0f, 100f);
+            HideLabelsScale.Value = 1;
+            Log.LogInfo($"HideLabelsFromZoom {old} (straight scale) is {HideLabelsFromZoom.Value} on the new log scale; same zoom.");
+        }
         public static ConfigEntry<float> ShrinkPinsFromZoom;
         public static ConfigEntry<bool> MergeRepeatedPins;
         public static ConfigEntry<float> ZoomedOutPinScale;

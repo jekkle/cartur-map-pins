@@ -14,6 +14,12 @@
 
 **HideLabelsFromZoom: names hide and come back one wheel notch after the limit** (totya, on 2.1.3). The band round the limit is 1% of the zoom itself, not a quarter of a point of the 0 to 100 scale. Checked in the game at a limit of 2 with 6% notches: hidden on the notch past the limit, back on the notch before it.
 
+**HideLabelsFromZoom is on a finer scale** (totya, on 2.1.3: the values that matter sat in its first two or three points). It is logarithmic now: every point is the same step of zoom and one wheel notch is about 1.4 points. The first time the map opens, an older value is converted so the limit stays at the same zoom: 2 becomes 20 and the old default 20 becomes 63, which is the new default. Checked in the game: with the old value 2 the file now reads 20, names show at zoom 0.0337 and hide at 0.0357; at 63 they show at 0.200 and hide at 0.225. If you go back to 2.1.3 afterwards, the number in your file is on the new scale (63 is the old 20, 20 is the old 2); change it back by hand.
+
+**Hugin's menu: Not now sits left of Next**, half a button's width apart, with Back on the far left (totya). **The Hexium button opens the list of Cartur's mods** (`valheim.hexium.gg/?q=Cartur`, 12 mods when checked) instead of the team's profile page.
+
+**Hint bar: more room between entries when the bar has it.** The room after each entry grows from 18 px towards 56 px with the width to spare between the map frame and the icon picker; the label next to its own key stays as close as before; it never goes below 18. At 1920x1080 that is about 14 px more; I did not measure a wider screen.
+
 **Faster on maps with many pins.** The game switched every name on at each map pass and the mod switched the hidden ones back off; hidden names are now just faded out. With 5,000 test pins zoomed out, the mod's part of a map pass went from 64 to 7 milliseconds, and with 5,000 pins and names showing, from 88 to 25. Shown names are checked for overlap against stored rectangles instead of being measured again for each name (89 to 33 milliseconds at 5,000 pins). The same names show either way (205 and 414 on the same test map before and after). A zoom sweep from fully in to fully out on 755 test pins ran at 8 to 9 frames a second before this and 29 to 30 after (2.1.3 ran it at 9 to 14).
 
 **Still slow: maps with thousands of pins.** The game builds and removes the marker of every pin that enters or leaves the view whenever the view changes, and that part is not the mod's. With 5,000 pins zooming runs at about 10 frames a second, with or without eased zoom.

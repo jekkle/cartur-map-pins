@@ -175,6 +175,11 @@ namespace CarturMapPins
             }
         }
 
+        /// True when the config file, as it stood before anything was bound, already had a value for
+        /// this setting, under its current section or the one it had before sections were renamed.
+        public static bool HadValue(string logical, string key) =>
+            Raw.ContainsKey(Of(logical, key) + "/" + key) || Raw.ContainsKey(logical + "/" + key);
+
         /// Fills in every setting whose section was renamed, from the value the player had under
         /// the old name.
         ///

@@ -105,11 +105,17 @@ namespace CarturMapPins
             // took two or three notches to come back or go (totya, 2.1.3: "a single step would be the
             // sensible behavior"). Zooming now settles on its target without overshoot, so a band only
             // has to keep a zoom resting exactly on the line from flipping.
-            float limit = Plugin.HideLabelsFromZoom.Value;
             Minimap zoomMap = Minimap.instance;
+            if (zoomMap != null && Plugin.HideLabelsScale.Value == 0)
+                Plugin.ConvertHideLimit(zoomMap);
+            float limit = Plugin.HideLabelsFromZoom.Value;
+            // The setting is on a log scale; the same limit as a straight percentage of the range is what
+            // HideGroupedLabels below and the rest of the map's zoom settings are measured in.
+            float limitPercent = 100f;
             if (zoomMap != null)
             {
-                float zoomLimit = Mathf.Lerp(zoomMap.m_minZoom, zoomMap.m_maxZoom, limit / 100f);
+                float zoomLimit = limit >= 100f ? float.MaxValue : ZoomMath.ZoomAtLogPercent(limit, zoomMap.m_minZoom, zoomMap.m_maxZoom);
+                limitPercent = limit >= 100f ? 100f : Mathf.InverseLerp(zoomMap.m_minZoom, zoomMap.m_maxZoom, zoomLimit) * 100f;
                 float zoom = zoomMap.LargeZoom;
                 _zoomHidden = limit < 100f && (_zoomHidden ? zoom > zoomLimit * (1f - ZoomBand) : zoom > zoomLimit * (1f + ZoomBand));
             }
@@ -139,7 +145,7 @@ namespace CarturMapPins
             // 2026-11-02 on 247 names hidden as grouped: 40% would not have overlapped a shown
             // name, a share that fell from about half at 0-5% zoomed out to a quarter at 15%.
             bool groupRule = Plugin.HideGroupedLabels.Value &&
-                             Crowding.ZoomOutPercent() > Plugin.HideLabelsFromZoom.Value * 0.5f;
+                             Crowding.ZoomOutPercent() > limitPercent * 0.5f;
             bool smart = Plugin.SmartLabelPlacement.Value;
             if (!smart && _wasSmart)
             {

@@ -82,7 +82,7 @@ Both are off by default.
 
 An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
 
-Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is 20% zoomed out; past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
+Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is zoomed out past `HideLabelsFromZoom` (63 by default, about where "20% of the way out" was before 2.2); past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
 
 When two names would overlap, the one that loses is tried above its icon, then to the right, then to the left, before it is hidden (`SmartLabelPlacement`); it goes back under the icon once that place is clear again. Bosses, dungeons, camps, traders, home and portals claim name space before the common kinds do. Names go, and come back, one wheel notch after the zoom limit.
 
@@ -127,7 +127,7 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `HideCollidingLabels` | true | Stop names being drawn on top of each other. |
 | `HideGroupedLabels` | true | No name on a pin that stands for several (cluster badge, merged repeat) once the map is zoomed out past half of `HideLabelsFromZoom`; point at it and the name shows. A pin that is only crowded keeps its name unless it overlaps another. |
 | `LabelScale` | 0.7 | How big names are drawn, 0.3 to 2. 1 is the game's own size. Applies at once. |
-| `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
+| `HideLabelsFromZoom` | 63 | The zoom past which names stop being drawn. 0 is fully zoomed in, 100 is the whole world and never hides. The scale is logarithmic: every point is the same step of zoom, one wheel notch is about 1.4 points, and a value from before 2.2 is converted for you the first time the map opens (2 becomes 20, 20 becomes 63). |
 | `SmartLabelPlacement` | true | A name that would overlap another is tried above, right and left of its icon before it is hidden. |
 | `SmoothMapZoom` | true | Ease the large map's wheel zoom and zoom about the pointer. Off gives the game's own zoom back. |
 | `MapZoomStepPercent` | 6 | One wheel notch, in percent (the game's own is 10), 1 to 25. |
