@@ -27,7 +27,8 @@ Provenance: **[measured]** in Valheim (Steam build 26249040, Dev profile, pilot 
 - Drag during zoom **[measured]**: 8 notches while a drag was held for 40 frames; zoom reached its target, centre finite, largest one-frame centre step 38 m at about 6.7 px per frame of pointer motion (drag, not a jump).
 - Log out and back in **[measured]** (same test world; a second world is not available to the pilot): new Minimap object, 0 cluster leaders, list closed, zoom steps correct in the new session.
 - Other map mods **[measured]**: Harmony owners on `Minimap.UpdateMap` are only Map Pins. `ZInput.GetMouseScrollWheel` has another mod's auto-named prefix ahead of ours and ConfigurationManager's postfix. WorldAtlas (a prototype in Dev) loaded in the runs and did not interfere. Nothing else patching the map was installed, so a mod that writes `LargeZoom` was not exercised.
-- Not tested: list while switching to a genuinely different world, controller, trackpad/hi-res wheel, other resolutions.
+- Different world **[measured]**: logged out and into a second, freshly made world (`CarturTwo`, uid 1222587684) and back into `CarturTest` (uid 3172055096). In the second world: 0 cluster leaders, list closed, 2 pins on the map (none of the 100 bench pins, none of the 38 saved pins of the first world), zoom steps x0.8900. Back in the first world: its own 41 pins (38 saved) and zoom steps correct. The pilot's world creation needed `SaveSystem.SetSaveNumber(0)` first, as the game's own new-world code does; fixed in the pilot, not in the mod.
+- Not tested: controller, trackpad/hi-res wheel, other resolutions.
 - Known limit: a pin with several same-icon pins within one icon's width stays in a badge even at the zoom limit; the list then picks it but the badge remains.
 
 ## Phase 3, labels
