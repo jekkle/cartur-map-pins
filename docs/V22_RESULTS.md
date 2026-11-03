@@ -14,14 +14,20 @@ Provenance: **[measured]** in Valheim (Steam build 26249040, Dev profile, pilot 
 - Anchor, pointer at (1400,400), 3 cycles of 4 notches in and out: world point under the pointer moved 0.00 m (0.00 px) every step.
 - Limits: 80 notches in stops at 0.0150 (the game's min), 20 more notches move the centre 0.000 m; out stops at 1.0000 (max). Never outside 0.015..1.
 - Settling: a 10-notch change settles in about 1 s including the 0.5 s stillness window the test waits for.
-- Not tested: drag during animation, other map mods, trackpad/hi-res wheel, other resolutions, controller.
+- Not tested: trackpad/hi-res wheel, other resolutions, controller.
 
 ## Phase 2, clusters **[measured]** on the pilot's unsaved test pins
 - List opens from a badge click, 11 rows from a 47-pin badge (rows are distinct pins; the title count includes merged repeats, rows now show "xN"), search narrows 11 to 3 and back, picking a row glides the centre onto the pin (0.0 m off) and closes the list.
 - Spiderfy: fans 5-11 pins with lines, picking one zooms to it and closes; a zoom change collapses it.
 - Cache fix **[measured]**: a member re-iconed with the pin count unchanged left its group (7 -> 6 members) on the next pass.
 - Reopen **[measured]**: closing and reopening the map mid-zoom stops the animation where it was, offset back to 0, no further movement.
-- Not tested: Escape (closes the map as vanilla), click outside, drag, mixed-category mode (built, never run; the pilot's unsaved pins have no records, so it needs real pins), world switch, controller.
+- Click outside the list **[measured]**: with the pointer off the panel, a click (game-side test flag plus a real OS click, window focused) closes the list; the map stays Large.
+- Escape **[measured, indirectly]**: the OS Escape key sent with keybd_event did not reach the game (map stayed open). Vanilla's Escape on the large map calls `SetMapMode(Small)`; calling that with the list open closed the list. The key itself is not verified.
+- Mixed mode **[measured]** on real records (Ore:Copper, Ore:Tin, Chest:Buried, Runestone:Stone, Portal:Test, 2 m apart): off = no badge; on = one 4-pin badge, mixed, portal left out, list title "4 pins  Ore 2, Chest 1, Runestone 1". Records with a bare key (no "Category:Sub") count as unclassified and never mix.
+- Drag during zoom **[measured]**: 8 notches while a drag was held for 40 frames; zoom reached its target, centre finite, largest one-frame centre step 38 m at about 6.7 px per frame of pointer motion (drag, not a jump).
+- Log out and back in **[measured]** (same test world; a second world is not available to the pilot): new Minimap object, 0 cluster leaders, list closed, zoom steps correct in the new session.
+- Other map mods **[measured]**: Harmony owners on `Minimap.UpdateMap` are only Map Pins. `ZInput.GetMouseScrollWheel` has another mod's auto-named prefix ahead of ours and ConfigurationManager's postfix. WorldAtlas (a prototype in Dev) loaded in the runs and did not interfere. Nothing else patching the map was installed, so a mod that writes `LargeZoom` was not exercised.
+- Not tested: list while switching to a genuinely different world, controller, trackpad/hi-res wheel, other resolutions.
 - Known limit: a pin with several same-icon pins within one icon's width stays in a badge even at the zoom limit; the list then picks it but the badge remains.
 
 ## Phase 3, labels
