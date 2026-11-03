@@ -80,7 +80,13 @@ namespace CarturMapPins
 #if DIAGNOSTICS
             GroupedHidden.Clear();
 #endif
+#if DIAGNOSTICS || BENCH
+            long b0 = Bench.Start();
+#endif
             ScaleLabels(pins);
+#if DIAGNOSTICS || BENCH
+            Bench.Stop(7, b0); b0 = Bench.Start();
+#endif
 
             // ShowPinLabels is this mod's switch for this mod's names. Through 1.8.9 it hid every
             // pin's name, so a player who turned it off also lost the names of their own pins and
@@ -128,6 +134,9 @@ namespace CarturMapPins
             bool groupRule = Plugin.HideGroupedLabels.Value &&
                              Crowding.ZoomOutPercent() > Plugin.HideLabelsFromZoom.Value * 0.5f;
             bool smart = Plugin.SmartLabelPlacement.Value;
+#if DIAGNOSTICS || BENCH
+            Bench.Stop(8, b0); b0 = Bench.Start();
+#endif
             foreach (Minimap.PinData pin in pins)
             {
                 Minimap.PinNameData name = pin?.m_NamePinData;
@@ -181,6 +190,9 @@ namespace CarturMapPins
                 Ordered.Add(new Ranked { Pin = pin, Class = key != null && PriorityZoom.TierOfKey(key) == 0 ? 1 : 2 });
             }
 
+#if DIAGNOSTICS || BENCH
+            Bench.Stop(9, b0);
+#endif
             if (Ordered.Count == 0)
             {
 #if DIAGNOSTICS
@@ -198,7 +210,13 @@ namespace CarturMapPins
 
             // Rarest first, so the name that says the most claims its space before the ones that
             // repeat all over the map get a chance to sit on it.
+#if DIAGNOSTICS || BENCH
+            b0 = Bench.Start();
+#endif
             Ordered.Sort(ByRarity);
+#if DIAGNOSTICS || BENCH
+            Bench.Stop(10, b0); b0 = Bench.Start();
+#endif
 
             Vector2 cursor = CursorIn(Ordered[0].Pin.m_iconElement);
 
@@ -273,7 +291,7 @@ namespace CarturMapPins
                     Rect home = new Rect(mine.x - moved.x, mine.y - moved.y, mine.width, mine.height);
                     if (!Collides(Grown(home, Margin)))
                     {
-                        name.PinNameText.rectTransform.anchoredPosition = Vector2.zero;
+                        name.PinNameText.rectTransform.anchoredPosition = HomeOf(name);
                         mine = home;
                     }
                 }
@@ -500,12 +518,32 @@ namespace CarturMapPins
         private static Rect Grown(Rect r, float g) =>
             new Rect(r.x - r.width * g, r.y - r.height * g, r.width * (1f + 2f * g), r.height * (1f + 2f * g));
 
-        /// How far the name's text has been moved off the place the game puts it. The game's own
-        /// offset is zero (measured: the text child sits at (0, 0) under the label root) and is not
-        /// rewritten by later passes, zoom or pan (probe, 2026-11-03), so what is there is ours.
+        /// Where the game left each name's text before this class moved it. Not zero for every name:
+        /// measured 2026-11-03, a good share of the labels on a busy map carry an offset of their own
+        /// (the first one probed happened to sit at (0, 0)), so "moved" is always against this, taken the
+        /// first time a name is looked at and before anything here has touched it. The game does not
+        /// rewrite it on later passes, zoom or pan (same probe); a new label object starts afresh.
+        private sealed class Home { public Vector2 Position; }
+        private static readonly ConditionalWeakTable<RectTransform, Home> Homes = new ConditionalWeakTable<RectTransform, Home>();
+
+        private static Vector2 HomeOf(Minimap.PinNameData name)
+        {
+            RectTransform t = name.PinNameText.rectTransform;
+            if (!Homes.TryGetValue(t, out Home home))
+            {
+                home = new Home { Position = t.anchoredPosition };
+                Homes.Add(t, home);
+            }
+            return home.Position;
+        }
+
+        /// How far the name's text has been moved by this class.
         private static bool Displaced(Minimap.PinNameData name, out Vector2 offset)
         {
-            offset = name.PinNameText != null ? name.PinNameText.rectTransform.anchoredPosition : Vector2.zero;
+            offset = Vector2.zero;
+            if (name.PinNameText == null)
+                return false;
+            offset = name.PinNameText.rectTransform.anchoredPosition - HomeOf(name);
             return offset != Vector2.zero;
         }
 
@@ -536,7 +574,7 @@ namespace CarturMapPins
                     continue;
                 if (Collides(Grown(at, Margin)))
                     continue;
-                t.anchoredPosition = shift;
+                t.anchoredPosition = HomeOf(name) + shift;
                 return true;
             }
             return false;
@@ -547,8 +585,9 @@ namespace CarturMapPins
         private static void Hide(Minimap.PinNameData name)
         {
             // A hidden name goes back to its place, so it comes back there.
-            if (name.PinNameText != null && name.PinNameText.rectTransform.anchoredPosition != Vector2.zero)
-                name.PinNameText.rectTransform.anchoredPosition = Vector2.zero;
+            if (name.PinNameText != null && Homes.TryGetValue(name.PinNameText.rectTransform, out Home home) &&
+                name.PinNameText.rectTransform.anchoredPosition != home.Position)
+                name.PinNameText.rectTransform.anchoredPosition = home.Position;
             Fade f = FadeFor(name.PinNameGameObject);
             f.Want = false;
             if (f.Group.alpha <= Invisible)
@@ -612,6 +651,11 @@ namespace CarturMapPins
         private static readonly System.Reflection.FieldInfo PinUpdateRequired =
             AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
 
+#if DIAGNOSTICS || BENCH
+        /// The pilot A/B: 0 grid, 1 linear over the stored rectangles, 2 linear measuring every shown name again (how 2.1.3 did it).
+        internal static int CollideMode;
+#endif
+
         private static void ClearShown()
         {
             Shown.Clear();
@@ -648,6 +692,22 @@ namespace CarturMapPins
 
         private static bool Collides(Rect mine)
         {
+#if DIAGNOSTICS || BENCH
+            if (CollideMode == 1)
+            {
+                for (int i = 0; i < ShownRects.Count; i++)
+                    if (ShownRects[i].Overlaps(mine))
+                        return true;
+                return false;
+            }
+            if (CollideMode == 2)
+            {
+                foreach (Minimap.PinNameData other in Shown)
+                    if (other.PinNameRectTransform != null && RectOf(other).Overlaps(mine))
+                        return true;
+                return false;
+            }
+#endif
             int x0 = Mathf.FloorToInt(mine.xMin / GridCell), x1 = Mathf.FloorToInt(mine.xMax / GridCell);
             int y0 = Mathf.FloorToInt(mine.yMin / GridCell), y1 = Mathf.FloorToInt(mine.yMax / GridCell);
             for (int x = x0; x <= x1; x++)

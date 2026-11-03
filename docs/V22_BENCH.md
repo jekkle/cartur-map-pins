@@ -43,5 +43,47 @@ Rows with a pass of 0.0 are "rest" phases where the map did not request a pass i
 
 **Reading it:** the pass is the cost that matters. Crowding grows linearly with the pin count (0.8 ms at 1k, 17 ms at 20k), the cluster pass is negligible (under 2 ms even at 20k), and the label pass grows faster than the pin count: 5 ms, 62 ms and 360 ms at 1k, 5k and 20k (uniform). Cause, read from the code: for each name asked, `Collides` measured the rectangle of every name already shown. Fix below.
 
-## After the label-pass fix
-_(to be filled in by the rerun)_
+## Where the label pass goes (stage timers inside `LabelCrowding.Apply`) **[measured]**
+
+At the bench's default zoom of 0.3 (29% zoomed out, past `HideLabelsFromZoom` 20%) the label pass is the "hide every name" path, not collision: the game re-activates every pin's label on each map pass and the mod switches the ones it does not want back off. At 5,000 pins that stage is about 60 ms; at 20,000 about 390 ms. Collision, grouping and sorting are each under 1 ms at 5,000 pins. That cost is the game's activate / our deactivate churn and the per-label fade lookups; it is **not fixed in this branch** (see "Not done").
+
+Zoom 0.1 (labels shown, collision running), `v22b zoom 0.1`, zoom phase (4 s of wheel notches):
+
+| scene | pins | fps avg | fps worst 5% | pass ms | labels ms | before-the-loop ms (hide out-of-sight) | grouping loop ms | sort ms | crowding ms |
+|---|---|---|---|---|---|---|---|---|---|
+| mixed-1000 | 1040 | 26.2 | 12.2 | - | 16.2 | 1.5 | 0.08 | 0.04 | 0.7 |
+| mixed-5000 | 5040 | 7.5 | 4.3 | - | 87.9 | 60.8 | 0.87 | 0.12 | 3.8 |
+| mixed-20000 | 20040 | 1.3 | 1.2 | - | 430.2 | 388.5 | 2.95 | 0.15 | 15.1 |
+| uniform-5000 | 5040 | 11.3 | 3.8 | - | 33.6 | 0.25 | 0.25 | 0.15 | 3.4 |
+
+PinFade.Step per frame at those scenes: 1.5 / 6.7 / 22.7 / 2.8 ms.
+
+## Collision test A/B **[measured]**, uniform-5000 at zoom 0.1, zoom phase
+
+`LabelCrowding.CollideMode` (BENCH builds only): 0 = grid over stored rectangles (this branch), 1 = linear over stored rectangles, 2 = linear, measuring every shown name again for every name asked (how 2.1.3 did it).
+
+| mode | label pass mean ms | worst ms | fps avg | fps worst 5% |
+|---|---|---|---|---|
+| 0 grid | 32.1 and 34.5 (two runs) | 39.9 / 40.9 | 12.3 / 11.5 | 4.2 / 4.6 |
+| 1 linear, stored rects | 37.0 | 43.7 | 10.1 | 6.9 |
+| 2 as 2.1.3 | 89.0 | 167.5 | 4.5 | 4.1 |
+
+So at 5,000 pins with labels showing, caching each shown name's rectangle takes the pass from 89 ms to 37 ms, and the grid takes a further 10%. The grid is a small win over the cache alone and is kept.
+
+## Placement **[measured]**, 200-group test map, `v22b labels`
+
+Names moved are counted against a snapshot taken with placement off, since the game's own label offsets are not all zero.
+
+| zoom | names shown, off | names shown, on | moved | overlapping pairs off / on | partly outside the map off / on |
+|---|---|---|---|---|---|
+| 0.12 | 147 | 205 | 8 | 11 / 13 | 0 / 0 |
+| 0.06 | 305 | 413 | 44 | 5 / 9 | 11 / 10 |
+| 0.20 | 92 | 112 | 18 | 22 / 21 | 0 / 0 |
+
+With placement on, 20-35% more names stay visible instead of being hidden. The overlap count is the pilot's own estimate from text sizes and moves by a few pairs either way.
+
+## Not done
+- The hide-everything churn above. Likely routes: patch the game's per-label `SetActive(true)` (inside `UpdatePins`) so labels the mod hides are not woken each pass, or keep hidden labels active at alpha 0. Both change how labels fade and show on hover, so they need a design decision, not a quick fix.
+- `PinFade.Step` is linear in pin count (1 ms per 1,000 pins per frame). Skipping off-screen pins would cut it; not done.
+- 20,000-pin "rest" rows could not be read (see above). Anything above 5,000 pins is below 10 fps while the map is moving, in this build and in 2.1.3's `HideAll` path alike.
+- No 2.1.3 run of these exact scenes: the 2.1.3 comparison is only the 8,357-pin and 755-pin runs in `V22_RESULTS.md`.
