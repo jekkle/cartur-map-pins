@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.1.3
+
+From totya's second report, on 2.1.2.
+
+**Map names: pointing between two icons no longer draws two names on top of each other.** With the pointer near two pins but on neither, the nearest pin's name was forced on with no overlap check and could be drawn over its neighbour ("Kis faház" over "Láda"). The nearest pin's name now wins and hides the names that overlap it, as it already did when the pointer was on an icon. Checked with the pilot at three pointer positions between Chest, Crypt and Buried Chest at 1920x1080: no overlapping pair. I could not reproduce the original overlap, so this is checked as "does not overlap now", not as "was broken before".
+
+**HideLabelsFromZoom: names come back sooner when you zoom out again.** The hysteresis band was at least one point of the 0 to 100 scale, which at a limit of 3 took about six wheel steps to cross. It is now at least a quarter of a point. Not measured in game.
+
+**Hint bar at the bottom of the large map is centred from the live window**, between the map frame and the icon picker, instead of a fixed shift. At 1920x1080 and 2560x1080 it sits where it did in 2.1.2, so most players will see no change.
+
+**Hugin's menu: Not now, Back and Next sit 12 px lower**, so Not now no longer reads as part of the "More of Cartur's Mods" buttons. Checked in a screenshot at 1920x1080.
+
+Still open from the same report: the cramped Change Icon entry, duplicate Fire Geyser pins after a language change (needs totya's pin file), and what to do with the zoom scale of HideLabelsFromZoom.
+
 ## 2.1.2
 
 From totya's report on 2.1.1.
