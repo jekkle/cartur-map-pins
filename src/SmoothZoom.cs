@@ -20,6 +20,11 @@ namespace CarturMapPins
     internal static class SmoothZoom
     {
         internal static bool Suppress;
+#if DIAGNOSTICS
+        /// The pilot's wheel: one notch (+1 in, -1 out) per set, consumed by the next Tick.
+        internal static float TestWheel;
+        internal static bool TestShift;
+#endif
 
         private static readonly FieldInfo MapOffset = AccessTools.Field(typeof(Minimap), "m_mapOffset");
         private static readonly FieldInfo DragView = AccessTools.Field(typeof(Minimap), "m_dragView");
@@ -48,6 +53,13 @@ namespace CarturMapPins
                 Rest(zoom);
 
             float wheel = ZInput.GetMouseScrollWheel();
+#if DIAGNOSTICS
+            if (TestWheel != 0f)
+            {
+                wheel = TestWheel;
+                TestWheel = 0f;
+            }
+#endif
             if (wheel != 0f)
             {
                 float percent = (PrecisionHeld() ? Plugin.PrecisionZoomPercent.Value : Plugin.MapZoomStepPercent.Value) / 100f;
@@ -117,6 +129,10 @@ namespace CarturMapPins
 
         private static bool PrecisionHeld()
         {
+#if DIAGNOSTICS
+            if (TestShift)
+                return true;
+#endif
             KeyCode key = Plugin.PrecisionZoomKey.Value.MainKey;
             return key != KeyCode.None && (ZInput.GetKey(key, false) ||
                    (key == KeyCode.LeftShift && ZInput.GetKey(KeyCode.RightShift, false)));

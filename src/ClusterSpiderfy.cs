@@ -54,7 +54,7 @@ namespace CarturMapPins
             Hit.Clear();
 
             float icon = anchor.rectTransform.rect.width * anchor.rectTransform.localScale.x;
-            float ring = Mathf.Max(icon * 1.6f, group.Count * icon * 1.25f / (2f * Mathf.PI));
+            float ring = Mathf.Max(icon * 2.4f, group.Count * icon * 1.6f / (2f * Mathf.PI));
             for (int i = 0; i < group.Count; i++)
             {
                 Minimap.PinData pin = group[i];
@@ -67,10 +67,10 @@ namespace CarturMapPins
                 leg.anchorMin = leg.anchorMax = new Vector2(0.5f, 0.5f);
                 leg.pivot = new Vector2(0f, 0.5f);
                 leg.localPosition = at;
-                leg.sizeDelta = new Vector2(line.magnitude, 1.5f);
+                leg.sizeDelta = new Vector2(line.magnitude, 2f);
                 leg.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(line.y, line.x) * Mathf.Rad2Deg);
                 Image legImage = leg.GetComponent<Image>();
-                legImage.color = new Color(0.78f, 0.58f, 0.32f, 0.55f);
+                legImage.color = new Color(0.78f, 0.58f, 0.32f, 0.8f);
                 legImage.raycastTarget = false;
 
                 RectTransform node = Get(Spread, "Pin", i, typeof(Image), typeof(Button));
@@ -78,14 +78,29 @@ namespace CarturMapPins
                 node.pivot = new Vector2(0.5f, 0.5f);
                 node.localPosition = at;
                 node.localScale = Vector3.one;
-                node.sizeDelta = new Vector2(icon, icon);
-                Image image = node.GetComponent<Image>();
+                node.sizeDelta = new Vector2(icon * 1.4f, icon * 1.4f);
+                // A dark disc with the pin's icon on it, so it reads against a busy map.
+                Image disc = node.GetComponent<Image>();
+                disc.sprite = IconGrid.Disc();
+                disc.color = new Color(0.07f, 0.06f, 0.05f, 0.92f);
+                disc.raycastTarget = true;
+                Transform face = node.Find("Icon");
+                if (face == null)
+                {
+                    var f = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+                    f.transform.SetParent(node, false);
+                    var fr = (RectTransform)f.transform;
+                    fr.anchorMin = fr.anchorMax = new Vector2(0.5f, 0.5f);
+                    fr.sizeDelta = new Vector2(icon, icon);
+                    f.GetComponent<Image>().raycastTarget = false;
+                    f.GetComponent<Image>().preserveAspect = true;
+                    face = f.transform;
+                }
+                Image image = face.GetComponent<Image>();
                 image.sprite = pin.m_iconElement != null ? pin.m_iconElement.sprite : pin.m_icon;
                 image.color = pin.m_iconElement != null ? pin.m_iconElement.color : Color.white;
-                image.preserveAspect = true;
-                image.raycastTarget = true;
                 Button button = node.GetComponent<Button>();
-                button.targetGraphic = image;
+                button.targetGraphic = disc;
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() => { Close(); ClusterInspector.FocusSeparated(map, pin, group); });
                 Hit.Add(node);

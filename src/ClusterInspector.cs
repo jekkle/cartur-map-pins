@@ -24,6 +24,8 @@ namespace CarturMapPins
         {
             public Minimap.PinData Pin;
             public string Name, Category;
+            /// How many pins this one stands for (same-name repeats merged into it).
+            public int Weight;
         }
 
         private static GameObject _panel;
@@ -74,6 +76,7 @@ namespace CarturMapPins
                     Pin = pin,
                     Name = Labels.Localize(string.IsNullOrEmpty(pin.m_name) ? "Pin" : pin.m_name),
                     Category = colon > 0 ? key.Substring(0, colon) : "Pin",
+                    Weight = Crowding.MergedCount(pin),
                 });
             }
             All.Sort((a, b) => Utils.DistanceXZ(me, a.Pin.m_pos).CompareTo(Utils.DistanceXZ(me, b.Pin.m_pos)));
@@ -143,6 +146,8 @@ namespace CarturMapPins
                     Shown.Add(e);
             }
             _content.sizeDelta = new Vector2(0f, Shown.Count * RowH);
+            // As tall as what is in it, up to the full twelve rows.
+            _rect.sizeDelta = new Vector2(Width, HeaderH + SearchH + Mathf.Max(1, Mathf.Min(Shown.Count, (int)Visible)) * RowH + Pad);
             _content.anchoredPosition = Vector2.zero;
             Layout(true);
         }
@@ -172,7 +177,7 @@ namespace CarturMapPins
                 Sprite sprite = e.Pin.m_iconElement != null ? e.Pin.m_iconElement.sprite : e.Pin.m_icon;
                 row.Icon.sprite = sprite;
                 row.Icon.enabled = sprite != null;
-                row.Name.text = e.Name;
+                row.Name.text = e.Weight > 1 ? $"{e.Name}  <color=#C79452>x{e.Weight}</color>" : e.Name;
                 row.Meta.text = $"<alpha=#99>{e.Category}  <alpha=#FF><color=#C79452>{Mathf.RoundToInt(Utils.DistanceXZ(me, e.Pin.m_pos))} m";
                 if (!row.Go.activeSelf)
                     row.Go.SetActive(true);
@@ -202,7 +207,7 @@ namespace CarturMapPins
         {
             // Zoom until the icon is narrower than the gap to its nearest neighbour in the cluster, so
             // it stands alone (cluster radius is 1.1 icons, snapped to a power of two that can round
-            // up by about 1.6x). Never zooms out.
+            // up by about 1.6x, with the hysteresis band on top). Never zooms out.
             float nearest = float.MaxValue;
             foreach (Minimap.PinData other in group)
             {
@@ -213,7 +218,7 @@ namespace CarturMapPins
             float metres = Crowding.IconMetres(map);
             float zoom = map.LargeZoom;
             if (nearest < float.MaxValue && metres > 0f)
-                zoom = Mathf.Min(zoom, zoom * (nearest / 1.76f) / metres);
+                zoom = Mathf.Min(zoom, zoom * (nearest / 2.6f) / metres);
             SmoothZoom.FocusOn(map, pin.m_pos, zoom);
         }
 
