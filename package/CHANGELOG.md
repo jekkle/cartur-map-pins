@@ -8,7 +8,7 @@
 
 **New, off by default: `MixedCategoryClusters`** (badges may hold ore with chests and stones, landmarks with props, pickables with each other; bosses, dungeons, camps, traders, home and portals never join; the list shows how many of each kind) and **`EnableClusterSpiderfy`** (a small cluster fans out on a ring on lines back to where its pins are; set `ClusterClickAction` to Spiderfy). The badge ring of a mixed cluster is a plain teal one for now.
 
-**Clusters no longer reuse old groups when a pin changed but the count did not.** The cache looked only at how many pins there were; a pin renamed, given another icon, ticked or hidden while the count stayed the same left the old groups in place. A group also keeps its lead pin when a pin is added beside it.
+**Clusters no longer reuse old groups when a pin changed but the count did not.** The cache looked only at how many pins there were; a pin renamed, given another icon, ticked or hidden while the count stayed the same left the old groups in place. A group also keeps its lead pin when a pin is added beside it, and the pins that led a group at one zoom level lead first at the next, so pins switch between "in a badge" and "alone" less as you zoom: in a test sweep from fully in to fully out and back, 38 of 1,000 pins switched three or more times, against 88 in 2.1.3 (at 5,000 pins zoomed out, 32 against 243).
 
 **Map names: a name that would overlap another is tried above its icon, then right, then left, before it is hidden** (`SmartLabelPlacement`, on by default). In a 200-group test map 22 to 39% more names stayed visible at three zoom levels. Bosses, dungeons, camps, traders, home and portals claim name space before the common kinds.
 

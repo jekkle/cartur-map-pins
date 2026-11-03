@@ -104,3 +104,16 @@ Before the fade list was added, 2.2.0 idled at 38.6 ms at 5,000 pins and zoom 0.
 Frame-rate drops while zooming (pilot-driven wheel notches, 4 s, Debug/BENCH build): eased zoom against instant zoom at the same step: 1,000 pins 58.4 against 65.4 fps (worst 5%: 21.2 against 23.8); 5,000 pins 10.2 against 9.9 fps. Zooming itself is the cost at large pin counts: the game builds and removes the marker of every pin that enters or leaves the view each time the view changes.
 
 Not measured: a real mouse wheel. Real OS wheel and key events did not reach the game from the pilot (`ZInput.GetMouseScrollWheel()` stayed 0 for both `mouse_event` and a posted `WM_MOUSEWHEEL`).
+
+## Cluster stability, `ClusterPins` on **[measured]**
+
+Icons that switch between "in a badge" and "alone" three or more times in one `mapsweep` (the flicker the sweep counts). With `ClusterPins` off every version counts 0, so this only affects people who turn clusters on. Pins that led a group at the previous level now lead first (`Clusters.Rebuild`).
+
+| pins | zoom | 2.1.3 | 2.2.0 before | 2.2.0 now |
+|---|---|---|---|---|
+| 1,000 | 0.3 | 88 | 47 | 38 |
+| 1,000 | 0.1 | 89 | 47 | 38 |
+| 5,000 | 0.3 | 243 | 213 | 32 |
+| 5,000 | 0.1 | 134 | 78 | 41 |
+
+The sweep jumps the zoom straight across the whole range in six seconds, so it flips far more pins than the wheel does.
