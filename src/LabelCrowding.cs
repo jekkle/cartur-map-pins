@@ -134,6 +134,17 @@ namespace CarturMapPins
             bool groupRule = Plugin.HideGroupedLabels.Value &&
                              Crowding.ZoomOutPercent() > Plugin.HideLabelsFromZoom.Value * 0.5f;
             bool smart = Plugin.SmartLabelPlacement.Value;
+            if (!smart && _wasSmart)
+            {
+                // Placement was on and has been switched off: bring every moved name back, once.
+                _wasSmart = false;
+                foreach (Minimap.PinData moved in pins)
+                {
+                    if (moved?.m_NamePinData != null && moved.m_NamePinData.PinNameText != null)
+                        SendHome(moved.m_NamePinData);
+                }
+            }
+            _wasSmart |= smart;
 #if DIAGNOSTICS || BENCH
             Bench.Stop(8, b0); b0 = Bench.Start();
 #endif
@@ -515,6 +526,15 @@ namespace CarturMapPins
             return f;
         }
 
+        private static bool _wasSmart;
+
+        private static void SendHome(Minimap.PinNameData name)
+        {
+            if (name.PinNameText != null && Homes.TryGetValue(name.PinNameText.rectTransform, out Home home) &&
+                name.PinNameText.rectTransform.anchoredPosition != home.Position)
+                name.PinNameText.rectTransform.anchoredPosition = home.Position;
+        }
+
         private static Rect Grown(Rect r, float g) =>
             new Rect(r.x - r.width * g, r.y - r.height * g, r.width * (1f + 2f * g), r.height * (1f + 2f * g));
 
@@ -585,14 +605,23 @@ namespace CarturMapPins
         private static void Hide(Minimap.PinNameData name)
         {
             // A hidden name goes back to its place, so it comes back there.
-            if (name.PinNameText != null && Homes.TryGetValue(name.PinNameText.rectTransform, out Home home) &&
-                name.PinNameText.rectTransform.anchoredPosition != home.Position)
-                name.PinNameText.rectTransform.anchoredPosition = home.Position;
+            SendHome(name);
+            // Faded out, not switched off. Vanilla's UpdatePins switches every name ON each pass, and a
+            // name that had been switched off here was woken and put to sleep again on every pass
+            // (measured 2026-11-03: 60 ms a pass at 5,000 pins, 390 ms at 20,000, all of it in that
+            // churn). Left on, at no opacity and with raycasts off, vanilla's switch-on does nothing.
             Fade f = FadeFor(name.PinNameGameObject);
             f.Want = false;
-            if (f.Group.alpha <= Invisible)
+#if DIAGNOSTICS || BENCH
+            if (OldHide && f.Group.alpha <= Invisible)
                 name.PinNameGameObject.SetActive(false);
+#endif
         }
+
+#if DIAGNOSTICS || BENCH
+        /// The pilot A/B: switch a faded-out name off, as 2.1.3 did, instead of leaving it on.
+        internal static bool OldHide;
+#endif
 
         /// Called every frame from the Minimap.Update postfix, after vanilla's pass.
         public static void Step(List<Minimap.PinData> pins, float dt)
@@ -615,13 +644,17 @@ namespace CarturMapPins
                 GameObject go = pin?.m_NamePinData?.PinNameGameObject;
                 if (go == null || !go.activeSelf || !Fades.TryGetValue(go, out Fade f) || f.Group == null)
                     continue;
+                if (!f.Want && f.Level <= 0f)
+                    continue;
                 float want = f.Want ? 1f : 0f;
                 f.Level = Mathf.MoveTowards(f.Level, want, step);
                 float alpha = f.Level * f.Level * (3f - 2f * f.Level);
                 if (!Mathf.Approximately(f.Group.alpha, alpha))
                     f.Group.alpha = alpha;
-                if (!f.Want && alpha <= Invisible)
+#if DIAGNOSTICS || BENCH
+                if (OldHide && !f.Want && alpha <= Invisible)
                     go.SetActive(false);
+#endif
             }
         }
 

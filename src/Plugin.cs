@@ -1050,8 +1050,11 @@ namespace CarturMapPins
                             if (pin?.m_iconElement == null || !pin.m_iconElement.gameObject.activeInHierarchy)
                                 continue;
 
+                            // A name that is hidden is faded out, not switched off.
+                            UnityEngine.CanvasGroup fade = pin.m_NamePinData?.PinNameGameObject != null ? pin.m_NamePinData.PinNameGameObject.GetComponent<UnityEngine.CanvasGroup>() : null;
                             bool labelOn = pin.m_NamePinData?.PinNameGameObject != null
-                                           && pin.m_NamePinData.PinNameGameObject.activeInHierarchy;
+                                           && pin.m_NamePinData.PinNameGameObject.activeInHierarchy
+                                           && (fade == null || fade.alpha > 0.02f);
                             string line = $"  \"{pin.m_name}\" scale={pin.m_iconElement.transform.localScale.x:F3}"
                                         + $" size={pin.m_iconElement.rectTransform.rect.width:F1}px"
                                         + $" icon={(pin.m_iconElement.enabled ? "on" : "off")}"
