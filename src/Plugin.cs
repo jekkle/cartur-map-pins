@@ -223,6 +223,8 @@ namespace CarturMapPins
                 new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600)));
             CursorCenteredZoom = Config.Bind(Sections.Of("General", "CursorCenteredZoom"), "CursorCenteredZoom", true,
                 "Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.");
+            MixedCategoryClusters = Config.Bind(Sections.Of("General", "MixedCategoryClusters"), "MixedCategoryClusters", false,
+                "Let crowded pins of different kinds share one badge - ore with chests and stones, landmarks with props and nests, pickables with each other - instead of only pins with the same icon. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and your own pins never join any badge. The list opened by clicking a badge shows what is in it. Only matters while ClusterPins is on. Off by default.");
             ClusterClickAction = Config.Bind(Sections.Of("General", "ClusterClickAction"), "ClusterClickAction", ClusterClick.Inspector,
                 "What a click on a cluster's count badge does (only while ClusterPins is on). Inspector opens a list of the pins in it that you can search, scroll and pick from. Zoom is the old behaviour: zoom in on it.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
@@ -809,7 +811,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> TintBerriesByType;
         public static ConfigEntry<bool> NewDefaultColours;
         public static ConfigEntry<bool> ClusterPins;
-        public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom;
+        public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom, MixedCategoryClusters;
         public static ConfigEntry<ClusterClick> ClusterClickAction;
         public static ConfigEntry<float> MapZoomStepPercent, PrecisionZoomPercent;
         public static ConfigEntry<int> MapZoomDurationMs;

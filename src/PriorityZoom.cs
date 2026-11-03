@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace CarturMapPins
@@ -37,6 +38,23 @@ namespace CarturMapPins
             if (colon <= 0 || !System.Enum.TryParse(key.Substring(0, colon), out PinCategory category))
                 return false;
             return Dropped[TierOf(category)];
+        }
+
+        private static readonly Dictionary<string, int> KeyTiers = new Dictionary<string, int>();
+
+        /// The tier of a record key ("Ore:Copper"), 0 for anything unreadable, cached because
+        /// parsing the category allocates and a cluster rebuild asks once per pin.
+        internal static int TierOfKey(string key)
+        {
+            if (key == null)
+                return 0;
+            if (!KeyTiers.TryGetValue(key, out int tier))
+            {
+                int colon = key.IndexOf(':');
+                tier = colon > 0 && System.Enum.TryParse(key.Substring(0, colon), out PinCategory category) ? TierOf(category) : 0;
+                KeyTiers[key] = tier;
+            }
+            return tier;
         }
 
         private static int TierOf(PinCategory category)

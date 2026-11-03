@@ -32,6 +32,10 @@ namespace CarturMapPins
         private struct Ranked
         {
             public Minimap.PinData Pin;
+            /// 1 a pin of a kind worth crossing the map for (bosses, dungeons, camps, traders, home,
+            /// portals), 2 the rest. (A search hides every non-match before this, so matches need no class.) Claims space before rarity is looked at, so
+            /// forty chests cannot take a portal's words.
+            public int Class;
             public int Rarity;
         }
 
@@ -43,6 +47,9 @@ namespace CarturMapPins
         /// the same rule Crowding.Precedes uses.
         private static readonly Comparison<Ranked> ByRarity = (a, b) =>
         {
+            int byClass = a.Class.CompareTo(b.Class);
+            if (byClass != 0)
+                return byClass;
             int byRarity = a.Rarity.CompareTo(b.Rarity);
             if (byRarity != 0)
                 return byRarity;
@@ -159,7 +166,8 @@ namespace CarturMapPins
 
                 NameCounts.TryGetValue(pin.m_name, out int count);
                 NameCounts[pin.m_name] = count + 1;
-                Ordered.Add(new Ranked { Pin = pin });
+                string key = PinRecord.KeyOfIndexed(pin);
+                Ordered.Add(new Ranked { Pin = pin, Class = key != null && PriorityZoom.TierOfKey(key) == 0 ? 1 : 2 });
             }
 
             if (Ordered.Count == 0)

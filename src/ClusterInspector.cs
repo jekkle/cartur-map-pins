@@ -77,7 +77,7 @@ namespace CarturMapPins
                 });
             }
             All.Sort((a, b) => Utils.DistanceXZ(me, a.Pin.m_pos).CompareTo(Utils.DistanceXZ(me, b.Pin.m_pos)));
-            _title.text = $"<color=#C79452>{Clusters.CountOf(leader)} pins</color>";
+            _title.text = $"<color=#C79452>{Clusters.CountOf(leader)} pins</color>{Breakdown(leader)}";
             _search.text = string.Empty;
             Refilter();
 
@@ -86,6 +86,23 @@ namespace CarturMapPins
             Clamp();
             _panel.transform.SetAsLastSibling();
             ClusterPopup.Hide();
+        }
+
+        /// For a mixed badge, how many of each kind: "Ore 8, Chest 3".
+        private static string Breakdown(Minimap.PinData leader)
+        {
+            if (!Clusters.IsMixed(leader))
+                return string.Empty;
+            var counts = new Dictionary<string, int>();
+            foreach (Entry e in All)
+            {
+                counts.TryGetValue(e.Category, out int n);
+                counts[e.Category] = n + 1;
+            }
+            var parts = new List<string>();
+            foreach (KeyValuePair<string, int> c in counts)
+                parts.Add($"{c.Key} {c.Value}");
+            return "  <size=12><alpha=#99>" + string.Join(", ", parts);
         }
 
         public static void Close()

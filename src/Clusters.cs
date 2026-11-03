@@ -47,6 +47,18 @@ namespace CarturMapPins
         /// The pilot sets this to group its unsaved test pins as well.
         internal static bool IncludeAll;
 
+        /// True when the badge stands for pins of more than one icon.
+        public static bool IsMixed(Minimap.PinData leader)
+        {
+            IReadOnlyList<Minimap.PinData> group = GroupOf(leader);
+            if (group == null)
+                return false;
+            for (int i = 1; i < group.Count; i++)
+                if (group[i].m_type != group[0].m_type)
+                    return true;
+            return false;
+        }
+
         public static bool Active => Plugin.ClusterPins != null && Plugin.ClusterPins.Value;
 
         /// How many real pins this pin stands for: 1 for an ordinary pin.
@@ -115,6 +127,7 @@ namespace CarturMapPins
                 h = h * 31 + Plugin.HidePinsBeyond.Value.GetHashCode();
                 h = h * 31 + (Plugin.MergeRepeatedPins.Value ? 1 : 0);
                 h = h * 31 + (IncludeAll ? 1 : 0);
+                h = h * 31 + (Plugin.MixedCategoryClusters.Value ? 1 : 0);
                 foreach (Minimap.PinData pin in pins)
                 {
                     if (pin == null)
@@ -142,7 +155,11 @@ namespace CarturMapPins
             Members.Clear();
             Groups.Clear();
 
-            var byIcon = new Dictionary<Minimap.PinType, List<Minimap.PinData>>();
+            // Same icon, or with mixing on a pin of a crowdable kind goes in the bucket of its tier
+            // (PriorityZoom's: ore/chests/stones, landmarks/props/nests, pickables). Tier 0 - bosses,
+            // dungeons, camps, traders, home, portals - and anything unrecorded stays icon-only.
+            bool mixing = Plugin.MixedCategoryClusters.Value;
+            var byIcon = new Dictionary<int, List<Minimap.PinData>>();
             foreach (Minimap.PinData pin in pins)
             {
                 if (pin == null || Crowding.OutOfSight(pin) || pin.m_worldSize > 0f || pin.m_ownerID != 0L || pin.m_checked)
@@ -155,8 +172,10 @@ namespace CarturMapPins
                 // being looked for would defeat the search.
                 if (PinFilter.Active && PinFilter.Matches(pin.m_name))
                     continue;
-                if (!byIcon.TryGetValue(pin.m_type, out List<Minimap.PinData> list))
-                    byIcon[pin.m_type] = list = new List<Minimap.PinData>();
+                int tier = mixing && !IncludeAll ? PriorityZoom.TierOfKey(PinRecord.KeyOfIndexed(pin)) : 0;
+                int bucket = tier > 0 ? -tier : (int)pin.m_type;
+                if (!byIcon.TryGetValue(bucket, out List<Minimap.PinData> list))
+                    byIcon[bucket] = list = new List<Minimap.PinData>();
                 list.Add(pin);
             }
 
@@ -267,7 +286,7 @@ namespace CarturMapPins
                 Badges.Remove(pin.m_iconElement);
                 Badges.Add(pin.m_iconElement, badge);
             }
-            Apply(badge, Clusters.CountOf(pin));
+            Apply(badge, Clusters.CountOf(pin), Clusters.IsMixed(pin));
         }
 
         private static GameObject Create(Transform marker)
@@ -309,9 +328,9 @@ namespace CarturMapPins
             return go;
         }
 
-        private static void Apply(GameObject badge, int count)
+        private static void Apply(GameObject badge, int count, bool mixed)
         {
-            Color rim = count >= 100 ? IconGrid.SelectedGold : count >= 10 ? IconGrid.Bronze : new Color(0.85f, 0.82f, 0.74f, 1f);
+            Color rim = mixed ? new Color(0.45f, 0.75f, 0.80f, 1f) : count >= 100 ? IconGrid.SelectedGold : count >= 10 ? IconGrid.Bronze : new Color(0.85f, 0.82f, 0.74f, 1f);
             Image ring = badge.transform.Find("Ring").GetComponent<Image>();
             if (ring.color != rim)
                 ring.color = rim;
