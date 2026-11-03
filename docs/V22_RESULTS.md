@@ -14,12 +14,14 @@ Provenance: **[measured]** in Valheim (Steam build 26249040, Dev profile, pilot 
 - Anchor, pointer at (1400,400), 3 cycles of 4 notches in and out: world point under the pointer moved 0.00 m (0.00 px) every step.
 - Limits: 80 notches in stops at 0.0150 (the game's min), 20 more notches move the centre 0.000 m; out stops at 1.0000 (max). Never outside 0.015..1.
 - Settling: a 10-notch change settles in about 1 s including the 0.5 s stillness window the test waits for.
-- Not tested: drag during animation, reopening the map mid-animation, other map mods, trackpad/hi-res wheel, other resolutions, controller.
+- Not tested: drag during animation, other map mods, trackpad/hi-res wheel, other resolutions, controller.
 
 ## Phase 2, clusters **[measured]** on the pilot's unsaved test pins
 - List opens from a badge click, 11 rows from a 47-pin badge (rows are distinct pins; the title count includes merged repeats, rows now show "xN"), search narrows 11 to 3 and back, picking a row glides the centre onto the pin (0.0 m off) and closes the list.
 - Spiderfy: fans 5-11 pins with lines, picking one zooms to it and closes; a zoom change collapses it.
-- Not tested: Escape (closes the map as vanilla), click outside, drag, mixed-category mode (built, never run), a rename/re-icon with an unchanged pin count (the cache fix), world switch, controller.
+- Cache fix **[measured]**: a member re-iconed with the pin count unchanged left its group (7 -> 6 members) on the next pass.
+- Reopen **[measured]**: closing and reopening the map mid-zoom stops the animation where it was, offset back to 0, no further movement.
+- Not tested: Escape (closes the map as vanilla), click outside, drag, mixed-category mode (built, never run; the pilot's unsaved pins have no records, so it needs real pins), world switch, controller.
 - Known limit: a pin with several same-icon pins within one icon's width stays in a badge even at the zoom limit; the list then picks it but the badge remains.
 
 ## Phase 3, labels
