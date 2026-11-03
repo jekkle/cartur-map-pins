@@ -24,6 +24,7 @@ namespace CarturMapPins
     {
         Zoom,
         Inspector,
+        Spiderfy,
     }
 
     internal static class Clusters
@@ -358,9 +359,13 @@ namespace CarturMapPins
                 ZInput.GetKey(KeyCode.LeftShift, false) || ZInput.GetKey(KeyCode.RightShift, false))
                 return true;
 
-            if (Plugin.ClusterClickAction.Value == ClusterClick.Inspector)
+            if (Plugin.ClusterClickAction.Value != ClusterClick.Zoom)
             {
-                ClusterInspector.Open(__instance, pin);
+                // A small cluster fans out when that is on; a big one, or any when it is off, is listed.
+                if (Plugin.ClusterClickAction.Value == ClusterClick.Spiderfy && ClusterSpiderfy.Wants(Clusters.GroupOf(pin).Count))
+                    ClusterSpiderfy.Open(__instance, pin);
+                else
+                    ClusterInspector.Open(__instance, pin);
                 return false;
             }
 

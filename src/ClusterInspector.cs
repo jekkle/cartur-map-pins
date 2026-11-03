@@ -184,22 +184,37 @@ namespace CarturMapPins
             if (row.Index < 0 || row.Index >= Shown.Count || _map == null)
                 return;
             Minimap.PinData pin = Shown[row.Index].Pin;
+            List<Minimap.PinData> group = AllPins();
+            Close();
+            FocusSeparated(_map, pin, group);
+        }
+
+        private static List<Minimap.PinData> AllPins()
+        {
+            var pins = new List<Minimap.PinData>();
+            foreach (Entry e in All)
+                pins.Add(e.Pin);
+            return pins;
+        }
+
+        /// Glides the map to a pin of a cluster at a zoom where it stands alone.
+        public static void FocusSeparated(Minimap map, Minimap.PinData pin, IReadOnlyList<Minimap.PinData> group)
+        {
             // Zoom until the icon is narrower than the gap to its nearest neighbour in the cluster, so
             // it stands alone (cluster radius is 1.1 icons, snapped to a power of two that can round
             // up by about 1.6x). Never zooms out.
             float nearest = float.MaxValue;
-            foreach (Entry e in All)
+            foreach (Minimap.PinData other in group)
             {
-                if (ReferenceEquals(e.Pin, pin))
+                if (ReferenceEquals(other, pin))
                     continue;
-                nearest = Mathf.Min(nearest, Utils.DistanceXZ(pin.m_pos, e.Pin.m_pos));
+                nearest = Mathf.Min(nearest, Utils.DistanceXZ(pin.m_pos, other.m_pos));
             }
-            float metres = Crowding.IconMetres(_map);
-            float zoom = _map.LargeZoom;
+            float metres = Crowding.IconMetres(map);
+            float zoom = map.LargeZoom;
             if (nearest < float.MaxValue && metres > 0f)
                 zoom = Mathf.Min(zoom, zoom * (nearest / 1.76f) / metres);
-            Close();
-            SmoothZoom.FocusOn(_map, pin.m_pos, zoom);
+            SmoothZoom.FocusOn(map, pin.m_pos, zoom);
         }
 
         private static void Clamp()

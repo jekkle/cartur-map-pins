@@ -227,6 +227,10 @@ namespace CarturMapPins
                 "Let crowded pins of different kinds share one badge - ore with chests and stones, landmarks with props and nests, pickables with each other - instead of only pins with the same icon. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and your own pins never join any badge. The list opened by clicking a badge shows what is in it. Only matters while ClusterPins is on. Off by default.");
             ClusterClickAction = Config.Bind(Sections.Of("General", "ClusterClickAction"), "ClusterClickAction", ClusterClick.Inspector,
                 "What a click on a cluster's count badge does (only while ClusterPins is on). Inspector opens a list of the pins in it that you can search, scroll and pick from. Zoom is the old behaviour: zoom in on it.");
+            EnableClusterSpiderfy = Config.Bind(Sections.Of("General", "EnableClusterSpiderfy"), "EnableClusterSpiderfy", false,
+                "With ClusterClickAction set to Spiderfy, a click on a small cluster's badge fans its pins out round it on thin lines back to where they are; click one to go to it. Bigger clusters, and every cluster while this is off, open the list instead. Any zoom, drag or click elsewhere puts them away. Off by default.");
+            SpiderfyMaxPins = Config.Bind(Sections.Of("General", "SpiderfyMaxPins"), "SpiderfyMaxPins", 12,
+                new ConfigDescription("The most pins a cluster can hold and still fan out.", new AcceptableValueRange<int>(3, 24)));
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
                 "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. This switch, each kind's colour and opacity, and the Apply button for the existing pins are in Hugin's setup menu (P on the large map); they are not listed in the settings menu.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
@@ -813,6 +817,8 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ClusterPins;
         public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom, MixedCategoryClusters;
         public static ConfigEntry<ClusterClick> ClusterClickAction;
+        public static ConfigEntry<bool> EnableClusterSpiderfy;
+        public static ConfigEntry<int> SpiderfyMaxPins;
         public static ConfigEntry<float> MapZoomStepPercent, PrecisionZoomPercent;
         public static ConfigEntry<int> MapZoomDurationMs;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> PrecisionZoomKey;
