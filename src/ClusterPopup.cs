@@ -20,7 +20,7 @@ namespace CarturMapPins
         public static bool Show(Minimap.PinData leader, Transform root)
         {
             IReadOnlyList<Minimap.PinData> group = Clusters.GroupOf(leader);
-            if (group == null || group.Count == 0)
+            if (ClusterInspector.IsOpen || group == null || group.Count == 0)
                 return false;
             if (_panel == null || _panel.transform.parent != root)
                 Build(root);

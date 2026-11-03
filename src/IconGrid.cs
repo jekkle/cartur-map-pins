@@ -326,7 +326,7 @@ namespace CarturMapPins
         /// The mouse wheel, eased: each tick moves the target two rows and the content glides to
         /// it, framerate-independent. Dragging or the scrollbar moving the content resyncs the
         /// target, so the two never fight.
-        private sealed class SmoothScroll : MonoBehaviour, IScrollHandler
+        internal sealed class SmoothScroll : MonoBehaviour, IScrollHandler
         {
             private const float RowsPerTick = 2f;
             private const float Rate = 16f;

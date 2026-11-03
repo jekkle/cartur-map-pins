@@ -25,7 +25,8 @@ namespace CarturMapPins
         private static readonly FieldInfo DragView = AccessTools.Field(typeof(Minimap), "m_dragView");
 
         private static float _target, _written;
-        private static bool _anchored;
+        private static bool _anchored, _focus;
+        private static float _fx, _fz;
         private static float _wx, _wz, _nx, _ny;
 
         /// Hold longer than any real frame; a hitch must not teleport the zoom.
@@ -52,33 +53,66 @@ namespace CarturMapPins
                 float percent = (PrecisionHeld() ? Plugin.PrecisionZoomPercent.Value : Plugin.MapZoomStepPercent.Value) / 100f;
                 float factor = wheel > 0f ? 1f / (1f + percent) : 1f + percent;
                 _target = Mathf.Clamp(_target * factor, map.m_minZoom, map.m_maxZoom);
+                _focus = false;
                 Anchor(map, player);
             }
             Suppress = true;
 
-            if (Mathf.Approximately(zoom, _target))
-                return;
-
-            float next = ZoomMath.Step(zoom, _target, Mathf.Min(Time.unscaledDeltaTime, MaxStep), ZoomMath.Tau(Plugin.MapZoomDurationMs.Value));
-            map.LargeZoom = next;
-            _written = map.LargeZoom;
-
-            if (_anchored && !(DragView?.GetValue(map) is bool dragging && dragging))
+            float dt = Mathf.Min(Time.unscaledDeltaTime, MaxStep), tau = ZoomMath.Tau(Plugin.MapZoomDurationMs.Value);
+            Vector3 at = player.transform.position;
+            bool zooming = !Mathf.Approximately(zoom, _target);
+            if (zooming)
             {
-                RectTransform rect = (RectTransform)map.m_mapImageLarge.transform;
-                float span = map.m_textureSize * map.m_pixelSize;
-                ZoomMath.CentreFor(_wx, _wz, _nx, _ny, rect.rect.width / rect.rect.height, _written, span, out float cx, out float cz);
-                Vector3 at = player.transform.position;
+                map.LargeZoom = ZoomMath.Step(zoom, _target, dt, tau);
+                _written = map.LargeZoom;
+            }
+
+            RectTransform rect = (RectTransform)map.m_mapImageLarge.transform;
+            if (_anchored && zooming && !(DragView?.GetValue(map) is bool dragging && dragging))
+            {
+                ZoomMath.CentreFor(_wx, _wz, _nx, _ny, rect.rect.width / rect.rect.height, _written, map.m_textureSize * map.m_pixelSize, out float cx, out float cz);
                 MapOffset.SetValue(map, new Vector3(cx - at.x, 0f, cz - at.z));
             }
-            if (Mathf.Approximately(_written, _target))
+            else if (_focus)
+            {
+                // The centre glides to the pin along the same curve as the zoom, so they arrive together.
+                Vector3 offset = (Vector3)MapOffset.GetValue(map);
+                float k = tau <= 0f ? 1f : 1f - Mathf.Exp(-dt / tau);
+                float gx = _fx - (at.x + offset.x), gz = _fz - (at.z + offset.z);
+                if (gx * gx + gz * gz < 1f && !zooming)
+                    k = 1f;
+                MapOffset.SetValue(map, new Vector3(offset.x + gx * k, 0f, offset.z + gz * k));
+                _focus = k < 1f;
+            }
+            if (!zooming || Mathf.Approximately(_written, _target))
                 _anchored = false;
+        }
+
+        /// Glides the view to a world point at a zoom (the cluster list uses it to open a pin up).
+        internal static void FocusOn(Minimap map, Vector3 world, float zoom)
+        {
+            Player player = Player.m_localPlayer;
+            if (player == null || MapOffset == null)
+                return;
+            zoom = Mathf.Clamp(zoom, map.m_minZoom, map.m_maxZoom);
+            if (!Plugin.SmoothMapZoom.Value || Plugin.MapZoomDurationMs.Value <= 0)
+            {
+                map.LargeZoom = zoom;
+                MapOffset.SetValue(map, new Vector3(world.x - player.transform.position.x, 0f, world.z - player.transform.position.z));
+                Rest(map.LargeZoom);
+                return;
+            }
+            _target = zoom;
+            _anchored = false;
+            _focus = true;
+            _fx = world.x;
+            _fz = world.z;
         }
 
         private static void Rest(float zoom)
         {
             _target = _written = zoom;
-            _anchored = false;
+            _anchored = _focus = false;
         }
 
         private static bool PrecisionHeld()

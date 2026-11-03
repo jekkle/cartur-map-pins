@@ -218,7 +218,7 @@ namespace CarturMapPins
 
         /// Clones vanilla's pin-name field so the box matches the rest of the map UI. Returns null
         /// when it can't be found, leaving the editor icon-only rather than failing to open.
-        private static TMP_InputField AddNameInput(Minimap map, Transform parent)
+        internal static TMP_InputField AddNameInput(Minimap map, Transform parent)
         {
             var source = NameInputField?.GetValue(map) as Component;
             if (source == null)

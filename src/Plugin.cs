@@ -223,6 +223,8 @@ namespace CarturMapPins
                 new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600)));
             CursorCenteredZoom = Config.Bind(Sections.Of("General", "CursorCenteredZoom"), "CursorCenteredZoom", true,
                 "Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.");
+            ClusterClickAction = Config.Bind(Sections.Of("General", "ClusterClickAction"), "ClusterClickAction", ClusterClick.Inspector,
+                "What a click on a cluster's count badge does (only while ClusterPins is on). Inspector opens a list of the pins in it that you can search, scroll and pick from. Zoom is the old behaviour: zoom in on it.");
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
                 "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. This switch, each kind's colour and opacity, and the Apply button for the existing pins are in Hugin's setup menu (P on the large map); they are not listed in the settings menu.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
@@ -808,6 +810,7 @@ namespace CarturMapPins
         public static ConfigEntry<bool> NewDefaultColours;
         public static ConfigEntry<bool> ClusterPins;
         public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom;
+        public static ConfigEntry<ClusterClick> ClusterClickAction;
         public static ConfigEntry<float> MapZoomStepPercent, PrecisionZoomPercent;
         public static ConfigEntry<int> MapZoomDurationMs;
         public static ConfigEntry<BepInEx.Configuration.KeyboardShortcut> PrecisionZoomKey;

@@ -861,7 +861,7 @@ namespace CarturMapPins
             }
             // Both panels scroll their own grid, so the wheel has to be withheld from the map
             // over either of them.
-            if (!MapIconPicker.PointerOverPanel() && !PinEditor.PointerOverPanel())
+            if (!MapIconPicker.PointerOverPanel() && !PinEditor.PointerOverPanel() && !ClusterInspector.PointerOver())
                 return true;
             __result = 0f;
             return false;

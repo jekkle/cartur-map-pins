@@ -169,6 +169,7 @@ namespace CarturMapPins
             PinHover.Find(__instance, pins);
             PinFade.Step(pins, Time.deltaTime);
             LabelCrowding.Step(pins, Time.unscaledDeltaTime);
+            ClusterInspector.Tick();
             LabelTemplates.Hover(__instance);
             MapHints.Tick(__instance);
         }

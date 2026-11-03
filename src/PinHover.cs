@@ -28,7 +28,7 @@ namespace CarturMapPins
             // panel is not the one being pointed at. Mouse only; the panels' rects are tested
             // against the mouse position, which a gamepad does not move.
             if (map.m_mode == Minimap.MapMode.Large && pins != null &&
-                !(ZInput.IsMouseActive() && (PinEditor.PointerOverPanel() || MapIconPicker.PointerOverUi())))
+                !(ZInput.IsMouseActive() && (PinEditor.PointerOverPanel() || MapIconPicker.PointerOverUi() || ClusterInspector.PointerOver())))
             {
                 Vector2 cursor = new Vector2(float.MaxValue, float.MaxValue);
                 float best = float.MaxValue;
@@ -101,7 +101,7 @@ namespace CarturMapPins
             TMP_Text name = pin.m_NamePinData?.PinNameText;
             _tag.fontSize = name != null ? name.fontSize * 0.8f : 14f;
             int stands = Clusters.CountOf(pin);
-            _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to zoom in)"
+            _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to {(Plugin.ClusterClickAction.Value == ClusterClick.Inspector ? "list" : "zoom in")})"
                 : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
             // A group opens its list instead of the one-line tag.
             if (stands > 1 && ClusterPopup.Show(pin, root))

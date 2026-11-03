@@ -20,6 +20,12 @@ namespace CarturMapPins
     /// grid, Crowding.Level) so a zoom resting on a boundary does not flip a group back and forth.
     /// Only pins this mod placed are grouped: the player's own pins, other players' pins, area
     /// pins, pings, markers and ticked pins never are.
+    public enum ClusterClick
+    {
+        Zoom,
+        Inspector,
+    }
+
     internal static class Clusters
     {
         /// Fewer than this many real pins is not worth a badge.
@@ -332,6 +338,12 @@ namespace CarturMapPins
             if (!Clusters.Active || pin == null || Clusters.CountOf(pin) <= 1 ||
                 ZInput.GetKey(KeyCode.LeftShift, false) || ZInput.GetKey(KeyCode.RightShift, false))
                 return true;
+
+            if (Plugin.ClusterClickAction.Value == ClusterClick.Inspector)
+            {
+                ClusterInspector.Open(__instance, pin);
+                return false;
+            }
 
             // Half the zoom, centred on the group's pin: the group opens up where you clicked.
             __instance.LargeZoom = Mathf.Max(__instance.m_minZoom, __instance.LargeZoom * 0.5f);
