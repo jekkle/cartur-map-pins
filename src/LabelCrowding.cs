@@ -76,10 +76,11 @@ namespace CarturMapPins
             // "LargeZoom < m_showNamesZoom", and m_showNamesZoom is 2.0 where the highest zoom the
             // map allows is 1.0, so the test is true at every zoom and no name is ever hidden by
             // it. Measured at runtime; the 0.5 in the assembly is only the field initializer.
-            // A band round the limit (10% of it, at least one point) so a zoom resting on the line
-            // does not switch every name on and off.
+            // A band round the limit (10% of it, at least a quarter point) so a zoom resting on the
+            // line does not switch every name on and off. One point was six wheel steps each way at
+            // a limit of 3 (totya, 2.1.2): a wheel step is about a third of a point.
             float limit = Plugin.HideLabelsFromZoom.Value;
-            float band = Mathf.Max(1f, limit * 0.1f);
+            float band = Mathf.Max(0.25f, limit * 0.1f);
             float percent = Crowding.ZoomOutPercent();
             _zoomHidden = limit < 100f && (_zoomHidden ? percent > limit - band : percent > limit + band);
             if (_zoomHidden || PinHiding.LabelsHidden)
@@ -227,7 +228,13 @@ namespace CarturMapPins
             // Through 2.1.0 the revealed name was only forced on, so it was drawn over whichever
             // earlier-ranked or zoom-held name already sat there (totya: two icons on one row,
             // worst when pointing at one; measured 2.1.1: Sunken Crypt over Portal by 38x16 px).
-            bool hasFocus = pointedAt != null && ReferenceEquals(pointedAt, PinHover.Current);
+            //
+            // The nearest pin within the reveal radius counts, not only one the cursor is ON
+            // (PinHover.Current, null between icons). With the cursor between two icons the
+            // revealed name was forced on with no overlap check and drew over its neighbour
+            // (totya, 2.1.2: Kis faház over Láda at an intermediate zoom). Read from the code, not
+            // yet measured in game.
+            bool hasFocus = pointedAt != null;
             Rect focusRect = hasFocus ? RectOf(pointedAt.m_NamePinData) : default;
 
             foreach (Ranked ranked in Ordered)

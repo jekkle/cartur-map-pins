@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using BepInEx.Configuration;
 using TMPro;
 using UnityEngine;
@@ -34,6 +34,7 @@ namespace CarturMapPins
             }
             if (_hideLabel == null)
                 return;
+            Recentre(map);
             string text = CurrentState();
             if (_hideLabel.text != text)
                 _hideLabel.text = text;
@@ -169,20 +170,47 @@ namespace CarturMapPins
         /// The entries add up to more than the game's bar is wide once they have their room, and the
         /// overflow ran off the left of the map (owner, 2026-11-02). KeyHints is stretched across the
         /// map and shifted 177.5 left of its centre (read with the pilot's maptree). The room that is
-        /// free is the map's left edge to the icon panel on the right: measured at 1920x1080, frame
-        /// 150..1770 and panel from 1503, so its middle is 134 left of the map's centre. The row is
-        /// moved there and centres its entries, which a centred layout does evenly on both sides
-        /// when they overflow.
-        private const float BarShift = -134f;
+        /// free is the map frame's left edge to the icon picker's left edge; the bar is moved so its
+        /// middle is the middle of that, and its layout centres the entries, which it does evenly on
+        /// both sides when they overflow. Read from the live rects each time, not a fixed shift:
+        /// 2.1.2 used -134, which was right at 1920x1080 only (frame 150..1770, picker from 1503;
+        /// totya's report on 2.1.2 named it). No picker, or one that is hidden, leaves the whole frame.
+        private static float _centredOn = float.NaN;
+        private static RectTransform _hints;
+        private static readonly Vector3[] Corners = new Vector3[4];
+
+        private static void Recentre(Minimap map)
+        {
+            if (_hints == null || map.m_largeRoot == null)
+                return;
+            ((RectTransform)map.m_largeRoot.transform).GetWorldCorners(Corners);
+            float left = Corners[0].x, right = Corners[2].x;
+            RectTransform picker = MapIconPicker.PanelRect;
+            if (picker != null && picker.gameObject.activeInHierarchy)
+            {
+                picker.GetWorldCorners(Corners);
+                right = Corners[0].x;
+            }
+            float target = (left + right) * 0.5f;
+            if (Mathf.Approximately(target, _centredOn))
+                return;
+
+            _hints.GetWorldCorners(Corners);
+            float scale = _hints.lossyScale.x;
+            if (scale <= 0f)
+                return;
+            float move = (target - (Corners[0].x + Corners[2].x) * 0.5f) / scale;
+            _hints.offsetMin += new Vector2(move, 0f);
+            _hints.offsetMax += new Vector2(move, 0f);
+            _centredOn = target;
+        }
 
         private static void CentreBar(Transform row)
         {
-            if (row.parent is RectTransform hints)
-            {
-                float move = BarShift - (hints.offsetMin.x + hints.offsetMax.x) * 0.5f;
-                hints.offsetMin += new Vector2(move, 0f);
-                hints.offsetMax += new Vector2(move, 0f);
-            }
+            _hints = row.parent as RectTransform;
+            _centredOn = float.NaN;
+            if (_built != null)
+                Recentre(_built);
             HorizontalLayoutGroup bar = row.GetComponent<HorizontalLayoutGroup>();
             if (bar == null)
                 return;

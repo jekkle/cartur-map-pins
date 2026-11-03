@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using BepInEx.Configuration;
@@ -495,13 +495,15 @@ namespace CarturMapPins
             _grid.anchoredPosition = new Vector2(36f, -112f);
             _grid.sizeDelta = new Vector2(788f, 440f);
 
-            Button(panel, "Not now", new Vector2(36f, 28f), 140f, false, () => Close(false), anchorLeft: true);
-            _backButton = Button(panel, "Back", new Vector2(-188f, 28f), 140f, false, () => ShowPage(_page - 1)).transform.parent.gameObject;
+            // Footer 16 from the bottom, not 28: the link buttons above end 76 up, so at 28 "Not now" sat
+            // 10 px under them in the same column and read as one of them (totya, 2.1.2); now 22.
+            Button(panel, "Not now", new Vector2(36f, 16f), 140f, false, () => Close(false), anchorLeft: true);
+            _backButton = Button(panel, "Back", new Vector2(-188f, 16f), 140f, false, () => ShowPage(_page - 1)).transform.parent.gameObject;
             _footer = Label(panel, "Footer", 14f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.Left,
                             new Vector2(196f, -584f), new Vector2(330f, 52f));
             _footer.textWrappingMode = TextWrappingModes.Normal;
             BuildTip();
-            _next = Button(panel, "Next", new Vector2(-36f, 28f), 140f, false, () =>
+            _next = Button(panel, "Next", new Vector2(-36f, 16f), 140f, false, () =>
             {
                 if (_page == _pages.Count - 1)
                     Close(true);

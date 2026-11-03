@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
@@ -43,6 +43,8 @@ namespace CarturMapPins
         /// True while the cursor is over the picker, which tells the map to leave the scroll wheel
         /// alone. Unity's ScrollRect handles the wheel through the event system and the map does
         /// not, so otherwise both would act on one wheel tick.
+        public static RectTransform PanelRect => _panelRect;
+
         public static bool PointerOverPanel() => IconGrid.PointerOver(_panel, _panelRect, _canvasCamera);
 
         /// The picker or the search bar, for the hover check (PinHover): a pin behind either is not
