@@ -54,7 +54,8 @@ Opacity works the same way. Click the percentage next to a kind's colour in Hugi
 - **Point at a pin and its name wins.** Any other name that would overlap it fades out while the cursor stays on the icon, and comes back when you move off.
 - **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
 - **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
-- Zooming is smooth: pins and names fade rather than flicker or jump.
+- **The wheel zooms smoothly, about the pointer.** One notch is 6% (the game's own is 10%) eased over about 160 ms, and the spot you point at stays under the pointer. Hold Shift for 2% a notch. The M and Z keys, a controller and touch use the game's own zoom, unchanged. `SmoothMapZoom` turns it off; the step, the time, the Shift step and key, and the pointer anchoring are settings (below).
+- Pins and names fade rather than flicker or jump.
 
 ![The new icon picker and hint bar](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-screen-2.0.jpg)
 
@@ -70,7 +71,9 @@ Every portal is pinned, named with the tag you gave it. Built without a name it 
 
 Both are off by default.
 
-- **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are; nothing moves. Hover the badge for a list of what it stands for and how far away it is. Click it to zoom in. It cannot be ticked off or deleted until you are zoomed in to a single pin. Your own pins and other players' pins are never grouped.
+- **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are; nothing moves. Hover the badge for a list of what it stands for and how far away it is. Click it to open a list of the pins in it, nearest first, that you can search and scroll; click one and the map glides to it at a zoom where it stands alone. The list only reads: it does not tick, rename or delete anything. Click outside it to put it away; Escape closes the map as it always does, and the list with it. `ClusterClickAction = Zoom` brings back the old click, which zooms in. A badge cannot be ticked off or deleted until you are down to a single pin. Your own pins and other players' pins are never grouped.
+- **`General / MixedCategoryClusters`:** off by default. Lets crowded pins of different kinds share one badge: ore with chests and stones, landmarks with props and nests, pickables with each other. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and neither do your own pins. A mixed badge has a teal ring, and its list says how many of each kind are in it.
+- **`General / EnableClusterSpiderfy`:** off by default. With `ClusterClickAction` set to Spiderfy, clicking the badge of a small cluster (up to `SpiderfyMaxPins`, 12) fans its pins out on a ring round the badge, on thin lines back to where they are; click one to go to it. Any zoom, drag or click elsewhere puts them away. Bigger clusters open the list. Mouse only.
 - **`General / PriorityZoomOut`:** when the map is zoomed far out, pickables drop first, then landmarks, nests and hives, then ore, chests and stones. Bosses, dungeons, camps, portals, traders and home always stay.
 
 ![Cluster badges with the hover list](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/clusters-2.0.jpg)
@@ -80,6 +83,8 @@ Both are off by default.
 An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
 
 Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is 20% zoomed out; past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
+
+When two names would overlap, the one that loses is tried above its icon, then to the right, then to the left, before it is hidden (`SmartLabelPlacement`); it goes back under the icon once that place is clear again. Bosses, dungeons, camps, traders, home and portals claim name space before the common kinds do. Names go, and come back, one wheel notch after the zoom limit.
 
 You can draw pins with no names at all, so the map reads as icons. The names stay searchable, they just are not drawn. You can also stop drawing pins further than a set distance from your character. That is off by default. The `HiddenPins` setting takes a list of names to hide without deleting the pins, and its settings row has a list to pick from your own map.
 
@@ -123,6 +128,13 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `HideGroupedLabels` | true | No name on a pin that stands for several (cluster badge, merged repeat) once the map is zoomed out past half of `HideLabelsFromZoom`; point at it and the name shows. A pin that is only crowded keeps its name unless it overlaps another. |
 | `LabelScale` | 0.7 | How big names are drawn, 0.3 to 2. 1 is the game's own size. Applies at once. |
 | `HideLabelsFromZoom` | 20 | Percent zoomed out past which names stop being drawn. 100 never hides. |
+| `SmartLabelPlacement` | true | A name that would overlap another is tried above, right and left of its icon before it is hidden. |
+| `SmoothMapZoom` | true | Ease the large map's wheel zoom and zoom about the pointer. Off gives the game's own zoom back. |
+| `MapZoomStepPercent` | 6 | One wheel notch, in percent (the game's own is 10), 1 to 25. |
+| `PrecisionZoomPercent` | 2 | One notch while the precision key is held, 1 to 10. |
+| `PrecisionZoomKey` | LeftShift | Hold for the finer step. Right Shift also counts when this is Left Shift. |
+| `MapZoomDurationMs` | 160 | Time to cover 98% of a zoom, 0 to 600. 0 zooms at once. |
+| `CursorCenteredZoom` | true | Zoom about the pointer instead of the middle of the map. |
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
@@ -132,6 +144,10 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `HideLabelsKey` | Shift+H | On the large map: hide every pin's name, or show them again. Icons stay. |
 | `SetupKey` | P | On the large map: open Hugin's setup menu. |
 | `ClusterPins` | false | Crowded pins with the same icon become one pin with a count badge. |
+| `ClusterClickAction` | Inspector | Click on a badge: Inspector opens the list, Zoom zooms in (the old click), Spiderfy fans out a small cluster (needs `EnableClusterSpiderfy`). |
+| `MixedCategoryClusters` | false | Badges may hold pins of different kinds. Bosses, dungeons, camps, traders, home and portals never join. |
+| `EnableClusterSpiderfy` | false | Allow the fan-out click for small clusters. |
+| `SpiderfyMaxPins` | 12 | The most pins a cluster can hold and still fan out, 3 to 24. |
 | `PriorityZoomOut` | false | Far out, cheap-to-find pins drop first. Bosses, dungeons, camps and portals stay. |
 | `ConfirmDelete` | Off | Ask for a second click before right-click deletes a pin: Off, AutoPinsOnly or All. Ctrl+Z on the large map undoes a delete either way. |
 | `Ore / TintByType` | true | Colour ore pins by what the ore is. |
@@ -170,6 +186,10 @@ It is a spelled-out dropdown rather than a tick box on purpose, because a stray 
 | `carturpins_zoom` | Prints the zoom and sizing numbers behind what is drawn. |
 
 ## Compatibility and known issues
+
+**Maps with thousands of pins are slow to zoom and pan, and 2.2 does not change that.** The game builds the marker of every pin that enters the view and removes the one of every pin that leaves it each time the view changes. In our test, with 5,000 pins on the map, zooming ran at about 10 frames a second; with 1,000 it ran at 58. Eased zoom adds little to that (58 against 65 frames a second at 1,000 pins, no difference at 5,000). 2.2 made the mod's own part of that pass much cheaper (a pass at 5,000 pins zoomed out went from 64 to 7 milliseconds in our test), but the game's part is still there.
+
+**Not tested:** a controller, multiplayer, a high-resolution wheel or a trackpad, resolutions other than 1920x1080, and other mods that change the map zoom. The smooth zoom steps aside when it sees something else change the zoom. A real mouse-wheel event and a real Escape key could not be injected into the game in testing: zoom was driven through the same wheel function the game reads, and the map was closed through the call Escape makes.
 
 Client-side. The server does not need it and neither do the people you play with. With `PinSharing` left on Everything, a cartography table publishes the pins this mod placed along with your own.
 

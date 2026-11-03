@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.2.0
+
+**Wheel zoom on the large map is eased and zooms about the pointer.** One notch is 6% (the game's own is 10%), over about 160 ms, and the spot you point at stays where it is on the screen. Hold Shift for 2% a notch. The M and Z keys, a controller and touch are left to the game. `SmoothMapZoom` turns it all off. New settings: `MapZoomStepPercent`, `PrecisionZoomPercent`, `PrecisionZoomKey`, `MapZoomDurationMs`, `CursorCenteredZoom`. In the game, over 3 cycles of 4 notches in and out with the pointer at the same pixel, the point under it did not move; zoom stops at the game's limits and does not drift at them; closing the map mid-zoom stops the zoom where it was.
+
+**A click on a cluster badge opens a list** of the pins in it, nearest first, with a search box. Click a pin in the list and the map glides to it at a zoom where it stands alone. The list only reads. `ClusterClickAction = Zoom` brings back the old click. Clusters still need `ClusterPins`, which is off by default.
+
+**New, off by default: `MixedCategoryClusters`** (badges may hold ore with chests and stones, landmarks with props, pickables with each other; bosses, dungeons, camps, traders, home and portals never join; the list shows how many of each kind) and **`EnableClusterSpiderfy`** (a small cluster fans out on a ring on lines back to where its pins are; set `ClusterClickAction` to Spiderfy). The badge ring of a mixed cluster is a plain teal one for now.
+
+**Clusters no longer reuse old groups when a pin changed but the count did not.** The cache looked only at how many pins there were; a pin renamed, given another icon, ticked or hidden while the count stayed the same left the old groups in place. A group also keeps its lead pin when a pin is added beside it.
+
+**Map names: a name that would overlap another is tried above its icon, then right, then left, before it is hidden** (`SmartLabelPlacement`, on by default). In a 200-group test map 22 to 39% more names stayed visible at three zoom levels. Bosses, dungeons, camps, traders, home and portals claim name space before the common kinds.
+
+**HideLabelsFromZoom: names hide and come back one wheel notch after the limit** (totya, on 2.1.3). The band round the limit is 1% of the zoom itself, not a quarter of a point of the 0 to 100 scale. Checked in the game at a limit of 2 with 6% notches: hidden on the notch past the limit, back on the notch before it.
+
+**Faster on maps with many pins.** The game switched every name on at each map pass and the mod switched the hidden ones back off; hidden names are now just faded out. With 5,000 test pins zoomed out, the mod's part of a map pass went from 64 to 7 milliseconds, and with 5,000 pins and names showing, from 88 to 25. Shown names are checked for overlap against stored rectangles instead of being measured again for each name (89 to 33 milliseconds at 5,000 pins). The same names show either way (205 and 414 on the same test map before and after). A zoom sweep from fully in to fully out on 755 test pins ran at 8 to 9 frames a second before this and 29 to 30 after (2.1.3 ran it at 9 to 14).
+
+**Still slow: maps with thousands of pins.** The game builds and removes the marker of every pin that enters or leaves the view whenever the view changes, and that part is not the mod's. With 5,000 pins zooming runs at about 10 frames a second, with or without eased zoom.
+
+**Not tested:** a controller, multiplayer, a high-resolution wheel or trackpad, resolutions other than 1920x1080, other mods that change the map zoom. A real mouse-wheel event and a real Escape key could not be injected into the game in testing. Zoom was driven through the same wheel function the game reads, and the map was closed through the call Escape makes.
+
 ## 2.1.3
 
 From totya's second report, on 2.1.2.
