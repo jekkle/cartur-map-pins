@@ -85,5 +85,5 @@ With placement on, 20-35% more names stay visible instead of being hidden. The o
 ## Not done
 - The hide-everything churn above. Likely routes: patch the game's per-label `SetActive(true)` (inside `UpdatePins`) so labels the mod hides are not woken each pass, or keep hidden labels active at alpha 0. Both change how labels fade and show on hover, so they need a design decision, not a quick fix.
 - `PinFade.Step` is linear in pin count (1 ms per 1,000 pins per frame). Skipping off-screen pins would cut it; not done.
-- 20,000-pin "rest" rows could not be read (see above). Anything above 5,000 pins is below 10 fps while the map is moving, in this build and in 2.1.3's `HideAll` path alike.
+- 20,000-pin "rest" rows could not be read (see above). Above 5,000 pins the frame rate is below 10 fps while the map is moving in these scenes (2.2; 2.1.3 was not run on them).
 - No 2.1.3 run of these exact scenes: the 2.1.3 comparison is only the 8,357-pin and 755-pin runs in `V22_RESULTS.md`.
