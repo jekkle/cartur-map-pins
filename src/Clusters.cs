@@ -35,7 +35,8 @@ namespace CarturMapPins
         public static IReadOnlyList<Minimap.PinData> GroupOf(Minimap.PinData leader) =>
             leader != null && Groups.TryGetValue(leader, out List<Minimap.PinData> group) ? group : null;
         private static int _level = int.MinValue;
-        private static string _signature;
+        private static int _signature;
+        private static bool _built;
 
         /// The pilot sets this to group its unsaved test pins as well.
         internal static bool IncludeAll;
@@ -67,7 +68,7 @@ namespace CarturMapPins
                     Leaders.Clear();
                     Members.Clear();
                     Groups.Clear();
-                    _signature = null;
+                    _built = false;
                 }
                 return;
             }
@@ -81,9 +82,13 @@ namespace CarturMapPins
 
             // Everything that decides the groups. When none of it changed, the groups are reused:
             // dragging the map asks for a pass every frame and the groups are the same each time.
-            string signature = $"{pins.Count}|{_level}|{PinFilter.Text}|{PinHiding.Cycle}|{Plugin.HiddenPins.Value}|{Plugin.HidePinsBeyond.Value}|{Plugin.MergeRepeatedPins.Value}|{IncludeAll}";
-            if (signature != _signature)
+            // It reads the pins themselves, not just how many there are: a rename, a new icon, a tick,
+            // or one pin deleted as another is added all leave the count alone and still change who
+            // belongs together. An int rather than a string, so a drag does not allocate each frame.
+            int signature = Signature(pins);
+            if (!_built || signature != _signature)
             {
+                _built = true;
                 _signature = signature;
                 Rebuild(pins, Mathf.Pow(2f, _level) * RadiusInIcons);
             }
@@ -92,13 +97,44 @@ namespace CarturMapPins
                 Crowding.MarkNotDrawn(member);
         }
 
+        private static int Signature(List<Minimap.PinData> pins)
+        {
+            unchecked
+            {
+                int h = pins.Count;
+                h = h * 31 + _level;
+                h = h * 31 + PinFilter.Text.GetHashCode();
+                h = h * 31 + (int)PinHiding.Cycle;
+                h = h * 31 + (Plugin.HiddenPins.Value?.GetHashCode() ?? 0);
+                h = h * 31 + Plugin.HidePinsBeyond.Value.GetHashCode();
+                h = h * 31 + (Plugin.MergeRepeatedPins.Value ? 1 : 0);
+                h = h * 31 + (IncludeAll ? 1 : 0);
+                foreach (Minimap.PinData pin in pins)
+                {
+                    if (pin == null)
+                        continue;
+                    h = h * 31 + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(pin);
+                    h = h * 31 + Mathf.RoundToInt(pin.m_pos.x);
+                    h = h * 31 + Mathf.RoundToInt(pin.m_pos.z);
+                    h = h * 31 + (int)pin.m_type;
+                    h = h * 31 + (pin.m_name?.GetHashCode() ?? 0);
+                    // Whether it is drawn at all (hidden, out of range, a merged repeat) and whether
+                    // it is ours are what Rebuild filters on; ticked and shared are the rest of it.
+                    h = h * 31 + ((Crowding.OutOfSight(pin) ? 1 : 0) | (pin.m_checked ? 2 : 0) | (IncludeAll || PinRecord.IsIndexedOurs(pin) ? 4 : 0) | (pin.m_worldSize > 0f ? 8 : 0));
+                    h = h * 31 + pin.m_ownerID.GetHashCode();
+                }
+                return h;
+            }
+        }
+
         private static void Rebuild(List<Minimap.PinData> pins, float radius)
         {
+            // A group keeps the leader it had when it still has it: the leader is only the first
+            // member in position order, and a pin added west of the group would otherwise take over.
+            var before = new HashSet<Minimap.PinData>(Leaders.Keys);
             Leaders.Clear();
             Members.Clear();
             Groups.Clear();
-            if (!IncludeAll)
-                PinRecord.IndexByPosition();
 
             var byIcon = new Dictionary<Minimap.PinType, List<Minimap.PinData>>();
             foreach (Minimap.PinData pin in pins)
@@ -171,11 +207,19 @@ namespace CarturMapPins
                     foreach (int j in near)
                     {
                         taken[j] = true;
-                        Members.Add(list[j]);
                         group.Add(list[j]);
                     }
-                    Leaders[list[i]] = weight;
-                    Groups[list[i]] = group;
+                    int lead = group.FindIndex(p => before.Contains(p));
+                    if (lead > 0)
+                    {
+                        Minimap.PinData old = group[lead];
+                        group[lead] = group[0];
+                        group[0] = old;
+                    }
+                    for (int k = 1; k < group.Count; k++)
+                        Members.Add(group[k]);
+                    Leaders[group[0]] = weight;
+                    Groups[group[0]] = group;
                 }
             }
         }

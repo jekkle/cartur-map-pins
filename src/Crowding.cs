@@ -176,8 +176,9 @@ namespace CarturMapPins
             Minimap map = Minimap.instance;
             _zoom = ZoomScale(map);
             PriorityZoom.Update(ZoomOutPercent(map));
-            if (PriorityZoom.Active)
-                PinRecord.IndexByPosition();
+            // Once per pass, here: the hide cycle, looted chests, priority zoom and Clusters.Measure
+            // (which runs next) all read it, and each used to rebuild it for itself.
+            PinRecord.IndexByPosition();
             if (map == null || pins == null)
                 return;
 
@@ -186,8 +187,6 @@ namespace CarturMapPins
             PinHiding.Apply(pins);
             if (PinHiding.Any || PinHiding.Cycle != PinHiding.Shown.All)
             {
-                if (PinHiding.Cycle == PinHiding.Shown.Yours || PinHiding.Cycle == PinHiding.Shown.Auto)
-                    PinRecord.IndexByPosition();
                 foreach (Minimap.PinData pin in pins)
                 {
                     if (pin != null && (PinHiding.IsHidden(pin) || PinHiding.CycleHides(pin)))
@@ -203,7 +202,7 @@ namespace CarturMapPins
                 Minimap.PinType looted = PinPlacer.LootedChestType();
                 if (looted != Minimap.PinType.None)
                 {
-                    PinRecord.IndexByPosition();   // only pins this mod placed: a hand-placed pin may wear the same icon
+                    // only pins this mod placed: a hand-placed pin may wear the same icon
                     foreach (Minimap.PinData pin in pins)
                     {
                         if (pin != null && pin.m_type == looted && PinRecord.IsIndexedOurs(pin))
