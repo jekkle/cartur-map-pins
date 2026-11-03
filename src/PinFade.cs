@@ -166,9 +166,19 @@ namespace CarturMapPins
                 return;
 
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
+#if DIAGNOSTICS || BENCH
+            long t = Bench.Start();
+            PinHover.Find(__instance, pins);
+            Bench.Stop(4, t); t = Bench.Start();
+            PinFade.Step(pins, Time.deltaTime);
+            Bench.Stop(5, t); t = Bench.Start();
+            LabelCrowding.Step(pins, Time.unscaledDeltaTime);
+            Bench.Stop(6, t);
+#else
             PinHover.Find(__instance, pins);
             PinFade.Step(pins, Time.deltaTime);
             LabelCrowding.Step(pins, Time.unscaledDeltaTime);
+#endif
             ClusterInspector.Tick();
             ClusterSpiderfy.Tick(__instance);
             LabelTemplates.Hover(__instance);

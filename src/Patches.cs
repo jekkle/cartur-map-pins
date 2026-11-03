@@ -380,10 +380,23 @@ namespace CarturMapPins
             if (pins == null)
                 return;
 
+#if DIAGNOSTICS || BENCH
+            long all = Bench.Start(), t = all;
+            Crowding.Measure(pins);
+            Bench.Stop(1, t); t = Bench.Start();
+            Clusters.Measure(pins);
+            Bench.Stop(2, t);
+            LabelTemplates.Apply(pins);
+            t = Bench.Start();
+            LabelCrowding.Apply(pins);
+            Bench.Stop(3, t);
+            Bench.Stop(0, all);
+#else
             Crowding.Measure(pins);
             Clusters.Measure(pins);
             LabelTemplates.Apply(pins);
             LabelCrowding.Apply(pins);
+#endif
 
             // Loop-invariant: it reads config, so resolve it once per pass rather than once per pin.
             Minimap.PinType looted = PinPlacer.LootedChestType();

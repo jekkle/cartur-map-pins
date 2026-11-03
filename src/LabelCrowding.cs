@@ -25,6 +25,16 @@ namespace CarturMapPins
         internal const float RevealRadius = 60f;
 
         private static readonly List<Minimap.PinNameData> Shown = new List<Minimap.PinNameData>();
+
+        /// Where each shown name's words were when it was added, and a grid of them by screen cell, so
+        /// "does this overlap a shown name" looks at the few names near it instead of measuring every
+        /// one. Measured 2026-11-03 (Release): the pass cost 5 ms at 1,000 pins, 62 ms at 5,000, 360 ms
+        /// at 20,000 - the other stages grew in step with the pin count and this one grew faster, and
+        /// RectOf on every shown name for every name asked was the part that did.
+        private static readonly List<Rect> ShownRects = new List<Rect>();
+        private static readonly Dictionary<long, List<int>> Grid = new Dictionary<long, List<int>>();
+        private static readonly Stack<List<int>> Spare = new Stack<List<int>>();
+        private const float GridCell = 128f;
         private static readonly List<Ranked> Ordered = new List<Ranked>();
         private static readonly Dictionary<string, int> NameCounts = new Dictionary<string, int>();
 
@@ -64,7 +74,7 @@ namespace CarturMapPins
             // else), so a label wanted shown is already shown by the time we run. Re-showing from
             // this Postfix would override that decision and light collided labels at every zoom,
             // and on the small minimap. Hiding is ours to do; showing is the game's.
-            Shown.Clear();
+            ClearShown();
             Ordered.Clear();
             NameCounts.Clear();
 #if DIAGNOSTICS
@@ -117,6 +127,7 @@ namespace CarturMapPins
             // name, a share that fell from about half at 0-5% zoomed out to a quarter at 15%.
             bool groupRule = Plugin.HideGroupedLabels.Value &&
                              Crowding.ZoomOutPercent() > Plugin.HideLabelsFromZoom.Value * 0.5f;
+            bool smart = Plugin.SmartLabelPlacement.Value;
             foreach (Minimap.PinData pin in pins)
             {
                 Minimap.PinNameData name = pin?.m_NamePinData;
@@ -209,7 +220,7 @@ namespace CarturMapPins
                 {
                     Minimap.PinNameData name = ranked.Pin.m_NamePinData;
                     if (Fades.TryGetValue(name.PinNameGameObject, out Fade f) && f.Want)
-                        Shown.Add(name);
+                        AddShown(name);
                 }
             }
 
@@ -255,6 +266,18 @@ namespace CarturMapPins
                 // pin is asking what it is.
                 bool revealed = ReferenceEquals(pin, pointedAt);
 
+                // A name moved off its default place goes back once the default is free with the
+                // margin to spare; until then it stays where it is (no flipping between sides).
+                if (smart && hideColliding && !revealed && direction == 0 && Displaced(name, out Vector2 moved))
+                {
+                    Rect home = new Rect(mine.x - moved.x, mine.y - moved.y, mine.width, mine.height);
+                    if (!Collides(Grown(home, Margin)))
+                    {
+                        name.PinNameText.rectTransform.anchoredPosition = Vector2.zero;
+                        mine = home;
+                    }
+                }
+
                 if (hasFocus && !revealed && mine.Overlaps(focusRect))
                 {
                     Hide(name);
@@ -281,12 +304,18 @@ namespace CarturMapPins
                         continue;
                     }
                 }
-                float grow = wasShown ? -Margin : Margin;
-                Rect test = new Rect(mine.x - mine.width * grow, mine.y - mine.height * grow,
-                                     mine.width * (1f + 2f * grow), mine.height * (1f + 2f * grow));
+                Rect test = Grown(mine, wasShown ? -Margin : Margin);
                 if (revealed || !hideColliding || !Collides(test))
                 {
-                    Shown.Add(name);
+                    AddShown(name);
+                    Show(name);
+                    continue;
+                }
+
+                // Before giving up on a name, try the other sides of its icon.
+                if (smart && Relocate(pin, name, mine))
+                {
+                    AddShown(name);
                     Show(name);
                     continue;
                 }
@@ -468,10 +497,58 @@ namespace CarturMapPins
             return f;
         }
 
+        private static Rect Grown(Rect r, float g) =>
+            new Rect(r.x - r.width * g, r.y - r.height * g, r.width * (1f + 2f * g), r.height * (1f + 2f * g));
+
+        /// How far the name's text has been moved off the place the game puts it. The game's own
+        /// offset is zero (measured: the text child sits at (0, 0) under the label root) and is not
+        /// rewritten by later passes, zoom or pan (probe, 2026-11-03), so what is there is ours.
+        private static bool Displaced(Minimap.PinNameData name, out Vector2 offset)
+        {
+            offset = name.PinNameText != null ? name.PinNameText.rectTransform.anchoredPosition : Vector2.zero;
+            return offset != Vector2.zero;
+        }
+
+        /// The sides of the icon tried in turn when the name will not fit below it: above, right, left.
+        /// A side is taken only if its words overlap no shown name even with the margin added, and
+        /// stay inside the map when the labels' space is known to start at the parent's corner.
+        private static bool Relocate(Minimap.PinData pin, Minimap.PinNameData name, Rect mine)
+        {
+            UnityEngine.UI.Image icon = pin.m_iconElement;
+            if (icon == null || name.PinNameText == null)
+                return false;
+            RectTransform t = name.PinNameText.rectTransform, root = name.PinNameRectTransform;
+            Displaced(name, out Vector2 moved);
+            Rect home = new Rect(mine.x - moved.x, mine.y - moved.y, mine.width, mine.height);
+            float size = icon.rectTransform.rect.height * icon.rectTransform.localScale.y, gap = 4f;
+            Vector2[] shifts =
+            {
+                new Vector2(0f, size + home.height + gap),                                          // above the icon
+                new Vector2(size * 0.5f + gap + home.width * 0.5f, (size + home.height) * 0.5f),    // right of it, level with it
+                new Vector2(-(size * 0.5f + gap + home.width * 0.5f), (size + home.height) * 0.5f), // left of it
+            };
+            var parent = root.parent as RectTransform;
+            bool bounded = parent != null && root.anchorMin == Vector2.zero && root.anchorMax == Vector2.zero;
+            foreach (Vector2 shift in shifts)
+            {
+                Rect at = new Rect(home.x + shift.x, home.y + shift.y, home.width, home.height);
+                if (bounded && (at.xMin < 0f || at.yMin < 0f || at.xMax > parent.rect.width || at.yMax > parent.rect.height))
+                    continue;
+                if (Collides(Grown(at, Margin)))
+                    continue;
+                t.anchoredPosition = shift;
+                return true;
+            }
+            return false;
+        }
+
         private static void Show(Minimap.PinNameData name) => FadeFor(name.PinNameGameObject).Want = true;
 
         private static void Hide(Minimap.PinNameData name)
         {
+            // A hidden name goes back to its place, so it comes back there.
+            if (name.PinNameText != null && name.PinNameText.rectTransform.anchoredPosition != Vector2.zero)
+                name.PinNameText.rectTransform.anchoredPosition = Vector2.zero;
             Fade f = FadeFor(name.PinNameGameObject);
             f.Want = false;
             if (f.Group.alpha <= Invisible)
@@ -535,12 +612,56 @@ namespace CarturMapPins
         private static readonly System.Reflection.FieldInfo PinUpdateRequired =
             AccessTools.Field(typeof(Minimap), "m_pinUpdateRequired");
 
+        private static void ClearShown()
+        {
+            Shown.Clear();
+            ShownRects.Clear();
+            foreach (List<int> cell in Grid.Values)
+            {
+                cell.Clear();
+                Spare.Push(cell);
+            }
+            Grid.Clear();
+        }
+
+        private static void AddShown(Minimap.PinNameData name)
+        {
+            Rect r = name.PinNameRectTransform != null ? RectOf(name) : default;
+            int index = Shown.Count;
+            Shown.Add(name);
+            ShownRects.Add(r);
+            if (name.PinNameRectTransform == null)
+                return;
+            int x0 = Mathf.FloorToInt(r.xMin / GridCell), x1 = Mathf.FloorToInt(r.xMax / GridCell);
+            int y0 = Mathf.FloorToInt(r.yMin / GridCell), y1 = Mathf.FloorToInt(r.yMax / GridCell);
+            for (int x = x0; x <= x1; x++)
+            {
+                for (int y = y0; y <= y1; y++)
+                {
+                    long key = ((long)x << 32) ^ (uint)y;
+                    if (!Grid.TryGetValue(key, out List<int> cell))
+                        Grid[key] = cell = Spare.Count > 0 ? Spare.Pop() : new List<int>();
+                    cell.Add(index);
+                }
+            }
+        }
+
         private static bool Collides(Rect mine)
         {
-            foreach (Minimap.PinNameData other in Shown)
+            int x0 = Mathf.FloorToInt(mine.xMin / GridCell), x1 = Mathf.FloorToInt(mine.xMax / GridCell);
+            int y0 = Mathf.FloorToInt(mine.yMin / GridCell), y1 = Mathf.FloorToInt(mine.yMax / GridCell);
+            for (int x = x0; x <= x1; x++)
             {
-                if (other.PinNameRectTransform != null && RectOf(other).Overlaps(mine))
-                    return true;
+                for (int y = y0; y <= y1; y++)
+                {
+                    if (!Grid.TryGetValue(((long)x << 32) ^ (uint)y, out List<int> cell))
+                        continue;
+                    for (int i = 0; i < cell.Count; i++)
+                    {
+                        if (ShownRects[cell[i]].Overlaps(mine))
+                            return true;
+                    }
+                }
             }
             return false;
         }

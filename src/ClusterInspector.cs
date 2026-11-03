@@ -50,7 +50,7 @@ namespace CarturMapPins
             public int Index = -1;
         }
 
-#if DIAGNOSTICS
+#if DIAGNOSTICS || BENCH
         /// The pilot's click, for when the game window has no OS focus.
         internal static bool TestClick;
 #endif
@@ -128,7 +128,7 @@ namespace CarturMapPins
                 return;
             // A click anywhere but on the panel puts it away. Opening a different cluster reopens it
             // the same frame, since that click is the map's own.
-#if DIAGNOSTICS
+#if DIAGNOSTICS || BENCH
             bool clicked = ZInput.GetMouseButtonDown(0) || TestClick;
             TestClick = false;
 #else

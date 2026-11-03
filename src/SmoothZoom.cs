@@ -20,7 +20,7 @@ namespace CarturMapPins
     internal static class SmoothZoom
     {
         internal static bool Suppress;
-#if DIAGNOSTICS
+#if DIAGNOSTICS || BENCH
         /// The pilot's wheel: one notch (+1 in, -1 out) per set, consumed by the next Tick.
         internal static float TestWheel;
         internal static bool TestShift;
@@ -53,7 +53,7 @@ namespace CarturMapPins
                 Rest(zoom);
 
             float wheel = ZInput.GetMouseScrollWheel();
-#if DIAGNOSTICS
+#if DIAGNOSTICS || BENCH
             if (TestWheel != 0f)
             {
                 wheel = TestWheel;
@@ -129,7 +129,7 @@ namespace CarturMapPins
 
         private static bool PrecisionHeld()
         {
-#if DIAGNOSTICS
+#if DIAGNOSTICS || BENCH
             if (TestShift)
                 return true;
 #endif
