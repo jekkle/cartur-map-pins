@@ -87,3 +87,20 @@ With placement on, 20-35% more names stay visible instead of being hidden. The o
 - `PinFade.Step` is linear in pin count (1 ms per 1,000 pins per frame). Skipping off-screen pins would cut it; not done.
 - 20,000-pin "rest" rows could not be read (see above). Above 5,000 pins the frame rate is below 10 fps while the map is moving in these scenes (2.2; 2.1.3 was not run on them).
 - No 2.1.3 run of these exact scenes: the 2.1.3 comparison is only the 8,357-pin and 755-pin runs in `V22_RESULTS.md`.
+
+## 2.2.0 against 2.1.3, same scenes, same game session type **[measured]** 2026-11-03
+
+Release DLLs, both with `ClusterPins` on (the bench scene turns it on) and 1,000 or 5,000 unsaved uniform pins; "rest" is `fps 5` with the pointer parked, "sweep" is `mapsweep 6` (zoom fully in to fully out and back, set directly, so it is the same for both versions). 2.1.3 is the DLL from `dist/Carturs_Map_Pins-2.1.3.zip`.
+
+| pins | zoom | rest ms/frame 2.1.3 | rest ms/frame 2.2.0 | sweep frames in 6 s 2.1.3 | sweep frames 2.2.0 | icon flicker pins 2.1.3 / 2.2.0 | label flicker pins 2.1.3 / 2.2.0 |
+|---|---|---|---|---|---|---|---|
+| 1,000 | 0.3 | 16.3 | 17.1 | 191-197 | 254 | 88 / 47 | 21 / 0 |
+| 1,000 | 0.1 | 14.4 | 15.4 | 193-201 | 253 | 89 / 47 | 22 / 0 |
+| 5,000 | 0.3 | 33.6 | 34.4 | 45-46 | 49 | 243 / 213 | 211 / 0 |
+| 5,000 | 0.1 | 23.8 | 22.6 | 43-47 | 56 | 134 / 78 | 241 / 0 |
+
+Before the fade list was added, 2.2.0 idled at 38.6 ms at 5,000 pins and zoom 0.3 (5 ms a frame over 2.1.3), because the per-frame fade step looked at every hidden name that now stays on at no opacity. It now visits only names that are fading.
+
+Frame-rate drops while zooming (pilot-driven wheel notches, 4 s, Debug/BENCH build): eased zoom against instant zoom at the same step: 1,000 pins 58.4 against 65.4 fps (worst 5%: 21.2 against 23.8); 5,000 pins 10.2 against 9.9 fps. Zooming itself is the cost at large pin counts: the game builds and removes the marker of every pin that enters or leaves the view each time the view changes.
+
+Not measured: a real mouse wheel. Real OS wheel and key events did not reach the game from the pilot (`ZInput.GetMouseScrollWheel()` stayed 0 for both `mouse_event` and a posted `WM_MOUSEWHEEL`).

@@ -503,6 +503,22 @@ namespace CarturMapPins
             /// How far through the fade it is, 0 to 1, moved at a steady rate by Step. The alpha
             /// drawn is its smoothstep, so a name eases in and out instead of lunging.
             public float Level;
+            /// In Working, so Step visits it.
+            public bool Queued;
+        }
+
+        /// Names that are fading, and only those. Step used to walk every pin's name each frame, which
+        /// was cheap while hidden names were switched off and is not now that they stay on at no opacity
+        /// (measured 2026-11-03: about 5 ms a frame more at 5,000 pins).
+        private static readonly List<Fade> Working = new List<Fade>();
+
+        private static void Wake(Fade f)
+        {
+            if (!f.Queued)
+            {
+                f.Queued = true;
+                Working.Add(f);
+            }
         }
 
         private static readonly ConditionalWeakTable<GameObject, Fade> Fades = new ConditionalWeakTable<GameObject, Fade>();
@@ -608,7 +624,13 @@ namespace CarturMapPins
             return false;
         }
 
-        private static void Show(Minimap.PinNameData name) => FadeFor(name.PinNameGameObject).Want = true;
+        private static void Show(Minimap.PinNameData name)
+        {
+            Fade f = FadeFor(name.PinNameGameObject);
+            f.Want = true;
+            if (f.Level < 1f)
+                Wake(f);
+        }
 
         private static void Hide(Minimap.PinNameData name)
         {
@@ -620,16 +642,9 @@ namespace CarturMapPins
             // churn). Left on, at no opacity and with raycasts off, vanilla's switch-on does nothing.
             Fade f = FadeFor(name.PinNameGameObject);
             f.Want = false;
-#if DIAGNOSTICS || BENCH
-            if (OldHide && f.Group.alpha <= Invisible)
-                name.PinNameGameObject.SetActive(false);
-#endif
+            if (f.Level > 0f)
+                Wake(f);
         }
-
-#if DIAGNOSTICS || BENCH
-        /// The pilot A/B: switch a faded-out name off, as 2.1.3 did, instead of leaving it on.
-        internal static bool OldHide;
-#endif
 
         /// Called every frame from the Minimap.Update postfix, after vanilla's pass.
         public static void Step(List<Minimap.PinData> pins, float dt)
@@ -647,22 +662,27 @@ namespace CarturMapPins
 
             // A long frame counts as at most a 30 fps one, as in PinFade, so a hitch does not skip a fade.
             float step = Mathf.Min(dt, PinFade.MaxStep) / FadeSeconds;
-            foreach (Minimap.PinData pin in pins)
+            for (int i = Working.Count - 1; i >= 0; i--)
             {
-                GameObject go = pin?.m_NamePinData?.PinNameGameObject;
-                if (go == null || !go.activeSelf || !Fades.TryGetValue(go, out Fade f) || f.Group == null)
+                Fade f = Working[i];
+                if (f.Group == null)
+                {
+                    f.Queued = false;
+                    Working[i] = Working[Working.Count - 1];
+                    Working.RemoveAt(Working.Count - 1);
                     continue;
-                if (!f.Want && f.Level <= 0f)
-                    continue;
+                }
                 float want = f.Want ? 1f : 0f;
                 f.Level = Mathf.MoveTowards(f.Level, want, step);
                 float alpha = f.Level * f.Level * (3f - 2f * f.Level);
                 if (!Mathf.Approximately(f.Group.alpha, alpha))
                     f.Group.alpha = alpha;
-#if DIAGNOSTICS || BENCH
-                if (OldHide && !f.Want && alpha <= Invisible)
-                    go.SetActive(false);
-#endif
+                if (f.Level == want)
+                {
+                    f.Queued = false;
+                    Working[i] = Working[Working.Count - 1];
+                    Working.RemoveAt(Working.Count - 1);
+                }
             }
         }
 
