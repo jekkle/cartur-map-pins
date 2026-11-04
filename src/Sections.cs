@@ -180,6 +180,13 @@ namespace CarturMapPins
         public static bool HadValue(string logical, string key) =>
             Raw.ContainsKey(Of(logical, key) + "/" + key) || Raw.ContainsKey(logical + "/" + key);
 
+        /// The number the file held for this setting before anything was bound, or null when it
+        /// had none or it is not a number.
+        public static float? SavedFloat(string logical, string key) =>
+            (Raw.TryGetValue(Of(logical, key) + "/" + key, out string text) || Raw.TryGetValue(logical + "/" + key, out text)) &&
+            float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value)
+                ? value : (float?)null;
+
         /// Fills in every setting whose section was renamed, from the value the player had under
         /// the old name.
         ///

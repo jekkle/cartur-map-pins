@@ -16,7 +16,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.2.0";
+        public const string PluginVersion = "2.3.0";
 
         internal static ManualLogSource Log;
 
@@ -151,8 +151,23 @@ namespace CarturMapPins
             ShrinkCrowdedPins = Config.Bind(Sections.Of("General", "ShrinkCrowdedPins"), "ShrinkCrowdedPins", true,
                 "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
 
-            ZoomedOutPinScale = Config.Bind(Sections.Of("General", "ZoomedOutPinScale"), "ZoomedOutPinScale", 0.6f,
-                "How big a pin is drawn when the map is zoomed all the way out, as a fraction of its normal size. Pins are full size zoomed in and shrink steadily towards this as you zoom out, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.");
+            // 2.3 shrinks pins when zoomed in (0.75 and 0.7). Somebody who already chose their own pin
+            // sizes - a floor or a start point other than the old defaults - keeps full size up close.
+            // Someone still on the old defaults moves to the new floor; a value they set is never touched.
+            float? savedFloor = Sections.SavedFloat("General", "ZoomedOutPinScale");
+            float? savedStart = Sections.SavedFloat("General", "ShrinkPinsFromZoom");
+            bool ownSizes = (savedFloor.HasValue && System.Math.Abs(savedFloor.Value - 0.6f) > 0.001f) ||
+                            (savedStart.HasValue && System.Math.Abs(savedStart.Value - 15f) > 0.001f);
+
+            ZoomedInPinScale = Config.Bind(Sections.Of("General", "ZoomedInPinScale"), "ZoomedInPinScale", ownSizes ? 1f : 0.75f,
+                new ConfigDescription("How big a pin is drawn when the map is zoomed in, as a fraction of its normal size. Lower it if icons feel large against the terrain at close zoom. Pins keep this size until the map is zoomed out past ShrinkPinsFromZoom, then shrink towards ZoomedOutPinScale of this size. 1 is the full size the game draws; 0.2 is as small as it goes. Changes show at once.",
+                    new AcceptableValueRange<float>(0.2f, 1f)));
+            ZoomedInPinScale.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
+
+            ZoomedOutPinScale = Config.Bind(Sections.Of("General", "ZoomedOutPinScale"), "ZoomedOutPinScale", 0.7f,
+                "How big a pin is drawn when the map is zoomed all the way out, as a fraction of its zoomed-in size (ZoomedInPinScale). Pins keep the zoomed-in size and shrink steadily towards this as you zoom out, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.");
+            if (!ownSizes && savedFloor.HasValue && !Sections.HadValue("General", "ZoomedInPinScale"))
+                ZoomedOutPinScale.Value = 0.7f; // the file only held the old default, so it moves with the new one
 
             HidePinsBeyond = Config.Bind(Sections.Of("General", "HidePinsBeyond"), "HidePinsBeyond", 0f,
                 "Stop drawing pins further than this many metres from your character. 0 draws all of them, which is the default - the large map is usually wanted whole. Set it to a few thousand to keep the map to the part of the world you are actually in. Nothing is deleted: the pins come straight back when you raise it or walk towards them.");
@@ -870,6 +885,7 @@ namespace CarturMapPins
         }
         public static ConfigEntry<float> ShrinkPinsFromZoom;
         public static ConfigEntry<bool> MergeRepeatedPins;
+        public static ConfigEntry<float> ZoomedInPinScale;
         public static ConfigEntry<float> ZoomedOutPinScale;
         public static ConfigEntry<float> HidePinsBeyond;
         public static ConfigEntry<Preset> ApplyPreset;

@@ -82,7 +82,7 @@ Both are off by default.
 
 An ore field is a dozen separate deposits, which used to be a dozen identical pins in one white blob. Pins with the same name on the same patch of the map now draw as one, and separate again as you zoom in. Nothing is deleted. Every pin is still on the map, still saved and still searchable.
 
-Pins are full size until the map is 15% zoomed out and shrink to 60% at the whole-world view. Pin names stop being drawn once the map is zoomed out past `HideLabelsFromZoom` (63 by default, about where "20% of the way out" was before 2.2); past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
+Pins are drawn at 75% of the game's size when zoomed in, keep that until the map is 15% zoomed out, and shrink to 70% of it (about half the game's size) at the whole-world view. Pin names stop being drawn once the map is zoomed out past `HideLabelsFromZoom` (63 by default, about where "20% of the way out" was before 2.2); past that, pointing at a pin shows its name. Both points are settings and both can be turned off. Pins that sit on top of each other shrink, never below half size, and where two names overlap the rarer one is kept, so CRYPT beats CHEST. Pointing at a pin always shows its name. Sizes and fades change smoothly rather than popping.
 
 When two names would overlap, the one that loses is tried above its icon, then to the right, then to the left, before it is hidden (`SmartLabelPlacement`); it goes back under the icon once that place is clear again. Bosses, dungeons, camps, traders, home and portals claim name space before the common kinds do. Names go, and come back, one wheel notch after the zoom limit.
 
@@ -138,7 +138,8 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
-| `ZoomedOutPinScale` | 0.6 | How small pins get at full zoom-out. 1 turns it off. |
+| `ZoomedInPinScale` | 0.75 | Pin size when zoomed in, as a fraction of the game's size. 1 is the game's size. |
+| `ZoomedOutPinScale` | 0.7 | How small pins get at full zoom-out, as a fraction of `ZoomedInPinScale`. 1 turns the shrinking off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
 | `HidePinsKey` | H | On the large map: step through All pins, Mine only, Auto only, None. |
 | `HideLabelsKey` | Shift+H | On the large map: hide every pin's name, or show them again. Icons stay. |

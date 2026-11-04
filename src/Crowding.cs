@@ -123,17 +123,19 @@ namespace CarturMapPins
             return Mathf.InverseLerp(map.m_minZoom, map.m_maxZoom, zoom) * 100f;
         }
 
-        /// Full size until the map is zoomed out past the configured point, then down to the floor
-        /// at fully out.
+        /// The zoomed-in size until the map is zoomed out past the configured point, then down to
+        /// the floor at fully out. The floor is a fraction of the zoomed-in size, so both settings
+        /// compose and pins never grow as the map zooms out.
         private static float ZoomScale(Minimap map)
         {
-            float floor = Mathf.Clamp(Plugin.ZoomedOutPinScale.Value, 0.2f, 1f);
-            if (map == null || floor >= 1f)
+            float near = Mathf.Clamp(Plugin.ZoomedInPinScale.Value, 0.2f, 1f);
+            float floor = near * Mathf.Clamp(Plugin.ZoomedOutPinScale.Value, 0.2f, 1f);
+            if (map == null || (near >= 1f && floor >= 1f))
                 return 1f;
 
             float start = Mathf.Clamp(Plugin.ShrinkPinsFromZoom.Value, 0f, 100f);
             float past = Mathf.InverseLerp(start, 100f, ZoomOutPercent(map));
-            return Mathf.Lerp(1f, floor, past);
+            return Mathf.Lerp(near, floor, past);
         }
 
         /// How much ground one icon covers, in metres.

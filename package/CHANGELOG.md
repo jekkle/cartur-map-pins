@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.0
+
+**Pins are smaller up close, and you can set how much.** New `ZoomedInPinScale` (0.75 by default) sets the pin size when the map is zoomed in; pins keep it until the map is zoomed out past `ShrinkPinsFromZoom`, then shrink towards `ZoomedOutPinScale` of that size (0.7 by default, so about 0.53 of the game's size at the whole-world view). At full zoom a chest icon was a third of a 32 m floor quarter and felt large against the terrain. 1 gives the game's size back. Names are separate (`LabelScale`).
+
+**Nothing changes for anyone who already tuned their pin sizes.** If your config has a `ZoomedOutPinScale` other than 0.6 or a `ShrinkPinsFromZoom` other than 15, `ZoomedInPinScale` starts at 1 and your values are untouched. A config still on the old 0.6 moves to 0.7 once, the first time this version runs. Checked in the game with a fresh config, an old-default config and one with 0.4 saved. Zoom sweep with 715 test pins: no icon or label flicker, no alpha pops or scale jumps, no overlapping names, same 44 cluster badges.
+
+**Not checked:** the minimap with the new sizes. The cluster grid is still sized from the game's full icon, so a badge can group pins a little sooner than their smaller icons suggest.
+
 ## 2.2.0
 
 **Wheel zoom on the large map is eased and zooms about the pointer.** One notch is 6% (the game's own is 10%), over about 160 ms, and the spot you point at stays where it is on the screen. Hold Shift for 2% a notch. The M and Z keys, a controller and touch are left to the game. `SmoothMapZoom` turns it all off. New settings: `MapZoomStepPercent`, `PrecisionZoomPercent`, `PrecisionZoomKey`, `MapZoomDurationMs`, `CursorCenteredZoom`. In the game, over 3 cycles of 4 notches in and out with the pointer at the same pixel, the point under it did not move; zoom stops at the game's limits and does not drift at them; closing the map mid-zoom stops the zoom where it was.
