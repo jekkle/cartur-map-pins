@@ -117,7 +117,14 @@ namespace CarturMapPins
                 float zoomLimit = limit >= 100f ? float.MaxValue : ZoomMath.ZoomAtLogPercent(limit, zoomMap.m_minZoom, zoomMap.m_maxZoom);
                 limitPercent = limit >= 100f ? 100f : Mathf.InverseLerp(zoomMap.m_minZoom, zoomMap.m_maxZoom, zoomLimit) * 100f;
                 float zoom = zoomMap.LargeZoom;
+#if DIAGNOSTICS
+                bool wasZoomHidden = _zoomHidden;
+#endif
                 _zoomHidden = limit < 100f && (_zoomHidden ? zoom > zoomLimit * (1f - ZoomBand) : zoom > zoomLimit * (1f + ZoomBand));
+#if DIAGNOSTICS
+                if (wasZoomHidden != _zoomHidden)
+                    Plugin.Log.LogInfo($"names {(_zoomHidden ? "hidden" : "shown")} at zoom {zoom:0.0000} (limit {zoomLimit:0.0000}, band {ZoomBand:P0}, setting {limit:0.#})");
+#endif
             }
             if (_zoomHidden || PinHiding.LabelsHidden)
             {
@@ -660,7 +667,7 @@ namespace CarturMapPins
             // The zoom has just come to rest: ask vanilla for one more pass, so names held back
             // while it moved (ZoomDirection) can come back where there is room. UpdatePins only
             // runs when the map moves or m_pinUpdateRequired is set (Minimap.Update, decompiled).
-            if (_direction != 0 && Time.unscaledTime - _zoomMovedAt > HoldSeconds && Minimap.instance != null)
+            if (_direction != 0 && Time.unscaledTime - _zoomMovedAt > Hold && Minimap.instance != null)
             {
                 _direction = 0;
                 PinUpdateRequired?.SetValue(Minimap.instance, true);
@@ -708,11 +715,13 @@ namespace CarturMapPins
                 _zoomMovedAt = Time.unscaledTime;
             }
             _lastZoom = zoom;
-            if (Time.unscaledTime - _zoomMovedAt > HoldSeconds)
+            if (Time.unscaledTime - _zoomMovedAt > Hold)
                 _direction = 0;
             return _direction;
         }
 
+        /// The wheel may keep turning, so a zoom that just moved is held 0.3 s; the smooth zoom knows its own target, so once it has arrived nothing more is coming (totya, 2.2.0: names took a visible moment after the wheel stopped).
+        private static float Hold => SmoothZoom.Settled ? 0.05f : HoldSeconds;
         private const float HoldSeconds = 0.3f;
 
         private static readonly System.Reflection.FieldInfo PinUpdateRequired =

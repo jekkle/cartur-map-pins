@@ -499,7 +499,7 @@ namespace CarturMapPins
             // 10 px under them in the same column and read as one of them (totya, 2.1.2); now 22.
             // "Not now" sits left of "Next" with half a button's width between them, so it reads as part of
             // the step buttons and not as one of the links above (totya, 2.1.3); Back keeps the far left.
-            Button(panel, "Not now", new Vector2(-246f, 16f), 140f, false, () => Close(false));
+            Button(panel, "Not now", new Vector2(-238f, 16f), 140f, false, () => Close(false));   // left edge 482 = "Apply to existing pins" (36 + 446), totya 2.2.0
             _backButton = Button(panel, "Back", new Vector2(36f, 16f), 140f, false, () => ShowPage(_page - 1), anchorLeft: true).transform.parent.gameObject;
             _footer = Label(panel, "Footer", 14f, new Color(Warm.r, Warm.g, Warm.b, 0.6f), TextAlignmentOptions.Left,
                             new Vector2(196f, -584f), new Vector2(270f, 52f));

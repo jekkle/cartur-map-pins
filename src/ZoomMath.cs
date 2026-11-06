@@ -43,6 +43,41 @@ namespace CarturMapPins
             return LogPercent(min + oldPercent / 100f * (max - min), min, max);
         }
 
+        /// Keeps the world from sliding out of the view while zooming out about the pointer. Anchoring on the
+        /// pointer moves the view centre away from where it started every notch (totya, 2.2.0: zooming out far,
+        /// once the edge of the world shows, "we move farther and farther away from the map position where we
+        /// started"; measured with the pointer in the upper right at 25% a notch: the centre ended 21 km from
+        /// the start, outside the world, which is 21 km across). Once the view's half-height `half` passes half
+        /// the world's radius the centre may only stray `radius * (1 - (half - radius/2) / (radius/2))` from the
+        /// world's middle, which is the whole radius up to there and nothing once the view is as tall as the
+        /// world. Where that line sits is a judgement of what feels natural, not a measured value.
+        internal static void ClampToWorld(float cx, float cz, float half, float radius, out float ox, out float oz)
+        {
+            ox = cx;
+            oz = cz;
+            if (half <= 0.5f * radius)
+                return;
+            float allowed = radius * Math.Max(0f, 1f - (half - 0.5f * radius) / (0.5f * radius));
+            float r = (float)Math.Sqrt(cx * cx + cz * cz);
+            if (r <= allowed || r <= 0f)
+                return;
+            ox = cx * allowed / r;
+            oz = cz * allowed / r;
+        }
+
+        /// A point outside the world's circle, brought to its edge. The pointer can be over the black beyond the
+        /// world when zoomed out; anchoring a zoom-in on that point left the view centred outside the world.
+        internal static void ClampPoint(float x, float z, float radius, out float ox, out float oz)
+        {
+            ox = x;
+            oz = z;
+            float r = (float)Math.Sqrt(x * x + z * z);
+            if (r <= radius || r <= 0f)
+                return;
+            ox = x * radius / r;
+            oz = z * radius / r;
+        }
+
         /// The map image shows a window of the world, `aspect * zoom` by `zoom` texture-widths,
         /// centred on the view centre (Minimap.CenterMap sets uvRect that way), and the transform
         /// from texture to world is linear (Minimap.WorldToMapPoint). `span` is the world size of

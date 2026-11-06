@@ -125,4 +125,16 @@ public class ZoomMathTests
         float a = ZoomMath.LogPercent(0.0347f, Min, Max), b = ZoomMath.LogPercent(0.0347f * 1.06f, Min, Max);
         Assert.InRange(b - a, 1.3f, 1.5f);
     }
+
+    [Fact]
+    public void WorldClampLeavesCloseViewsAloneAndCentresAWorldSizedView()
+    {
+        ZoomMath.ClampToWorld(9000f, 4000f, 3000f, 10500f, out float x, out float z);
+        Assert.Equal((9000f, 4000f), (x, z));
+        ZoomMath.ClampToWorld(9000f, 4000f, 10500f, 10500f, out x, out z);
+        Assert.Equal((0f, 0f), (x, z));
+        ZoomMath.ClampToWorld(9000f, 0f, 7875f, 10500f, out x, out z);   // halfway through the fade: allowed 5250
+        Assert.Equal(5250f, x, 1);
+        Assert.Equal(0f, z);
+    }
 }

@@ -102,7 +102,7 @@ namespace CarturMapPins
             _tag.fontSize = name != null ? name.fontSize * 0.8f : 14f;
             int stands = Clusters.CountOf(pin);
             _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to {(Plugin.ClusterClickAction.Value == ClusterClick.Inspector ? "list" : "zoom in")})"
-                : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOurs(pin) ? "Auto pin" : "Your pin";
+                : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOursByName(pin) ? "Auto pin" : "Your pin";
             // A group opens its list instead of the one-line tag.
             if (stands > 1 && ClusterPopup.Show(pin, root))
             {

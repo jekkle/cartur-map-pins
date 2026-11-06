@@ -602,6 +602,11 @@ namespace CarturMapPins
             int dropped = 0;
             int interior = 0;
             float nearest = float.MaxValue;
+#if DIAGNOSTICS
+            // modding-a0 saw a 1.5 s frame at world load with "Drain: queued=209 interior=139" and did not isolate it.
+            var drainClock = System.Diagnostics.Stopwatch.StartNew();
+            int placedTries = 0;
+#endif
 
             foreach (Pending p in PendingQueue)
             {
@@ -664,6 +669,9 @@ namespace CarturMapPins
                 // next tick and fail on the same entry forever, starving everything behind it.
                 try
                 {
+#if DIAGNOSTICS
+                    placedTries++;
+#endif
                     TryPin(p.Category, p.Subtype, p.Pos, ResolveLabel(p.Category, p.Go, p.Subtype));
                 }
                 catch (System.Exception e)
@@ -677,7 +685,7 @@ namespace CarturMapPins
             {
                 Plugin.Log.LogInfo($"Drain: queued={PendingQueue.Count} dropped(unloaded)={dropped} " +
                                    $"interior={interior} nearest={(nearest < float.MaxValue ? nearest.ToString("F0") : "-")}m " +
-                                   $"radius={radius:F0}m");
+                                   $"radius={radius:F0}m tried={placedTries} took {drainClock.Elapsed.TotalMilliseconds:F1} ms");
             }
 #endif
 
@@ -1359,6 +1367,15 @@ namespace CarturMapPins
 
             // AddPin rather than DiscoverLocation: the latter always fires a MessageHud toast,
             // which would spam the corner of the screen during bulk discovery.
+#if DIAGNOSTICS
+            // totya, 2.2.0: an English "Fire Geyser" and the re-worded "Tuzgejzir" on one spot. Anything already
+            // within 1.5 m that ExistsOnMap passed over (a different icon type, or a friend's pin) is the cause.
+            foreach (Minimap.PinData near in MinimapAccess.GetPins(Minimap.instance) ?? new List<Minimap.PinData>())
+            {
+                if (near != null && (near.m_pos - pos).sqrMagnitude < 2.25f)
+                    Plugin.Log.LogInfo($"Placing {key} '{written}' type {pinType} beside an existing pin '{near.m_name}' type {near.m_type} owner {near.m_ownerID} save {near.m_save}");
+            }
+#endif
             MinimapAccess.AddPinKeepFilter(Minimap.instance, pos, pinType, written, save: true);
 
             // New pins only: the colour is written to the pin's own style now, so later changes to

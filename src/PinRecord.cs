@@ -1542,6 +1542,22 @@ namespace CarturMapPins
             return false;
         }
 
+        /// For the hover tag only: IsOurs, and the pin still wears the name the mod wrote. IsOurs matches on
+        /// position rounded to a metre, so a pin the player placed on the same spot as an auto pin also
+        /// read "Auto pin" (totya, 2.2.0: an English "Fire Geyser" beside the re-worded "Tuzgejzir", both
+        /// tagged "Auto pin"). A record with no written name (a pin adopted from the map) still counts.
+        internal static bool IsOursByName(Minimap.PinData pin)
+        {
+            EnsureLoaded();
+            if (pin == null || !pin.m_save)
+                return false;
+            long key = PositionKey(pin.m_pos);
+            foreach (Entry e in Entries)
+                if (PositionKey(e.Pos) == key && (e.Written == null || e.Written == pin.m_name))
+                    return true;
+            return false;
+        }
+
         /// The record key ("Ore:Copper") of the pin's record, whatever the pin has since been named, or null.
         internal static string KeyOfIndexed(Minimap.PinData pin) =>
             pin != null && pin.m_save && ByPosition.TryGetValue(PositionKey(pin.m_pos), out int i) && i < Entries.Count ? Entries[i].Key : null;

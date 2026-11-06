@@ -11,5 +11,8 @@ namespace CarturMapPins
         public bool? IsAdvanced;
         public int? Order;
         public Action<BepInEx.Configuration.ConfigEntryBase> CustomDrawer;
+        public string DispName;
+
+        public ConfigurationManagerAttributes Copy() => (ConfigurationManagerAttributes)MemberwiseClone();
     }
 }

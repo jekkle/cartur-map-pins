@@ -37,6 +37,33 @@ namespace CarturMapPins
             { "General/ResetPins",           "13. Danger Zone" },
             { "General",                     "02. Map Display" },
 
+            // Map Display was one page of forty settings (totya, 2.2.0: "diamond in the rough"). These
+            // three leave it; the rest of the old page stays. Keys keep their names, and their values
+            // are found again under "02. Map Display" by Adopt, HadValue and SavedFloat.
+            { "General/SmoothMapZoom",        "02a. Map Zoom" },
+            { "General/MapZoomStepPercent",   "02a. Map Zoom" },
+            { "General/MapZoomDurationMs",    "02a. Map Zoom" },
+            { "General/PrecisionZoomPercent", "02a. Map Zoom" },
+            { "General/PrecisionZoomKey",     "02a. Map Zoom" },
+            { "General/CursorCenteredZoom",   "02a. Map Zoom" },
+            { "General/ZoomPreset",           "02a. Map Zoom" },
+
+            { "General/ClusterPins",             "02b. Pin Clusters" },
+            { "General/MixedCategoryClusters",   "02b. Pin Clusters" },
+            { "General/ClusterClickAction",      "02b. Pin Clusters" },
+            { "General/EnableClusterSpiderfy",   "02b. Pin Clusters" },
+            { "General/SpiderfyMaxPins",         "02b. Pin Clusters" },
+            { "General/MergeRepeatedPins",       "02b. Pin Clusters" },
+            { "General/ShrinkCrowdedPins",       "02b. Pin Clusters" },
+
+            { "General/ShowPinLabels",             "02c. Pin Names" },
+            { "General/HideCollidingLabels",       "02c. Pin Names" },
+            { "General/SmartLabelPlacement",       "02c. Pin Names" },
+            { "General/HideGroupedLabels",         "02c. Pin Names" },
+            { "General/LabelScale",                "02c. Pin Names" },
+            { "General/HideLabelsFromZoom",        "02c. Pin Names" },
+            { "General/HideLabelsFromZoomScale",   "02c. Pin Names" },
+
             // Each gets its own page rather than sharing "11. Advanced" with General: the
             // migration maps a display name back to ONE old section, so three sources feeding one
             // page would silently drop two of them.
@@ -137,6 +164,9 @@ namespace CarturMapPins
             return Display.TryGetValue(logical, out string whole) ? whole : logical;
         }
 
+        /// A page that holds settings from the old General section (not the per-kind switches and icons).
+        public static bool IsGeneral(string section) => Origin.TryGetValue(section, out string old) && old == "General";
+
         /// Reads the config file as text, before BepInEx has bound anything and therefore before
         /// it rewrites the file. Same shape as LegacyIconNames.Capture, and run beside it.
         public static void Capture(string configPath)
@@ -177,15 +207,21 @@ namespace CarturMapPins
 
         /// True when the config file, as it stood before anything was bound, already had a value for
         /// this setting, under its current section or the one it had before sections were renamed.
-        public static bool HadValue(string logical, string key) =>
-            Raw.ContainsKey(Of(logical, key) + "/" + key) || Raw.ContainsKey(logical + "/" + key);
+        public static bool HadValue(string logical, string key) => Saved(logical, key, out _);
 
         /// The number the file held for this setting before anything was bound, or null when it
         /// had none or it is not a number.
         public static float? SavedFloat(string logical, string key) =>
-            (Raw.TryGetValue(Of(logical, key) + "/" + key, out string text) || Raw.TryGetValue(logical + "/" + key, out text)) &&
+            Saved(logical, key, out string text) &&
             float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float value)
                 ? value : (float?)null;
+
+        /// Its page now, the page the section as a whole had (a key moved out of "02. Map Display"
+        /// keeps its line there), or the section's logical name from before sections were numbered.
+        private static bool Saved(string logical, string key, out string text) =>
+            Raw.TryGetValue(Of(logical, key) + "/" + key, out text) ||
+            Raw.TryGetValue(Of(logical) + "/" + key, out text) ||
+            Raw.TryGetValue(logical + "/" + key, out text);
 
         /// Fills in every setting whose section was renamed, from the value the player had under
         /// the old name.
@@ -211,7 +247,9 @@ namespace CarturMapPins
                     continue;
                 if (Raw.ContainsKey(def.Section + "/" + def.Key))
                     continue;
-                if (!Raw.TryGetValue(old + "/" + def.Key, out string value))
+                // The page the section had as a whole is newer than its pre-numbering logical name, and a file can hold both
+                // (the Dev one had HideLabelsFromZoom 20 under [General] and the converted 63 under [02. Map Display]).
+                if (!Raw.TryGetValue(Of(old) + "/" + def.Key, out string value) && !Raw.TryGetValue(old + "/" + def.Key, out value))
                     continue;
 
                 try

@@ -16,7 +16,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.3.0";
+        public const string PluginVersion = "2.4.0";
 
         internal static ManualLogSource Log;
 
@@ -236,14 +236,21 @@ namespace CarturMapPins
                 "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
             SmoothMapZoom = Config.Bind(Sections.Of("General", "SmoothMapZoom"), "SmoothMapZoom", true,
                 "Ease the large map's mouse-wheel zoom instead of jumping, and keep the spot under the cursor where it is while zooming. Off gives the game's own zoom back. The M and Z keys, the controller and touch always use the game's own zoom.");
-            MapZoomStepPercent = Config.Bind(Sections.Of("General", "MapZoomStepPercent"), "MapZoomStepPercent", 6f,
-                new ConfigDescription("How much one wheel notch zooms the large map, in percent (the game's own step is 10).", new AcceptableValueRange<float>(1f, 25f)));
+            // 25 and 60 were 6 and 160 until 2.4: totya found the slow ease "not a useful animation" and
+            // zooms out first to cover distance. A file still holding the old defaults is moved below,
+            // once Sections.Adopt has run; a value a player chose is never touched.
+            MapZoomStepPercent = Config.Bind(Sections.Of("General", "MapZoomStepPercent"), "MapZoomStepPercent", 25f,
+                new ConfigDescription("How much one wheel notch zooms the large map, in percent (the game's own step is 10). Up to 50 for a very quick map.", new AcceptableValueRange<float>(1f, 50f)));
+            ZoomPreset = Config.Bind(Sections.Of("General", "ZoomPreset"), "ZoomPreset", ZoomStyle.None,
+                new ConfigDescription("Set the wheel step and the ease in one go. Smooth: 6% a notch over 160 ms, the gentle way it was before 2.4. Fast: 25% over 60 ms, the default. Explorer: 50% over 60 ms, for crossing a big map. Returns to None once applied - it is a button, not a state, and each value stays free to change.",
+                    null, Attr(order: 100)));
+            ZoomPreset.SettingChanged += (_, __) => ApplyZoomStyle(ZoomPreset.Value);
             PrecisionZoomPercent = Config.Bind(Sections.Of("General", "PrecisionZoomPercent"), "PrecisionZoomPercent", 2f,
                 new ConfigDescription("How much one wheel notch zooms while the precision key is held, in percent.", new AcceptableValueRange<float>(1f, 10f)));
             PrecisionZoomKey = Config.Bind(Sections.Of("General", "PrecisionZoomKey"), "PrecisionZoomKey",
                 new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.LeftShift),
                 "Hold this while using the wheel on the large map for the finer PrecisionZoomPercent step. Right Shift also counts when this is Left Shift.");
-            MapZoomDurationMs = Config.Bind(Sections.Of("General", "MapZoomDurationMs"), "MapZoomDurationMs", 160,
+            MapZoomDurationMs = Config.Bind(Sections.Of("General", "MapZoomDurationMs"), "MapZoomDurationMs", 60,
                 new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600)));
             CursorCenteredZoom = Config.Bind(Sections.Of("General", "CursorCenteredZoom"), "CursorCenteredZoom", true,
                 "Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.");
@@ -506,10 +513,23 @@ namespace CarturMapPins
             if (carried > 0)
                 Logger.LogInfo($"Settings: carried {carried} value(s) over from the old section names.");
 
+            // 2.4 zoom defaults (25%, 60 ms). A fresh install never holds 6 or 160, so a value equal
+            // to the old default is the old default and nothing a player chose on purpose is worth
+            // keeping at it. The ZoomPreset line only exists in a 2.4+ file, so this runs once.
+            if (!Sections.HadValue("General", "ZoomPreset"))
+            {
+                if (System.Math.Abs(MapZoomStepPercent.Value - 6f) < 0.001f)
+                    MapZoomStepPercent.Value = 25f;
+                if (MapZoomDurationMs.Value == 160)
+                    MapZoomDurationMs.Value = 60;
+            }
+
             // Before any pin is placed: an unregistered token would be drawn as
             // "[carturpins_frost_cave]", and Token() deliberately refuses to emit one it has not
             // registered, so registering late would silently leave the first pins in English.
             Translations.Register();
+            _config = Config;
+            ShowSettingsText();
             // Both user files exist from the first launch; see WriteStarter.
             LabelTemplates.WriteStarter();
 
@@ -532,6 +552,7 @@ namespace CarturMapPins
             // as they were and ApplyPreset stayed on Minimal. Run it once here, after every switch
             // it writes to has been bound; it puts itself back to None when done.
             Apply(ApplyPreset.Value);
+            ApplyZoomStyle(ZoomPreset.Value);
 
             // A mod that throws on load takes every plugin after it down with it. Every target
             // resolves against the game installed today, so this catches nothing now; it is for
@@ -584,6 +605,7 @@ namespace CarturMapPins
                 // drops every word a mod added, so the tokens must go back in before anything
                 // asks for their text.
                 Translations.Register();
+                ShowSettingsText();
 
                 int reworded = PinRecord.Relabel();
                 if (reworded > 0)
@@ -641,6 +663,40 @@ namespace CarturMapPins
             Minimal,
             Defaults,
             Everything,
+        }
+
+        /// The settings' descriptions and Configuration Manager names in the game's language (ConfigText).
+        private static ConfigFile _config;
+
+        private static void ShowSettingsText()
+        {
+            string language = Localization.instance?.GetSelectedLanguage();
+            if (string.IsNullOrEmpty(language))
+                return;
+            ConfigText.AppendTemplate(_config, Paths.ConfigPath);
+            ConfigText.Apply(_config, language);
+        }
+
+        public enum ZoomStyle
+        {
+            None,
+            Smooth,
+            Fast,
+            Explorer,
+        }
+
+        public static ConfigEntry<ZoomStyle> ZoomPreset;
+
+        /// Like ApplyPreset: writes the two settings, then drops back to None.
+        private static void ApplyZoomStyle(ZoomStyle style)
+        {
+            if (style == ZoomStyle.None)
+                return;
+            MapZoomStepPercent.Value = style == ZoomStyle.Smooth ? 6f : style == ZoomStyle.Fast ? 25f : 50f;
+            MapZoomDurationMs.Value = style == ZoomStyle.Smooth ? 160 : 60;
+            Log.LogInfo($"Applied the {style} zoom preset.");
+            if (ZoomPreset.Value == style)
+                ZoomPreset.Value = ZoomStyle.None;
         }
 
         /// The categories a Minimal map keeps: the things worth crossing a map for.

@@ -228,7 +228,7 @@ namespace CarturMapPins
         ///
         /// A key that is absent, blank, or unknown keeps its English, so a partial translation
         /// still works.
-        private static Dictionary<string, string> LoadOverrides(string language)
+        internal static Dictionary<string, string> LoadOverrides(string language)
         {
             string directory = Paths.ConfigPath;
             if (string.IsNullOrEmpty(directory) || string.IsNullOrEmpty(language))

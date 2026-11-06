@@ -35,7 +35,6 @@ namespace CarturMapPins
             if (_hideLabel == null)
                 return;
             Spread(map);
-            Recentre(map);
             string text = CurrentState();
             if (_hideLabel.text != text)
                 _hideLabel.text = text;
@@ -163,56 +162,34 @@ namespace CarturMapPins
             {
                 HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
                 if (group != null)
-                    PadAfter(group);
+                    group.padding.right = 0;   // the room between entries is the row's spacing now (Spread)
             }
             CentreBar(row);
         }
 
-        /// The entries add up to more than the game's bar is wide once they have their room, and the
-        /// overflow ran off the left of the map (owner, 2026-11-02). KeyHints is stretched across the
-        /// map and shifted 177.5 left of its centre (read with the pilot's maptree). The room that is
-        /// free is the map frame's left edge to the icon picker's left edge; the bar is moved so its
-        /// middle is the middle of that, and its layout centres the entries, which it does evenly on
-        /// both sides when they overflow. Read from the live rects each time, not a fixed shift:
-        /// 2.1.2 used -134, which was right at 1920x1080 only (frame 150..1770, picker from 1503;
-        /// totya's report on 2.1.2 named it). No picker, or one that is hidden, leaves the whole frame.
-        private static float _centredOn = float.NaN;
+        /// Layout of the whole bar, vanilla entries and ours together (totya, 2.1.3 to 2.2.0, and measured
+        /// 2026-11-05: at 1280x720, 1920x1080 and 2560x1440 the game's row is 1225 units wide and the eight
+        /// entries need more, so the layout squeezed them: "Megjelolés" ran into the next entry and the gaps
+        /// were uneven, while a 2560x1080 screen, whose row is 1865 wide, was fine).
+        ///
+        /// So the bar is no longer left at the width the game gave it. KeyHints is stretched to the free room,
+        /// the map frame's left edge to the icon picker's left edge (the whole frame without a picker) less a
+        /// margin, and the room is shared out evenly: every entry keeps its own label and key together at the
+        /// game's own spacing, and the same gap goes between entries, never under MinGap and never over MaxGap
+        /// (the rest becomes an equal margin each side, since the row centres). If even MinGap does not fit, the
+        /// words shrink, to a floor of MinFont of their size, rather than overlap. Read from the live rects
+        /// every half second, since the words change width ("All Pins" to "Mine Only"), the picker opens and
+        /// closes, and the window changes size.
         private static RectTransform _hints, _row;
         private static float _spreadAt = -10f;
         private static readonly Vector3[] Corners = new Vector3[4];
+        private static readonly System.Collections.Generic.Dictionary<TextMeshProUGUI, float> BaseFont =
+            new System.Collections.Generic.Dictionary<TextMeshProUGUI, float>();
 
-        private static void Recentre(Minimap map)
-        {
-            if (_hints == null || map.m_largeRoot == null)
-                return;
-            ((RectTransform)map.m_largeRoot.transform).GetWorldCorners(Corners);
-            float left = Corners[0].x, right = Corners[2].x;
-            RectTransform picker = MapIconPicker.PanelRect;
-            if (picker != null && picker.gameObject.activeInHierarchy)
-            {
-                picker.GetWorldCorners(Corners);
-                right = Corners[0].x;
-            }
-            float target = (left + right) * 0.5f;
-            if (Mathf.Approximately(target, _centredOn))
-                return;
-
-            _hints.GetWorldCorners(Corners);
-            float scale = _hints.lossyScale.x;
-            if (scale <= 0f)
-                return;
-            float move = (target - (Corners[0].x + Corners[2].x) * 0.5f) / scale;
-            _hints.offsetMin += new Vector2(move, 0f);
-            _hints.offsetMax += new Vector2(move, 0f);
-            _centredOn = target;
-        }
-
-        /// The room after each entry grows into the width the bar has to spare, up to MaxPairGap (totya,
-        /// 2.1.3: "Change Icon" too close to P, "Labels On" too close to H, a lot of unused room on the
-        /// right). The words stay as close to their own key as before; only the space between entries
-        /// moves, never below PairGap. Twice a second, since the words change width ("All Pins" to
-        /// "Mine Only") and the picker opening changes how much room there is.
-        private const float MaxPairGap = 56f;
+        private const float EdgeMargin = 14f;
+        private const float MinGap = 26f;
+        private const float MaxGap = 60f;
+        private const float MinFont = 0.7f;
 
         private static void Spread(Minimap map)
         {
@@ -231,36 +208,83 @@ namespace CarturMapPins
                 picker.GetWorldCorners(Corners);
                 right = Corners[0].x;
             }
+            left += EdgeMargin * scale;
+            right -= EdgeMargin * scale;
 
-            var groups = new System.Collections.Generic.List<HorizontalLayoutGroup>();
+            // KeyHints onto the free room. Moves each edge by what it is off by, in the parent's units.
+            _hints.GetWorldCorners(Corners);
+            float dl = (left - Corners[0].x) / scale, dr = (right - Corners[2].x) / scale;
+            if (Mathf.Abs(dl) > 0.5f || Mathf.Abs(dr) > 0.5f)
+            {
+                _hints.offsetMin += new Vector2(dl, 0f);
+                _hints.offsetMax += new Vector2(dr, 0f);
+            }
+            float room = (right - left) / scale;
+
+            var entries = new System.Collections.Generic.List<RectTransform>();
             foreach (Transform entry in _row)
             {
-                HorizontalLayoutGroup group = entry.GetComponent<HorizontalLayoutGroup>();
-                if (group != null && entry.gameObject.activeSelf)
-                    groups.Add(group);
+                if (entry.gameObject.activeSelf && entry.GetComponent<HorizontalLayoutGroup>() != null)
+                    entries.Add((RectTransform)entry);
             }
-            if (groups.Count == 0)
+            if (entries.Count < 2)
                 return;
 
-            float room = (right - left) / scale;
-            float used = LayoutUtility.GetPreferredWidth(_row);
-            float gap = Mathf.Clamp(groups[0].padding.right + (room - used) * 0.9f / groups.Count, PairGap, MaxPairGap);
-            int pixels = Mathf.RoundToInt(gap);
-            if (groups[0].padding.right == pixels)
+            HorizontalLayoutGroup bar = _row.GetComponent<HorizontalLayoutGroup>();
+            if (bar == null)
                 return;
-            foreach (HorizontalLayoutGroup group in groups)
-                group.padding.right = pixels;
+
+            // Words at full size first, so the measurement does not depend on the last pass.
+            SetFont(entries, 1f);
             LayoutRebuilder.ForceRebuildLayoutImmediate(_row);
-            _centredOn = float.NaN;   // the bar changed width, so it is centred again
+            float words = 0f, used = 0f;
+            foreach (RectTransform entry in entries)
+            {
+                used += LayoutUtility.GetPreferredWidth(entry);
+                TextMeshProUGUI label = LabelOf(entry);
+                if (label != null)
+                    words += label.preferredWidth;
+            }
+
+            float fit = (room - MinGap * (entries.Count - 1) - (used - words)) / Mathf.Max(1f, words);
+            float font = Mathf.Clamp(fit, MinFont, 1f);
+            if (font < 1f)
+            {
+                SetFont(entries, font);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(_row);
+                used = 0f;
+                foreach (RectTransform entry in entries)
+                    used += LayoutUtility.GetPreferredWidth(entry);
+            }
+
+            float gap = Mathf.Clamp((room - used) / (entries.Count - 1), MinGap, MaxGap);
+            if (!Mathf.Approximately(bar.spacing, gap))
+            {
+                bar.spacing = gap;
+                LayoutRebuilder.ForceRebuildLayoutImmediate(_row);
+            }
+        }
+
+        private static TextMeshProUGUI LabelOf(Transform entry) => entry.Find("Label")?.GetComponent<TextMeshProUGUI>();
+
+        private static void SetFont(System.Collections.Generic.List<RectTransform> entries, float factor)
+        {
+            foreach (RectTransform entry in entries)
+            {
+                TextMeshProUGUI label = LabelOf(entry);
+                if (label == null)
+                    continue;
+                if (!BaseFont.TryGetValue(label, out float size))
+                    BaseFont[label] = size = label.fontSize;
+                if (!Mathf.Approximately(label.fontSize, size * factor))
+                    label.fontSize = size * factor;
+            }
         }
 
         private static void CentreBar(Transform row)
         {
             _row = row as RectTransform;
             _hints = row.parent as RectTransform;
-            _centredOn = float.NaN;
-            if (_built != null)
-                Recentre(_built);
             HorizontalLayoutGroup bar = row.GetComponent<HorizontalLayoutGroup>();
             if (bar == null)
                 return;
@@ -272,9 +296,8 @@ namespace CarturMapPins
         /// A key sits close to its own words and far from the next entry's (totya, 2026-11-02: with
         /// an even gap either side, H read as belonging to "Labels Off" and Shift+H to "Setup", and
         /// he thought the keys were broken). The label-to-key gap is the layout's spacing plus
-        /// SpritePadding, and PairGap is empty room after the entry, so the next one is clearly apart.
+        /// SpritePadding, and the gap between entries is Spread's, never under MinGap, so the next one is clearly apart.
         private const float SpritePadding = 2f;
-        private const float PairGap = 18f;
         private const float CapHeight = 30f;   // the mouse icon's visible body
 
         private static void AddGap(GameObject entry)
@@ -283,14 +306,6 @@ namespace CarturMapPins
             if (group == null)
                 return;
             group.spacing += SpritePadding;
-            PadAfter(group);
-        }
-
-        /// Room after the entry's last item. A floor, not an addition, so it is safe to run twice.
-        private static void PadAfter(HorizontalLayoutGroup group)
-        {
-            if (group.padding.right < PairGap)
-                group.padding.right = (int)PairGap;
         }
 
         /// Turns a key image into a drawn cap: dark face, the picker's frame, the key name.

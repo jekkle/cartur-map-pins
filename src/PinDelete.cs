@@ -78,7 +78,7 @@ namespace CarturMapPins
                     return false;
                 }
 
-                bool ours = PinRecord.IsOurs(target);
+                bool ours = PinRecord.IsOursByName(target);
                 DeleteConfirm mode = Plugin.ConfirmDelete.Value;
                 if ((mode == DeleteConfirm.All || (mode == DeleteConfirm.AutoPinsOnly && ours)) &&
                     !(ReferenceEquals(target, _armed) && Time.unscaledTime < _armedUntil))

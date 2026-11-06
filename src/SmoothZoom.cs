@@ -20,6 +20,10 @@ namespace CarturMapPins
     internal static class SmoothZoom
     {
         internal static bool Suppress;
+
+        /// True while the smooth zoom is on and has reached its target, so no further notch is
+        /// pending and LabelCrowding need not wait to see whether the wheel keeps turning.
+        internal static bool Settled;
 #if DIAGNOSTICS || BENCH
         /// The pilot's wheel: one notch (+1 in, -1 out) per set, consumed by the next Tick.
         internal static float TestWheel;
@@ -44,6 +48,7 @@ namespace CarturMapPins
                 MapOffset == null || Minimap.InTextInput() || ZInput.IsGamepadActive())
             {
                 Rest(zoom);
+                Settled = false;
                 return;
             }
 
@@ -64,7 +69,19 @@ namespace CarturMapPins
             {
                 float percent = (PrecisionHeld() ? Plugin.PrecisionZoomPercent.Value : Plugin.MapZoomStepPercent.Value) / 100f;
                 float factor = wheel > 0f ? 1f / (1f + percent) : 1f + percent;
+                float before = _target;
                 _target = Mathf.Clamp(_target * factor, map.m_minZoom, map.m_maxZoom);
+                // Where the notches fall against HideLabelsFromZoom is luck: a notch that lands a hair above
+                // the limit leaves the names hidden, so they take a second notch to come back (totya,
+                // 2.2.0: one notch at 25%, two at 10%; measured at 10%, 0.0902 -> 0.0820 against a limit of
+                // 0.0805). A notch that would stop within one step above the limit lands just inside it.
+                float limit = Plugin.HideLabelsFromZoom.Value;
+                if (wheel > 0f && limit < 100f && Plugin.HideLabelsScale.Value != 0)
+                {
+                    float line = ZoomMath.ZoomAtLogPercent(limit, map.m_minZoom, map.m_maxZoom);
+                    if (before > line && _target > line * 0.985f && _target <= line * (1f + percent))
+                        _target = Mathf.Clamp(line * 0.985f, map.m_minZoom, map.m_maxZoom);
+                }
                 _focus = false;
                 Anchor(map, player);
             }
@@ -83,6 +100,7 @@ namespace CarturMapPins
             if (_anchored && zooming && !(DragView?.GetValue(map) is bool dragging && dragging))
             {
                 ZoomMath.CentreFor(_wx, _wz, _nx, _ny, rect.rect.width / rect.rect.height, _written, map.m_textureSize * map.m_pixelSize, out float cx, out float cz);
+                ZoomMath.ClampToWorld(cx, cz, _written * map.m_textureSize * map.m_pixelSize * 0.5f, WorldGenerator.waterEdge, out cx, out cz);
                 MapOffset.SetValue(map, new Vector3(cx - at.x, 0f, cz - at.z));
             }
             else if (_focus)
@@ -98,6 +116,7 @@ namespace CarturMapPins
             }
             if (!zooming || Mathf.Approximately(_written, _target))
                 _anchored = false;
+            Settled = !_focus && (!zooming || Mathf.Approximately(_written, _target));
         }
 
         /// Glides the view to a world point at a zoom (the cluster list uses it to open a pin up).
@@ -156,6 +175,7 @@ namespace CarturMapPins
             Vector3 at = player.transform.position;
             ZoomMath.WorldUnder(at.x + offset.x, at.z + offset.z, n.x, n.y, rect.rect.width / rect.rect.height,
                                 map.LargeZoom, map.m_textureSize * map.m_pixelSize, out _wx, out _wz);
+            ZoomMath.ClampPoint(_wx, _wz, WorldGenerator.waterEdge, out _wx, out _wz);
             _nx = n.x;
             _ny = n.y;
             _anchored = true;

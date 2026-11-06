@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.4.0
+
+All of this comes from totya's tests of 2.2.0 and 2.3.0.
+
+**The map hint bar is spaced properly at every size.** At 1280x720, 1920x1080 and 2560x1440 the game gives the bar only 1225 units, and the eight entries need more, so they were squeezed unevenly and ran into each other (worst in Hungarian). The bar now stretches across the free room, from the map frame to the icon picker, every word stays beside its own key, and the same gap goes between entries. If even the smallest gap does not fit, the words shrink to at most 70% instead of overlapping. Seen in the game at 1920x1080 in Hungarian and English and 1280x720 in Hungarian; measured at 2560x1080, where the bar fits with equal margins. Not checked: other shapes of screen, such as 16:10.
+
+**Faster map zoom by default.** One wheel notch is now 25% (was 6%) over 60 ms (was 160 ms). If your config still holds the old 6 and 160 they move to the new values once; a value you chose yourself is never touched. `MapZoomStepPercent` goes up to 50 now. New `ZoomPreset` (in the new Map Zoom section): Smooth is the old 6% over 160 ms, Fast is 25% over 60 ms, Explorer is 50% over 60 ms. Choosing one sets the two values and the setting goes back to None; each value stays free to change.
+
+**Settings are in smaller sections.** The Map Display page is split into Map Display, Map Zoom, Pin Clusters and Pin Names. No setting was renamed, and an existing config carries its values across. Checked with an old-format config file: your own values were kept, and a stale line from before the numbered sections no longer beats the newer one.
+
+**Settings can be translated.** The descriptions in the .cfg file and the Configuration Manager names read `cfg.<Key>.desc=` and `cfg.<Key>.name=` lines from the same translation file as the pin names (`carturpins_names_<language>.txt`); the English template has every line to copy. A description translated that way is written into the .cfg, which is what r2modman shows. The .cfg part was checked in the game with a test file. Not checked: the Configuration Manager (F1) names.
+
+**Zooming out far no longer slides the world out of the view.** Zooming about the pointer moves the view centre away from where you started. With the pointer in a corner and a 25% step, the old code ended up with the centre 15 to 21 km from where it began, outside the world. Now once the view is more than half the world's radius tall, the centre is held closer to the middle of the world, and with the whole world showing it is centred. Zooming in aims at the world's edge if the pointer is over the black beyond it. The point where this starts is a judgement of what feels natural, not a measured value. Zoom in is unchanged.
+
+**Names come back in one notch at the hide limit.** At a 10% step a notch could land a hair above `HideLabelsFromZoom` and leave the names hidden until a second notch (measured: 0.0902 to 0.0820 against a limit of 0.0805). A notch zooming in that would stop within one step above the limit now stops just inside it. Names also settle 0.05 s after the zoom stops (was 0.3 s) when the smooth zoom is on.
+
+**"Auto pin" no longer shows for a pin you placed.** The tag, and the right-click delete confirmation, matched an auto pin by its position rounded to a metre, so a pin you placed on the same spot read "Auto pin" too. They now also require the pin to still carry the name the mod wrote. This does not remove a pin and does not stop the mod placing one. The cause of the second Fire Geyser pin in his report is not found; a pin you placed or one from an old version are the likeliest, and the tag will now show which. Checked in the game with a hand-placed pin on a recorded spot.
+
+**Small:** the Hugin menu's Not now button lines up with Apply to existing pins.
+
 ## 2.3.0
 
 **Pins are smaller up close, and you can set how much.** New `ZoomedInPinScale` (0.75 by default) sets the pin size when the map is zoomed in; pins keep it until the map is zoomed out past `ShrinkPinsFromZoom`, then shrink towards `ZoomedOutPinScale` of that size (0.7 by default, so about 0.53 of the game's size at the whole-world view). At full zoom a chest icon was a third of a 32 m floor quarter and felt large against the terrain. 1 gives the game's size back. Names are separate (`LabelScale`).

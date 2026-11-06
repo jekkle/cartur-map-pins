@@ -54,7 +54,7 @@ Opacity works the same way. Click the percentage next to a kind's colour in Hugi
 - **Point at a pin and its name wins.** Any other name that would overlap it fades out while the cursor stays on the icon, and comes back when you move off.
 - **The icon picker** has a top bar you can drag anywhere, with **Visible to other players** in it. The game's own pin buttons and Epic Loot's sit in the picker now instead of in columns down the edge, and a favourite star on each icon puts it in a **Favourites** row at the top, above a **Recent** row. The old icon set is folded away until you open it.
 - **Shift-click** works on your spawn point and your last death too, for colour, size and opacity. The hint bar shows it as **Shift + click, Change Icon**.
-- **The wheel zooms smoothly, about the pointer.** One notch is 6% (the game's own is 10%) eased over about 160 ms, and the spot you point at stays under the pointer. Hold Shift for 2% a notch. The M and Z keys, a controller and touch use the game's own zoom, unchanged. `SmoothMapZoom` turns it off; the step, the time, the Shift step and key, and the pointer anchoring are settings (below).
+- **The wheel zooms smoothly, about the pointer.** One notch is 25% (the game's own is 10%) eased over 60 ms, and the spot you point at stays under the pointer until the world fills the view. Hold Shift for 2% a notch. The M and Z keys, a controller and touch use the game's own zoom, unchanged. `SmoothMapZoom` turns it off; the step, the time, the Shift step and key, and the pointer anchoring are settings (below).
 - Pins and names fade rather than flicker or jump.
 
 ![The new icon picker and hint bar](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/map-screen-2.0.jpg)
@@ -130,10 +130,11 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `HideLabelsFromZoom` | 63 | The zoom past which names stop being drawn. 0 is fully zoomed in, 100 is the whole world and never hides. The scale is logarithmic: every point is the same step of zoom, one wheel notch is about 1.4 points, and a value from before 2.2 is converted for you the first time the map opens (2 becomes 20, 20 becomes 63). |
 | `SmartLabelPlacement` | true | A name that would overlap another is tried above, right and left of its icon before it is hidden. |
 | `SmoothMapZoom` | true | Ease the large map's wheel zoom and zoom about the pointer. Off gives the game's own zoom back. |
-| `MapZoomStepPercent` | 6 | One wheel notch, in percent (the game's own is 10), 1 to 25. |
+| `MapZoomStepPercent` | 25 | One wheel notch, in percent (the game's own is 10), 1 to 50. |
+| `ZoomPreset` | None | A button: Smooth (6% over 160 ms), Fast (25% over 60 ms) or Explorer (50% over 60 ms) sets the step and the time, then returns to None. |
 | `PrecisionZoomPercent` | 2 | One notch while the precision key is held, 1 to 10. |
 | `PrecisionZoomKey` | LeftShift | Hold for the finer step. Right Shift also counts when this is Left Shift. |
-| `MapZoomDurationMs` | 160 | Time to cover 98% of a zoom, 0 to 600. 0 zooms at once. |
+| `MapZoomDurationMs` | 60 | Time to cover 98% of a zoom, 0 to 600. 0 zooms at once. |
 | `CursorCenteredZoom` | true | Zoom about the pointer instead of the middle of the map. |
 | `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
