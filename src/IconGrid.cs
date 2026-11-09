@@ -38,7 +38,11 @@ namespace CarturMapPins
         /// The camera a panel's canvas needs for hit-testing. Null is an answer, not a failure.
         public static Camera CameraFor(GameObject panel)
         {
+            // The root canvas: a panel may carry a nested canvas of its own (to sort above the pin names), and a
+            // nested one has no camera of its own.
             Canvas canvas = panel != null ? panel.GetComponentInParent<Canvas>() : null;
+            if (canvas != null)
+                canvas = canvas.rootCanvas;
             return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
                 ? canvas.worldCamera
                 : null;

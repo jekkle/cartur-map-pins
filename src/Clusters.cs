@@ -10,10 +10,12 @@ namespace CarturMapPins
     /// plan's "clusters"), on the large map, behind General / ClusterPins, off by default.
     ///
     /// Built to stay still, after the zoom work showed pins that travel read as wrong: the pin
-    /// that stands for a group is one of the group's own pins, in its own place, and the others
-    /// simply fade out where they are (they join Crowding's NotDrawn, so labels, hover and the
-    /// patched GetClosestPin already treat them as gone). Nothing is drawn that is not a pin,
-    /// nothing is saved, nothing is shared.
+    /// that stands for a group is one of the group's own pins, and the others simply fade out
+    /// where they are (they join Crowding's NotDrawn, so labels, hover and the patched
+    /// GetClosestPin already treat them as gone). Nothing is saved and nothing is shared.
+    /// Since 2.5 that pin's marker is DRAWN at the middle of the group, not at the pin's own spot
+    /// (totya, 2.4.0: the badge sat on the leftmost of three deposits, which read as misleading); the
+    /// pin itself, and everything saved about it, stays where it is - only its marker is moved, each pass.
     ///
     /// Groups are made in world metres, not on the screen, so panning cannot change them; only
     /// zoom can, and the radius snaps to powers of two with a margin (the same rule as the merge
@@ -37,6 +39,102 @@ namespace CarturMapPins
         private static readonly Dictionary<Minimap.PinData, int> Leaders = new Dictionary<Minimap.PinData, int>();
         private static readonly List<Minimap.PinData> Members = new List<Minimap.PinData>();
         private static readonly Dictionary<Minimap.PinData, List<Minimap.PinData>> Groups = new Dictionary<Minimap.PinData, List<Minimap.PinData>>();
+        private static readonly Dictionary<Minimap.PinData, Vector3> Centres = new Dictionary<Minimap.PinData, Vector3>();
+        private static readonly Dictionary<Minimap.PinData, Vector2> Shifts = new Dictionary<Minimap.PinData, Vector2>();
+
+        /// True while any badge is drawn away from its pin.
+        public static bool HasGroups => Centres.Count > 0;
+
+        /// How far Place moved this pin's marker, in the marker's own units; zero for anything else. The leader's
+        /// marker is not where its pin is, so anything that wants the pin's own spot takes this off.
+        public static Vector2 ShiftOf(Minimap.PinData pin) =>
+            pin != null && Shifts.TryGetValue(pin, out Vector2 shift) ? shift : Vector2.zero;
+        private static readonly Dictionary<Minimap.PinData, float> RecentLeaders = new Dictionary<Minimap.PinData, float>();
+
+        /// How long a pin that stood for a group is still treated as one. A badge can dissolve between the
+        /// pointer settling on it and the click arriving (the groups are rebuilt as the zoom eases), and the
+        /// click must not then reach the game as a click on a single pin, which ticks it off.
+        private const float RecentSeconds = 0.35f;
+
+        public static bool WasRecentLeader(Minimap.PinData pin) =>
+            pin != null && RecentLeaders.TryGetValue(pin, out float at) && Time.unscaledTime - at <= RecentSeconds;
+
+        /// The middle of the group a badge stands for, in world space; the pin's own place for anything else.
+        public static Vector3 CentreOf(Minimap.PinData pin) =>
+            pin != null && Centres.TryGetValue(pin, out Vector3 centre) ? centre : pin != null ? pin.m_pos : Vector3.zero;
+
+        /// Moves each group's marker, and its name, from the leader's own place to the middle of the group.
+        /// Vanilla puts every marker where its pin is on each pass of UpdatePins, so this is applied after
+        /// every pass and never accumulates. The marker's screen position is what hover, the click and the
+        /// labels read, so they follow it.
+        public static void Place(Minimap map, List<Minimap.PinData> pins)
+        {
+            if (!Active || Centres.Count == 0 || map == null || map.m_mode != Minimap.MapMode.Large)
+                return;
+            RawImage image = map.m_mapImageLarge;
+            Rect uv = image.uvRect, rect = image.rectTransform.rect;
+            float span = map.m_pixelSize * map.m_textureSize;
+            if (span <= 0f || uv.width <= 0f || uv.height <= 0f)
+                return;
+            foreach (KeyValuePair<Minimap.PinData, Vector3> group in Centres)
+            {
+                Minimap.PinData pin = group.Key;
+                if (pin?.m_uiElement == null)
+                    continue;
+                var move = new Vector2((group.Value.x - pin.m_pos.x) / span / uv.width * rect.width,
+                                       (group.Value.z - pin.m_pos.z) / span / uv.height * rect.height);
+                Shifts[pin] = move;
+                pin.m_uiElement.anchoredPosition += move;
+                if (pin.m_NamePinData?.PinNameRectTransform != null)
+                    pin.m_NamePinData.PinNameRectTransform.anchoredPosition += move;
+#if DIAGNOSTICS
+                CheckCentre(pin);
+#endif
+            }
+        }
+
+#if DIAGNOSTICS
+        private static float _checkedAt;
+        private static int _checks;
+
+        /// Whether the shifted marker really is where the group's members are: the mean of the members' own
+        /// markers (vanilla put those where their pins are, and they are not moved) against the leader's marker.
+        /// A few lines a second at most, and only in a diagnostics build.
+        private static void CheckCentre(Minimap.PinData leader)
+        {
+            if (Time.unscaledTime - _checkedAt < 1f || _checks > 12 || !Groups.TryGetValue(leader, out List<Minimap.PinData> group))
+                return;
+            Vector2 mean = Vector2.zero;
+            int n = 0;
+            foreach (Minimap.PinData member in group)
+            {
+                if (member.m_uiElement == null || ReferenceEquals(member, leader))
+                    continue;
+                mean += member.m_uiElement.anchoredPosition;
+                n++;
+            }
+            if (n == 0)
+                return;
+            // The leader is one of the group, so its own unshifted marker belongs in the mean.
+            Vector2 shifted = leader.m_uiElement.anchoredPosition;
+            Vector2 own = shifted - Vector2.zero;
+            mean = (mean + OwnPlace(leader)) / (n + 1);
+            _checkedAt = Time.unscaledTime;
+            _checks++;
+            Plugin.Log.LogInfo($"[centre] group of {group.Count}: marker at {shifted.x:0.0},{shifted.y:0.0}; mean of the members' markers {mean.x:0.0},{mean.y:0.0}; off by {(shifted - mean).magnitude:0.0} px (own pin spot is {(OwnPlace(leader) - mean).magnitude:0.0} px off)");
+        }
+
+        /// Where vanilla put the leader's marker, before the shift: from its world position by the same maths.
+        private static Vector2 OwnPlace(Minimap.PinData leader)
+        {
+            Minimap map = Minimap.instance;
+            RawImage image = map.m_mapImageLarge;
+            Rect uv = image.uvRect, rect = image.rectTransform.rect;
+            float span = map.m_pixelSize * map.m_textureSize;
+            return new Vector2(((leader.m_pos.x / span + 0.5f) - uv.xMin) / uv.width * rect.width,
+                               ((leader.m_pos.z / span + 0.5f) - uv.yMin) / uv.height * rect.height);
+        }
+#endif
 
         /// The pins a badge stands for, itself first (the popup lists them).
         public static IReadOnlyList<Minimap.PinData> GroupOf(Minimap.PinData leader) =>
@@ -87,6 +185,8 @@ namespace CarturMapPins
                     Leaders.Clear();
                     Members.Clear();
                     Groups.Clear();
+                    Centres.Clear();
+                    Shifts.Clear();
                     _built = false;
                 }
                 return;
@@ -152,9 +252,22 @@ namespace CarturMapPins
             // A group keeps the leader it had when it still has it: the leader is only the first
             // member in position order, and a pin added west of the group would otherwise take over.
             var before = new HashSet<Minimap.PinData>(Leaders.Keys);
+            foreach (Minimap.PinData old in before)
+                RecentLeaders[old] = Time.unscaledTime;
+            if (RecentLeaders.Count > 64)
+            {
+                var stale = new List<Minimap.PinData>();
+                foreach (KeyValuePair<Minimap.PinData, float> kv in RecentLeaders)
+                    if (Time.unscaledTime - kv.Value > RecentSeconds)
+                        stale.Add(kv.Key);
+                foreach (Minimap.PinData gone in stale)
+                    RecentLeaders.Remove(gone);
+            }
             Leaders.Clear();
             Members.Clear();
             Groups.Clear();
+            Centres.Clear();
+            Shifts.Clear();
 
             // Same icon, or with mixing on a pin of a crowdable kind goes in the bucket of its tier
             // (PriorityZoom's: ore/chests/stones, landmarks/props/nests, pickables). Tier 0 - bosses,
@@ -261,6 +374,10 @@ namespace CarturMapPins
                         Members.Add(group[k]);
                     Leaders[group[0]] = weight;
                     Groups[group[0]] = group;
+                    Vector3 sum = Vector3.zero;
+                    foreach (Minimap.PinData member in group)
+                        sum += member.m_pos;
+                    Centres[group[0]] = sum / group.Count;
                 }
             }
         }
@@ -370,14 +487,21 @@ namespace CarturMapPins
         private static bool Prefix(Minimap __instance)
         {
             Minimap.PinData pin = PinHover.Current;
-            if (!Clusters.Active || pin == null || Clusters.CountOf(pin) <= 1 ||
-                ZInput.GetKey(KeyCode.LeftShift, false) || ZInput.GetKey(KeyCode.RightShift, false))
+            bool shift = ZInput.GetKey(KeyCode.LeftShift, false) || ZInput.GetKey(KeyCode.RightShift, false);
+#if DIAGNOSTICS
+            Snapshot(__instance, pin, shift);
+#endif
+            // The badge was there a moment ago and the groups have been rebuilt since (a zoom easing, a
+            // pass): this click was meant for it. Passed on, the game would tick the pin off.
+            if (Clusters.Active && !shift && pin != null && Clusters.CountOf(pin) <= 1 && Clusters.WasRecentLeader(pin))
+                return false;
+            if (!Clusters.Active || pin == null || Clusters.CountOf(pin) <= 1 || shift)
                 return true;
 
             if (Plugin.ClusterClickAction.Value != ClusterClick.Zoom)
             {
                 // A small cluster fans out when that is on; a big one, or any when it is off, is listed.
-                if (Plugin.ClusterClickAction.Value == ClusterClick.Spiderfy && ClusterSpiderfy.Wants(Clusters.GroupOf(pin).Count))
+                if (ClusterSpiderfy.Wants(Clusters.GroupOf(pin).Count))
                     ClusterSpiderfy.Open(__instance, pin);
                 else
                     ClusterInspector.Open(__instance, pin);
@@ -387,8 +511,40 @@ namespace CarturMapPins
             // Half the zoom, centred on the group's pin: the group opens up where you clicked.
             __instance.LargeZoom = Mathf.Max(__instance.m_minZoom, __instance.LargeZoom * 0.5f);
             if (Player.m_localPlayer != null && MapOffset != null)
-                MapOffset.SetValue(__instance, pin.m_pos - Player.m_localPlayer.transform.position);
+                MapOffset.SetValue(__instance, Clusters.CentreOf(pin) - Player.m_localPlayer.transform.position);
             return false;
         }
+
+#if DIAGNOSTICS
+        // totya, 2.4.0: a pin got a tick (X) after only the badge was clicked, with Spiderfy and with Zoom, and
+        // it stayed ticked after the map was reopened. Every left click logs what was hovered, what the badge
+        // count was, and which pins' ticks changed by the end of the click, so the log names the path.
+        private static readonly List<KeyValuePair<Minimap.PinData, bool>> Before = new List<KeyValuePair<Minimap.PinData, bool>>();
+        private static string _seen;
+
+        private static void Snapshot(Minimap map, Minimap.PinData hovered, bool shift)
+        {
+            Before.Clear();
+            List<Minimap.PinData> pins = MinimapAccess.GetPins(map);
+            if (pins != null)
+                foreach (Minimap.PinData p in pins)
+                    if (p != null)
+                        Before.Add(new KeyValuePair<Minimap.PinData, bool>(p, p.m_checked));
+            _seen = $"hover='{hovered?.m_name}' count={Clusters.CountOf(hovered)} recentLeader={Clusters.WasRecentLeader(hovered)} " +
+                    $"shift={shift} action={Plugin.ClusterClickAction.Value} zoom={map.LargeZoom:F4}";
+        }
+
+        [HarmonyPriority(Priority.Last)]
+        private static void Postfix(Minimap __instance)
+        {
+            foreach (KeyValuePair<Minimap.PinData, bool> b in Before)
+                if (b.Key.m_checked != b.Value)
+                    Plugin.Log.LogInfo($"[clickwhy] {_seen}: '{b.Key.m_name}' at {b.Key.m_pos.x:0},{b.Key.m_pos.z:0} tick {b.Value} -> {b.Key.m_checked}, " +
+                                       $"stack: {new System.Diagnostics.StackTrace(1, false)}");
+            if (Before.Count > 0)
+                Plugin.Log.LogInfo($"[clickwhy] click: {_seen}");
+            Before.Clear();
+        }
+#endif
     }
 }

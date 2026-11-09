@@ -173,8 +173,8 @@ namespace CarturMapPins
         /// were uneven, while a 2560x1080 screen, whose row is 1865 wide, was fine).
         ///
         /// So the bar is no longer left at the width the game gave it. KeyHints is stretched to the free room,
-        /// the map frame's left edge to the icon picker's left edge (the whole frame without a picker) less a
-        /// margin, and the room is shared out evenly: every entry keeps its own label and key together at the
+        /// the map frame's left edge to the icon picker's left edge when the picker is on the bar's band (the
+        /// whole frame otherwise) less a margin, and the room is shared out evenly: every entry keeps its own label and key together at the
         /// game's own spacing, and the same gap goes between entries, never under MinGap and never over MaxGap
         /// (the rest becomes an equal margin each side, since the row centres). If even MinGap does not fit, the
         /// words shrink, to a floor of MinFont of their size, rather than overlap. Read from the live rects
@@ -202,11 +202,17 @@ namespace CarturMapPins
 
             ((RectTransform)map.m_largeRoot.transform).GetWorldCorners(Corners);
             float left = Corners[0].x, right = Corners[2].x;
+            // The bar stops at the picker only where the picker is actually on the bar's band of the screen. A
+            // picker moved up out of it takes nothing from the bar (totya, 2.4.0: the bar's width followed
+            // the picker's left edge wherever it was put, so it was narrow on his screen and fine on mine).
             RectTransform picker = MapIconPicker.PanelRect;
             if (picker != null && picker.gameObject.activeInHierarchy)
             {
+                _hints.GetWorldCorners(Corners);
+                float barBottom = Corners[0].y, barTop = Corners[2].y;
                 picker.GetWorldCorners(Corners);
-                right = Corners[0].x;
+                if (Corners[0].y < barTop && Corners[2].y > barBottom)
+                    right = Corners[0].x;
             }
             left += EdgeMargin * scale;
             right -= EdgeMargin * scale;

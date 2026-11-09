@@ -385,6 +385,7 @@ namespace CarturMapPins
             Crowding.Measure(pins);
             Bench.Stop(1, t); t = Bench.Start();
             Clusters.Measure(pins);
+            Clusters.Place(__instance, pins);
             Bench.Stop(2, t);
             LabelTemplates.Apply(pins);
             t = Bench.Start();
@@ -394,6 +395,7 @@ namespace CarturMapPins
 #else
             Crowding.Measure(pins);
             Clusters.Measure(pins);
+            Clusters.Place(__instance, pins);
             LabelTemplates.Apply(pins);
             LabelCrowding.Apply(pins);
 #endif

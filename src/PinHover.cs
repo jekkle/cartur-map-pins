@@ -45,6 +45,9 @@ namespace CarturMapPins
                     RectTransform rect = icon.rectTransform;
                     float reach = rect.rect.width * 0.5f * rect.localScale.x;
                     float distance = Vector2.Distance((Vector2)rect.localPosition, cursor);
+                    // A badge sits on top of unrelated pins at the middle of its group; pointing at it means it.
+                    if (Clusters.CountOf(pin) > 1)
+                        distance *= 0.5f;
                     if (distance < reach && distance < best)
                     {
                         best = distance;
@@ -101,7 +104,7 @@ namespace CarturMapPins
             TMP_Text name = pin.m_NamePinData?.PinNameText;
             _tag.fontSize = name != null ? name.fontSize * 0.8f : 14f;
             int stands = Clusters.CountOf(pin);
-            _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to {(Plugin.ClusterClickAction.Value == ClusterClick.Inspector ? "list" : "zoom in")})"
+            _tag.text = stands > 1 ? $"{stands} x {Labels.Localize(pin.m_name)}  (click to {(Plugin.ClusterClickAction.Value == ClusterClick.Inspector ? "list" : Plugin.ClusterClickAction.Value == ClusterClick.Spiderfy ? "fan out" : "zoom in")})"
                 : pin.m_ownerID != 0L ? "Shared pin" : PinRecord.IsOursByName(pin) ? "Auto pin" : "Your pin";
             // A group opens its list instead of the one-line tag.
             if (stands > 1 && ClusterPopup.Show(pin, root))

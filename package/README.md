@@ -71,9 +71,9 @@ Every portal is pinned, named with the tag you gave it. Built without a name it 
 
 Both are off by default.
 
-- **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are; nothing moves. Hover the badge for a list of what it stands for and how far away it is. Click it to open a list of the pins in it, nearest first, that you can search and scroll; click one and the map glides to it at a zoom where it stands alone. The list only reads: it does not tick, rename or delete anything. Click outside it to put it away; Escape closes the map as it always does, and the list with it. `ClusterClickAction = Zoom` brings back the old click, which zooms in. A badge cannot be ticked off or deleted until you are down to a single pin. Your own pins and other players' pins are never grouped.
+- **`General / ClusterPins`:** pins this mod placed that crowd together and share an icon become one pin with a count badge (a plain ring for 2 to 9, a heavier one for 10 to 99, gold for 100 or more). The others fade out where they are, and the badge is drawn at the middle of the group; the pins themselves never move. Hover the badge for a list of what it stands for and how far away it is. Click it to open a list of the pins in it, nearest first, that you can search and scroll; click one and the map glides to it at a zoom where it stands alone. The list only reads: it does not tick, rename or delete anything. Click outside it to put it away; Escape closes the map as it always does, and the list with it. `ClusterClickAction = Zoom` brings back the old click, which zooms in. A badge cannot be ticked off or deleted until you are down to a single pin. Your own pins and other players' pins are never grouped.
 - **`General / MixedCategoryClusters`:** off by default. Lets crowded pins of different kinds share one badge: ore with chests and stones, landmarks with props and nests, pickables with each other. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and neither do your own pins. A mixed badge has a teal ring, and its list says how many of each kind are in it.
-- **`General / EnableClusterSpiderfy`:** off by default. With `ClusterClickAction` set to Spiderfy, clicking the badge of a small cluster (up to `SpiderfyMaxPins`, 12) fans its pins out on a ring round the badge, on thin lines back to where they are; click one to go to it. Any zoom, drag or click elsewhere puts them away. Bigger clusters open the list. Mouse only.
+- **`General / ClusterClickAction` set to Spiderfy:** clicking the badge of a small cluster (up to `SpiderfyMaxPins`, 12) fans its pins out on a ring round the badge, on thin lines back to where they are; click one to go to it. Any zoom, drag or click elsewhere puts them away. Bigger clusters open the list. Mouse only.
 - **`General / PriorityZoomOut`:** when the map is zoomed far out, pickables drop first, then landmarks, nests and hives, then ore, chests and stones. Bosses, dungeons, camps, portals, traders and home always stay.
 
 ![Cluster badges with the hover list](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/clusters-2.0.jpg)
@@ -116,7 +116,7 @@ What counts as ore, a beehive or a pickable is worked out at runtime from compon
 
 Config file: `BepInEx/config/com.jekkle.valheim.carturmappins.cfg`.
 
-In the config manager (F1) the settings are in numbered sections, and the first one, **01. Start Here**, has a button, **Open Hugin's setup**. The setup menu is where what gets a pin, its icon, its colour and its opacity are chosen, plus who sees your pins at the cartography table and New default colours, so none of those are listed in F1. They are still in the `.cfg` file under the same names and values, and editing them there works as before. The button needs a world to be loaded, and closes the config manager so the menu is not hidden behind it. P on the large map and `carturpins_setup` open the same menu.
+In the config manager (F1) the settings are in numbered sections, in order, each with a one-sentence explanation when you hover it, and the first one, **01. Start Here**, has a button, **Open Hugin's setup**. The setup menu is where what gets a pin, its icon, its colour and its opacity are chosen, plus who sees your pins at the cartography table and New default colours, so none of those are listed in F1. They are still in the `.cfg` file under the same names and values, and editing them there works as before. The button needs a world to be loaded, and closes the config manager so the menu is not hidden behind it. P on the large map and `carturpins_setup` open the same menu.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -131,24 +131,23 @@ In the config manager (F1) the settings are in numbered sections, and the first 
 | `SmartLabelPlacement` | true | A name that would overlap another is tried above, right and left of its icon before it is hidden. |
 | `SmoothMapZoom` | true | Ease the large map's wheel zoom and zoom about the pointer. Off gives the game's own zoom back. |
 | `MapZoomStepPercent` | 25 | One wheel notch, in percent (the game's own is 10), 1 to 50. |
-| `ZoomPreset` | None | A button: Smooth (6% over 160 ms), Fast (25% over 60 ms) or Explorer (50% over 60 ms) sets the step and the time, then returns to None. |
+| `ZoomPreset` | None | A button: Smooth (6% over 160 ms), Fast (25% over 60 ms) or Explorer (50% over 120 ms) sets the step and the time, then returns to None. |
 | `PrecisionZoomPercent` | 2 | One notch while the precision key is held, 1 to 10. |
 | `PrecisionZoomKey` | LeftShift | Hold for the finer step. Right Shift also counts when this is Left Shift. |
 | `MapZoomDurationMs` | 60 | Time to cover 98% of a zoom, 0 to 600. 0 zooms at once. |
 | `CursorCenteredZoom` | true | Zoom about the pointer instead of the middle of the map. |
-| `ShrinkPinsFromZoom` | 15 | Percent zoomed out before pins start shrinking. |
+| `ShrinkPinsFromZoom` | 25 | How far out the map is zoomed before pins start shrinking, 0 to 100 on the same log scale as `HideLabelsFromZoom`. |
 | `MergeRepeatedPins` | true | Draw one icon where several same-named pins sit together. |
 | `ShrinkCrowdedPins` | true | Shrink pins stacked on one spot. |
-| `ZoomedInPinScale` | 0.75 | Pin size when zoomed in, as a fraction of the game's size. 1 is the game's size. |
-| `ZoomedOutPinScale` | 0.7 | How small pins get at full zoom-out, as a fraction of `ZoomedInPinScale`. 1 turns the shrinking off. |
+| `ZoomedInPinScale` | 1 | Pin size when zoomed in, as a fraction of the game's size, 0.5 to 1. 1 is the game's size. |
+| `ZoomedOutPinScale` | 0.7 | How small pins get at full zoom-out, as a fraction of `ZoomedInPinScale`, 0.2 to 1. 1 turns the shrinking off. |
 | `HidePinsBeyond` | 0 | Metres. Hide pins further than this from you. 0 draws all. |
 | `HidePinsKey` | H | On the large map: step through All pins, Mine only, Auto only, None. |
 | `HideLabelsKey` | Shift+H | On the large map: hide every pin's name, or show them again. Icons stay. |
 | `SetupKey` | P | On the large map: open Hugin's setup menu. |
 | `ClusterPins` | false | Crowded pins with the same icon become one pin with a count badge. |
-| `ClusterClickAction` | Inspector | Click on a badge: Inspector opens the list, Zoom zooms in (the old click), Spiderfy fans out a small cluster (needs `EnableClusterSpiderfy`). |
+| `ClusterClickAction` | Inspector | Click on a badge: Inspector opens the list, Zoom zooms in (the old click), Spiderfy fans out a small cluster and lists a bigger one. |
 | `MixedCategoryClusters` | false | Badges may hold pins of different kinds. Bosses, dungeons, camps, traders, home and portals never join. |
-| `EnableClusterSpiderfy` | false | Allow the fan-out click for small clusters. |
 | `SpiderfyMaxPins` | 12 | The most pins a cluster can hold and still fan out, 3 to 24. |
 | `PriorityZoomOut` | false | Far out, cheap-to-find pins drop first. Bosses, dungeons, camps and portals stay. |
 | `ConfirmDelete` | Off | Ask for a second click before right-click deletes a pin: Off, AutoPinsOnly or All. Ctrl+Z on the large map undoes a delete either way. |

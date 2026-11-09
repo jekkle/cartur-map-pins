@@ -26,7 +26,7 @@ namespace CarturMapPins
 
         /// True when a click on a badge should fan it out rather than list it.
         public static bool Wants(int members) =>
-            Plugin.EnableClusterSpiderfy.Value && Plugin.SpiderfyMaxPins.Value >= members;
+            Plugin.ClusterClickAction.Value == ClusterClick.Spiderfy && Plugin.SpiderfyMaxPins.Value >= members;
 
         public static void Open(Minimap map, Minimap.PinData leader)
         {
@@ -60,7 +60,7 @@ namespace CarturMapPins
                 Minimap.PinData pin = group[i];
                 float angle = Mathf.PI * 2f * i / group.Count - Mathf.PI * 0.5f;
                 Vector2 at = _centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * ring;
-                Vector2 real = pin.m_iconElement != null ? (Vector2)pin.m_iconElement.rectTransform.localPosition : _centre;
+                Vector2 real = pin.m_iconElement != null ? (Vector2)pin.m_iconElement.rectTransform.localPosition - Clusters.ShiftOf(pin) : _centre;
 
                 RectTransform leg = Get(Legs, "Leg", i, typeof(Image));
                 Vector2 line = real - at;

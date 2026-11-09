@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using BepInEx.Configuration;
 
 namespace CarturMapPins
@@ -52,9 +52,16 @@ namespace CarturMapPins
             { "General/MixedCategoryClusters",   "02b. Pin Clusters" },
             { "General/ClusterClickAction",      "02b. Pin Clusters" },
             { "General/EnableClusterSpiderfy",   "02b. Pin Clusters" },
+            { "General/ClusterActionVersion", "02b. Pin Clusters" },
             { "General/SpiderfyMaxPins",         "02b. Pin Clusters" },
             { "General/MergeRepeatedPins",       "02b. Pin Clusters" },
             { "General/ShrinkCrowdedPins",       "02b. Pin Clusters" },
+
+            // The three that size a pin as the map zooms were spread over Map Display with forty others.
+            { "General/ZoomedInPinScale",          "02d. Pin Size" },
+            { "General/ZoomedOutPinScale",         "02d. Pin Size" },
+            { "General/ShrinkPinsFromZoom",        "02d. Pin Size" },
+            { "General/PinSizeVersion",   "02d. Pin Size" },
 
             { "General/ShowPinLabels",             "02c. Pin Names" },
             { "General/HideCollidingLabels",       "02c. Pin Names" },
@@ -164,6 +171,9 @@ namespace CarturMapPins
             return Display.TryGetValue(logical, out string whole) ? whole : logical;
         }
 
+        /// The logical section a page came from ("02a. Map Zoom" is "General"); a page with no old name is its own.
+        public static string LogicalOf(string section) => Origin.TryGetValue(section, out string old) ? old : section;
+
         /// A page that holds settings from the old General section (not the per-kind switches and icons).
         public static bool IsGeneral(string section) => Origin.TryGetValue(section, out string old) && old == "General";
 
@@ -202,6 +212,54 @@ namespace CarturMapPins
                 // Losing the migration costs people their settings once; throwing would take the
                 // whole mod down, so report and survive.
                 Plugin.Log.LogWarning($"Could not read the old config for migration: {e.Message}");
+            }
+        }
+
+        /// The text the file held for this setting before anything was bound, or null.
+        public static string SavedText(string logical, string key) => Saved(logical, key, out string text) ? text : null;
+
+        /// Puts the entries in section order, once, after everything is bound. Configuration Manager
+        /// lists a mod's sections in the order they were first bound (Shudnal's says so in its own
+        /// settings; totya saw the same in sighsorry's), and the bindings here are in the order the code
+        /// grew, so "02a. Map Zoom" came after "04. Ores". Sections are numbered so that the sort by name
+        /// is the order they should read in; the sort is stable, so inside a section nothing moves.
+        /// The entry table is BepInEx's own, reached by reflection; if it is not found nothing is
+        /// reordered and the menu is merely in the old order.
+        public static void Sort(ConfigFile config)
+        {
+            try
+            {
+                var table = HarmonyLib.AccessTools.Property(typeof(ConfigFile), "Entries")?.GetValue(config, null)
+                            as Dictionary<ConfigDefinition, ConfigEntryBase>;
+                if (table == null)
+                {
+                    Plugin.Log.LogWarning("Settings stay in bind order: ConfigFile.Entries was not found.");
+                    return;
+                }
+
+                var sorted = new List<KeyValuePair<ConfigDefinition, ConfigEntryBase>>(table);
+                var index = new Dictionary<ConfigDefinition, int>();
+                for (int i = 0; i < sorted.Count; i++)
+                    index[sorted[i].Key] = i;
+                sorted.Sort((a, b) =>
+                {
+                    int bySection = string.CompareOrdinal(a.Key.Section, b.Key.Section);
+                    return bySection != 0 ? bySection : index[a.Key].CompareTo(index[b.Key]);
+                });
+
+                table.Clear();
+                foreach (KeyValuePair<ConfigDefinition, ConfigEntryBase> kv in sorted)
+                    table.Add(kv.Key, kv.Value);
+
+                var pages = new List<string>();
+                foreach (ConfigDefinition def in config.Keys)
+                    if (pages.Count == 0 || pages[pages.Count - 1] != def.Section)
+                        pages.Add(def.Section);
+                Plugin.Log.LogInfo("Settings pages, in menu order: " + string.Join(" | ", pages));
+            }
+            catch (System.Exception e)
+            {
+                Plugin.Log.LogWarning($"Could not put the settings in section order: {e.Message}");
             }
         }
 

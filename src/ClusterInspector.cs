@@ -262,6 +262,13 @@ namespace CarturMapPins
             _rect.pivot = new Vector2(0f, 1f);
             _rect.sizeDelta = new Vector2(Width, height);
             _panel.GetComponent<Image>().color = new Color(0.04f, 0.035f, 0.03f, 0.96f);
+            // Above the pin names (a root drawn after this one), which were printed across the list.
+            var canvas = _panel.AddComponent<Canvas>();
+            canvas.overrideSorting = true;
+            Canvas top = map.m_largeRoot.GetComponentInParent<Canvas>()?.rootCanvas;
+            canvas.sortingLayerID = top != null ? top.sortingLayerID : 0;
+            canvas.sortingOrder = (top != null ? top.sortingOrder : 0) + 10;
+            _panel.AddComponent<GraphicRaycaster>();
 
             var rail = new GameObject("Rail", typeof(RectTransform), typeof(Image));
             rail.transform.SetParent(_panel.transform, false);

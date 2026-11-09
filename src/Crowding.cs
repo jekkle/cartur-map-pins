@@ -123,18 +123,32 @@ namespace CarturMapPins
             return Mathf.InverseLerp(map.m_minZoom, map.m_maxZoom, zoom) * 100f;
         }
 
+        /// The same zoom on the log scale the zoom settings use: every point is the same ratio of zoom, so
+        /// a wheel notch moves it by about the same amount near the close end as near the far end.
+        public static float ZoomOutLogPercent(Minimap map)
+        {
+            if (map == null)
+                return 0f;
+
+            float zoom = map.m_mode == Minimap.MapMode.Large ? map.LargeZoom : map.SmallZoom;
+            return Mathf.Clamp(ZoomMath.LogPercent(zoom, map.m_minZoom, map.m_maxZoom), 0f, 100f);
+        }
+
         /// The zoomed-in size until the map is zoomed out past the configured point, then down to
-        /// the floor at fully out. The floor is a fraction of the zoomed-in size, so both settings
+        /// the floor at fully out. Measured on the log scale (totya, 2.4.0: on the old straight scale
+        /// nearly all of the shrinking sat in the last stretch before the whole world showed). The floor is a fraction of the zoomed-in size, so both settings
         /// compose and pins never grow as the map zooms out.
         private static float ZoomScale(Minimap map)
         {
-            float near = Mathf.Clamp(Plugin.ZoomedInPinScale.Value, 0.2f, 1f);
+            if (map != null && Plugin.PinSizeScale.Value == 0)
+                Plugin.ConvertPinSize(map);
+            float near = Mathf.Clamp(Plugin.ZoomedInPinScale.Value, 0.5f, 1f);
             float floor = near * Mathf.Clamp(Plugin.ZoomedOutPinScale.Value, 0.2f, 1f);
             if (map == null || (near >= 1f && floor >= 1f))
                 return 1f;
 
             float start = Mathf.Clamp(Plugin.ShrinkPinsFromZoom.Value, 0f, 100f);
-            float past = Mathf.InverseLerp(start, 100f, ZoomOutPercent(map));
+            float past = Mathf.InverseLerp(start, 100f, ZoomOutLogPercent(map));
             return Mathf.Lerp(near, floor, past);
         }
 
@@ -423,7 +437,7 @@ namespace CarturMapPins
             float zoom = map.m_mode == Minimap.MapMode.Large ? map.LargeZoom : map.SmallZoom;
             return $"mode={map.m_mode} zoom={zoom:F4} ({ZoomOutPercent(map):F0}% out) "
                  + $"min={map.m_minZoom:F4} max={map.m_maxZoom:F4} "
-                 + $"shrinkFrom={Plugin.ShrinkPinsFromZoom.Value:F0}% floor={Plugin.ZoomedOutPinScale.Value:F2} "
+                 + $"shrinkFrom={Plugin.ShrinkPinsFromZoom.Value:F0}% (log, now {ZoomOutLogPercent(map):F0}%) floor={Plugin.ZoomedOutPinScale.Value:F2} "
                  + $"=> zoomScale={_zoom:F3}, icon={_iconPixels:F0}px, cell={_cellMetres:F0}m, "
                  + $"cells={Counts.Count}, notDrawn={NotDrawn.Count}";
         }

@@ -8,6 +8,8 @@ namespace CarturMapPins
     internal sealed class ConfigurationManagerAttributes
     {
         public bool? Browsable;
+        public bool? ReadOnly;
+        public string Category;
         public bool? IsAdvanced;
         public int? Order;
         public Action<BepInEx.Configuration.ConfigEntryBase> CustomDrawer;

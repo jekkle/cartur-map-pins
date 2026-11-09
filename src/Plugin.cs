@@ -16,7 +16,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.4.0";
+        public const string PluginVersion = "2.5.0";
 
         internal static ManualLogSource Log;
 
@@ -149,31 +149,37 @@ namespace CarturMapPins
             ConfirmDelete = Config.Bind(Sections.Of("General", "ConfirmDelete"), "ConfirmDelete", DeleteConfirm.Off,
                 "Ask before a right-click deletes a pin: the first click says what it is (auto pin or your pin) and a second click within 2 seconds deletes it. AutoPinsOnly asks only for pins this mod placed. Ctrl+Z on the large map brings back the last pins you deleted either way.");
             ShrinkCrowdedPins = Config.Bind(Sections.Of("General", "ShrinkCrowdedPins"), "ShrinkCrowdedPins", true,
-                "Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.");
+                new ConfigDescription("Shrink pins that are sitting on top of each other, so a cluster reads as several things rather than one blob. Never below half size, and measured in screen pixels - so the same two pins shrink when you zoom out and return to full size when you zoom in.",
+                    null, Attr(order: 50)));
 
-            // 2.3 shrinks pins when zoomed in (0.75 and 0.7). Somebody who already chose their own pin
-            // sizes - a floor or a start point other than the old defaults - keeps full size up close.
-            // Someone still on the old defaults moves to the new floor; a value they set is never touched.
-            float? savedFloor = Sections.SavedFloat("General", "ZoomedOutPinScale");
-            float? savedStart = Sections.SavedFloat("General", "ShrinkPinsFromZoom");
-            bool ownSizes = (savedFloor.HasValue && System.Math.Abs(savedFloor.Value - 0.6f) > 0.001f) ||
-                            (savedStart.HasValue && System.Math.Abs(savedStart.Value - 15f) > 0.001f);
-
-            ZoomedInPinScale = Config.Bind(Sections.Of("General", "ZoomedInPinScale"), "ZoomedInPinScale", ownSizes ? 1f : 0.75f,
-                new ConfigDescription("How big a pin is drawn when the map is zoomed in, as a fraction of its normal size. Lower it if icons feel large against the terrain at close zoom. Pins keep this size until the map is zoomed out past ShrinkPinsFromZoom, then shrink towards ZoomedOutPinScale of this size. 1 is the full size the game draws; 0.2 is as small as it goes. Changes show at once.",
-                    new AcceptableValueRange<float>(0.2f, 1f)));
+            // Pin size as the map zooms: three settings, one page. Until 2.5 the defaults were 0.75 and a
+            // straight-percentage 15, and totya found both wrong in play: 0.75 "uncomfortably small", and
+            // the shrinking only noticeable at the whole-world view. ShrinkPinsFromZoom is on a log scale
+            // now; PinSizeScale says whether an older file has been moved over (see ConvertPinSize).
+            ZoomedInPinScale = Config.Bind(Sections.Of("General", "ZoomedInPinScale"), "ZoomedInPinScale", 1f,
+                new ConfigDescription("How big a pin is drawn when the map is zoomed in, as a fraction of its normal size. Lower it if icons feel large against the terrain at close zoom. Pins keep this size until the map is zoomed out past ShrinkPinsFromZoom, then shrink towards ZoomedOutPinScale of this size. 1 is the full size the game draws; 0.5 is as small as it goes. Changes show at once.",
+                    new AcceptableValueRange<float>(0.5f, 1f), Attr(order: 100)));
             ZoomedInPinScale.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
 
+            ShrinkPinsFromZoom = Config.Bind(Sections.Of("General", "ShrinkPinsFromZoom"), "ShrinkPinsFromZoom", 25f,
+                new ConfigDescription("How far out the map has to be zoomed before pins start shrinking. 0 is fully zoomed in and 100 is the whole world. The scale is logarithmic, like HideLabelsFromZoom: every point is the same step of zoom, so the shrinking is spread over the zooms you actually use rather than the last stretch. Below this pins keep the ZoomedInPinScale size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.",
+                    new AcceptableValueRange<float>(0f, 100f), Attr(order: 80)));
+            ShrinkPinsFromZoom.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
+            PinSizeScale = Config.Bind(Sections.Of("General", "PinSizeVersion"), "PinSizeVersion",
+                Sections.HadValue("General", "ShrinkPinsFromZoom") ? 0 : 1,
+                new ConfigDescription("Internal, leave it. 0 means the pin size settings still hold values from before 2.5 and will be moved to the new scale when the map first opens; then this becomes 1.", null, Attr(browsable: false)));
+
             ZoomedOutPinScale = Config.Bind(Sections.Of("General", "ZoomedOutPinScale"), "ZoomedOutPinScale", 0.7f,
-                "How big a pin is drawn when the map is zoomed all the way out, as a fraction of its zoomed-in size (ZoomedInPinScale). Pins keep the zoomed-in size and shrink steadily towards this as you zoom out, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.");
-            if (!ownSizes && savedFloor.HasValue && !Sections.HadValue("General", "ZoomedInPinScale"))
-                ZoomedOutPinScale.Value = 0.7f; // the file only held the old default, so it moves with the new one
+                new ConfigDescription("How big a pin is drawn when the map is zoomed all the way out, as a fraction of its zoomed-in size (ZoomedInPinScale). Pins keep the zoomed-in size until the map is zoomed out past ShrinkPinsFromZoom, then shrink steadily towards this, so a wide view reads as territory rather than a wall of icons. 1 turns the shrinking off; 0.2 is as small as it goes. Pin names are separate and always have been: the game itself stops drawing those once you zoom past halfway.",
+                    new AcceptableValueRange<float>(0.2f, 1f), Attr(order: 90)));
+            ZoomedOutPinScale.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
 
             HidePinsBeyond = Config.Bind(Sections.Of("General", "HidePinsBeyond"), "HidePinsBeyond", 0f,
                 "Stop drawing pins further than this many metres from your character. 0 draws all of them, which is the default - the large map is usually wanted whole. Set it to a few thousand to keep the map to the part of the world you are actually in. Nothing is deleted: the pins come straight back when you raise it or walk towards them.");
 
             MergeRepeatedPins = Config.Bind(Sections.Of("General", "MergeRepeatedPins"), "MergeRepeatedPins", true,
-                "Where several pins with the same name sit on the same patch of screen, draw one of them. A tin field is a dozen separate deposits and so a dozen identical pins, which at map scale is one white blob you can neither count nor click - one icon says as much and leaves the map readable. Pins of different kinds sitting together are all still drawn, and zooming in separates the rest as it always did. Nothing is deleted: every pin is still on the map, still saved, still searchable.");
+                new ConfigDescription("Where several pins with the same name sit on the same patch of screen, draw one of them. A tin field is a dozen separate deposits and so a dozen identical pins, which at map scale is one white blob you can neither count nor click - one icon says as much and leaves the map readable. Pins of different kinds sitting together are all still drawn, and zooming in separates the rest as it always did. Nothing is deleted: every pin is still on the map, still saved, still searchable.",
+                    null, Attr(order: 60)));
 
             // Before 2.2 this was a straight percentage of the zoom range and the values that matter sat
             // in the first two or three points of it. It is a log scale now. A value left in the file by
@@ -185,16 +191,15 @@ namespace CarturMapPins
                 new ConfigDescription("Internal, leave it. 0 means HideLabelsFromZoom still holds a value from before 2.2 and will be converted to the new scale when the map first opens; then this becomes 1.", null, Attr(browsable: false)));
             HideLabelsFromZoom = Config.Bind(Sections.Of("General", "HideLabelsFromZoom"), "HideLabelsFromZoom", 63f,
                 new ConfigDescription("Stop drawing pin names once the map is zoomed out past this point. 0 is fully zoomed in, 100 is the whole world and never hides a name. The scale is logarithmic: every point is the same step of zoom, and one wheel notch is about 1.4 points, so the steps near the close end are as fine as near the far end. 63 is where this setting stood before 2.2 (20 on the old straight scale); an older value is converted for you. The game has a setting of its own for this and it does nothing - m_showNamesZoom is 2 where the furthest the map zooms is 1, so its test is true at every zoom and no name is ever hidden by it.",
-                    new AcceptableValueRange<float>(0f, 100f)));
-
-            ShrinkPinsFromZoom = Config.Bind(Sections.Of("General", "ShrinkPinsFromZoom"), "ShrinkPinsFromZoom", 15f,
-                "How far out the map has to be zoomed before pins start shrinking, as a percentage. 0 is fully zoomed in and 100 is the whole world. Below this pins are full size; past it they shrink steadily towards ZoomedOutPinScale, reaching it at 100.");
+                    new AcceptableValueRange<float>(0f, 100f), Attr(order: 70)));
 
             ShowPinLabels = Config.Bind(Sections.Of("General", "ShowPinLabels"), "ShowPinLabels", true,
-                "Draw the name under each pin this mod places. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. Pins you placed yourself, and the game's own, keep their names. The pin under your cursor always shows its name, so nothing becomes unidentifiable.");
+                new ConfigDescription("Draw the name under each pin this mod places. Turn it off for a map of icons alone - the names are still there, still saved and still searchable, they are simply not drawn, so turning this back on restores every one of them. Pins you placed yourself, and the game's own, keep their names. The pin under your cursor always shows its name, so nothing becomes unidentifiable.",
+                    null, Attr(order: 100)));
 
             HideCollidingLabels = Config.Bind(Sections.Of("General", "HideCollidingLabels"), "HideCollidingLabels", true,
-                "Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.");
+                new ConfigDescription("Stop pin names from being drawn on top of each other. Where two labels overlap, the rarer name is kept - CRYPT beats CHEST, because CHEST appears forty times and says less. The icons are untouched, and a pin under your cursor always shows its name, so nothing is unreadable for long.",
+                    null, Attr(order: 90)));
 
             LabelScale = Config.Bind(Sections.Of("General", "LabelScale"), "LabelScale", 0.7f,
                 new ConfigDescription("How big pin names are drawn, as a fraction of the game's own size (the default is 0.7, 30% smaller than before). 1 is the game's size. Changes show at once.",
@@ -210,7 +215,7 @@ namespace CarturMapPins
             // with nothing lost either way.
             HiddenPins = Config.Bind(Sections.Of("General", "HiddenPins"), "HiddenPins", "",
                 new ConfigDescription(
-                    "Pin names to hide, separated by commas. The pins stay on your map and in your save - they are simply not drawn - so removing a name here brings them straight back. Open the list to pick from what is actually on your map. Every word you type has to match, so \"copper\" and \"copper ore\" both hide copper, and \"core\" hides all three kinds of core.",
+                    "Pin names to hide, separated by commas. The pins stay on your map and in your save - they are simply not drawn - so removing a name here brings them straight back. Open the list to pick from what is actually on your map. Every word you type has to match, so \"copper\" and \"copper ore\" both hide copper, and \"core\" hides all three kinds of core. Capital letters do not matter: \"Copper\" and \"copper\" are the same name, and one entry hides them all.",
                     null,
                     new ConfigurationManagerAttributes { Order = 6, CustomDrawer = HideListDrawer.Draw }));
 
@@ -233,37 +238,48 @@ namespace CarturMapPins
             PriorityZoomOut = Config.Bind(Sections.Of("General", "PriorityZoomOut"), "PriorityZoomOut", false,
                 "When the map is zoomed far out, drop the cheap-to-find pins first so the ones worth crossing a map for stay: pickables go past a third of the way out, landmarks, props, nests and hives past half, ore, chests and stones past three quarters. Bosses, dungeons, camps, portals, traders and home never drop, and neither do your own pins, shared pins, markers and pings. Only pins this mod placed are ever hidden, and they come back as you zoom in. Off by default.");
             ClusterPins = Config.Bind(Sections.Of("General", "ClusterPins"), "ClusterPins", false,
-                "On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold); the rest fade out where they are, nothing moves. Zoom in and they come back. Clicking a badge zooms in on it, and it cannot be ticked off or deleted until it is a single pin again. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.");
+                new ConfigDescription("On the large map, pins this mod placed that crowd together and share an icon collapse into one pin with a count badge (2-9 plain ring, 10-99 heavier, 100 and more gold), drawn at the middle of the group; the pins themselves fade out where they are, nothing moves. Zoom in and they come back. A badge cannot be ticked off or deleted until it is a single pin again; what a click on it does is ClusterClickAction. Your own pins and other players' pins are never grouped, and a pin the search matches leaves its group. Off by default.",
+                    null, Attr(order: 100)));
             SmoothMapZoom = Config.Bind(Sections.Of("General", "SmoothMapZoom"), "SmoothMapZoom", true,
-                "Ease the large map's mouse-wheel zoom instead of jumping, and keep the spot under the cursor where it is while zooming. Off gives the game's own zoom back. The M and Z keys, the controller and touch always use the game's own zoom.");
+                new ConfigDescription("Ease the large map's mouse-wheel zoom instead of jumping, and keep the spot under the cursor where it is while zooming. Off gives the game's own zoom back. The M and Z keys, the controller and touch always use the game's own zoom.",
+                    null, Attr(order: 90)));
             // 25 and 60 were 6 and 160 until 2.4: totya found the slow ease "not a useful animation" and
             // zooms out first to cover distance. A file still holding the old defaults is moved below,
             // once Sections.Adopt has run; a value a player chose is never touched.
             MapZoomStepPercent = Config.Bind(Sections.Of("General", "MapZoomStepPercent"), "MapZoomStepPercent", 25f,
-                new ConfigDescription("How much one wheel notch zooms the large map, in percent (the game's own step is 10). Up to 50 for a very quick map.", new AcceptableValueRange<float>(1f, 50f)));
+                new ConfigDescription("How much one wheel notch zooms the large map, in percent (the game's own step is 10). Up to 50 for a very quick map.", new AcceptableValueRange<float>(1f, 50f), Attr(order: 80)));
             ZoomPreset = Config.Bind(Sections.Of("General", "ZoomPreset"), "ZoomPreset", ZoomStyle.None,
-                new ConfigDescription("Set the wheel step and the ease in one go. Smooth: 6% a notch over 160 ms, the gentle way it was before 2.4. Fast: 25% over 60 ms, the default. Explorer: 50% over 60 ms, for crossing a big map. Returns to None once applied - it is a button, not a state, and each value stays free to change.",
+                new ConfigDescription("Set the wheel step and the ease in one go. Smooth: 6% a notch over 160 ms, the gentle way it was before 2.4. Fast: 25% over 60 ms, the default. Explorer: 50% over 120 ms, for crossing a big map. Returns to None once applied - it is a button, not a state, and each value stays free to change.",
                     null, Attr(order: 100)));
             ZoomPreset.SettingChanged += (_, __) => ApplyZoomStyle(ZoomPreset.Value);
             PrecisionZoomPercent = Config.Bind(Sections.Of("General", "PrecisionZoomPercent"), "PrecisionZoomPercent", 2f,
-                new ConfigDescription("How much one wheel notch zooms while the precision key is held, in percent.", new AcceptableValueRange<float>(1f, 10f)));
+                new ConfigDescription("How much one wheel notch zooms while the precision key is held, in percent.", new AcceptableValueRange<float>(1f, 10f), Attr(order: 50)));
             PrecisionZoomKey = Config.Bind(Sections.Of("General", "PrecisionZoomKey"), "PrecisionZoomKey",
                 new BepInEx.Configuration.KeyboardShortcut(UnityEngine.KeyCode.LeftShift),
                 "Hold this while using the wheel on the large map for the finer PrecisionZoomPercent step. Right Shift also counts when this is Left Shift.");
             MapZoomDurationMs = Config.Bind(Sections.Of("General", "MapZoomDurationMs"), "MapZoomDurationMs", 60,
-                new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600)));
+                new ConfigDescription("How long a zoom takes to settle, in milliseconds: the time to cover 98% of the distance. 0 zooms at once.", new AcceptableValueRange<int>(0, 600), Attr(order: 70)));
             CursorCenteredZoom = Config.Bind(Sections.Of("General", "CursorCenteredZoom"), "CursorCenteredZoom", true,
-                "Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.");
+                new ConfigDescription("Zoom the large map about the mouse pointer, so what you point at stays under it. Off zooms about the middle of the map. Only used while SmoothMapZoom is on.",
+                    null, Attr(order: 60)));
             MixedCategoryClusters = Config.Bind(Sections.Of("General", "MixedCategoryClusters"), "MixedCategoryClusters", false,
-                "Let crowded pins of different kinds share one badge - ore with chests and stones, landmarks with props and nests, pickables with each other - instead of only pins with the same icon. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and your own pins never join any badge. The list opened by clicking a badge shows what is in it. Only matters while ClusterPins is on. Off by default.");
+                new ConfigDescription("Let crowded pins of different kinds share one badge - ore with chests and stones, landmarks with props and nests, pickables with each other - instead of only pins with the same icon. Bosses, dungeons, camps, traders, home and portals never join a mixed badge, and your own pins never join any badge. The list opened by clicking a badge shows what is in it. Only matters while ClusterPins is on. Off by default.",
+                    null, Attr(order: 80)));
+            // Until 2.5 "Spiderfy" meant two things, a list or a fan-out, depending on a second switch
+            // (EnableClusterSpiderfy; totya, 2.4.0). The switch is gone: Spiderfy fans a small cluster out.
+            // A file that had Spiderfy chosen with the switch off was getting the list, so it becomes Inspector.
             ClusterClickAction = Config.Bind(Sections.Of("General", "ClusterClickAction"), "ClusterClickAction", ClusterClick.Inspector,
-                "What a click on a cluster's count badge does (only while ClusterPins is on). Inspector opens a list of the pins in it that you can search, scroll and pick from. Zoom is the old behaviour: zoom in on it.");
-            EnableClusterSpiderfy = Config.Bind(Sections.Of("General", "EnableClusterSpiderfy"), "EnableClusterSpiderfy", false,
-                "With ClusterClickAction set to Spiderfy, a click on a small cluster's badge fans its pins out round it on thin lines back to where they are; click one to go to it. Bigger clusters, and every cluster while this is off, open the list instead. Any zoom, drag or click elsewhere puts them away. Off by default.");
+                new ConfigDescription("What a click on a cluster's count badge does (only while ClusterPins is on). Inspector opens a list of the pins in it that you can search, scroll and pick from. Spiderfy fans a small cluster's pins out round the badge on thin lines back to where they are, and click one to go to it; a bigger cluster, over SpiderfyMaxPins, opens the list instead. Zoom zooms in on it. Any zoom, drag or click elsewhere puts a fan away.",
+                    null, Attr(order: 90)));
+            ClusterActionVersion = Config.Bind(Sections.Of("General", "ClusterActionVersion"), "ClusterActionVersion",
+                Sections.HadValue("General", "ClusterClickAction") ? 0 : 1,
+                new ConfigDescription("Internal, leave it. 0 means this file was written before 2.5 and ClusterClickAction is checked once against the old EnableClusterSpiderfy switch; then this becomes 1.", null, Attr(browsable: false)));
+
             SpiderfyMaxPins = Config.Bind(Sections.Of("General", "SpiderfyMaxPins"), "SpiderfyMaxPins", 12,
-                new ConfigDescription("The most pins a cluster can hold and still fan out.", new AcceptableValueRange<int>(3, 24)));
+                new ConfigDescription("The most pins a cluster can hold and still fan out. Only used when ClusterClickAction is Spiderfy.", new AcceptableValueRange<int>(3, 24), Attr(order: 70)));
             SmartLabelPlacement = Config.Bind(Sections.Of("General", "SmartLabelPlacement"), "SmartLabelPlacement", true,
-                "When a pin's name would overlap another name, try putting it above the icon, then right of it, then left of it before hiding it. A name stays on the side it moved to until its usual place under the icon is clear again. Only matters while HideCollidingLabels is on.");
+                new ConfigDescription("When a pin's name would overlap another name, try putting it above the icon, then right of it, then left of it before hiding it. A name stays on the side it moved to until its usual place under the icon is clear again. Only matters while HideCollidingLabels is on.",
+                    null, Attr(order: 85)));
             NewDefaultColours = Config.Bind(Sections.Of("General", "NewDefaultColours"), "NewDefaultColours", true,
                 "Give each NEW pin the colour of the thing it marks (copper brown, each berry its own, a Fuling village orange...), set per kind under Kind Colours. Only pins placed from now on are affected; pins already on the map keep their colour until you ask for them to be updated. A colour you give a pin by hand always wins. This switch, each kind's colour and opacity, and the Apply button for the existing pins are in Hugin's setup menu (P on the large map); they are not listed in the settings menu.");
             foreach (KeyValuePair<string, string> colour in KindColours.Table)
@@ -513,6 +529,16 @@ namespace CarturMapPins
             if (carried > 0)
                 Logger.LogInfo($"Settings: carried {carried} value(s) over from the old section names.");
 
+            // After Adopt, which copies an old file's Spiderfy back from the page it used to be on.
+            if (ClusterActionVersion.Value == 0)
+            {
+                if (ClusterClickAction.Value == ClusterClick.Spiderfy &&
+                    !string.Equals(Sections.SavedText("General", "EnableClusterSpiderfy"), "true", System.StringComparison.OrdinalIgnoreCase))
+                    ClusterClickAction.Value = ClusterClick.Inspector;
+                ClusterActionVersion.Value = 1;
+            }
+            ClusterPins.SettingChanged += (_, __) => MinimapAccess.RequestPinUpdate(Minimap.instance);
+
             // 2.4 zoom defaults (25%, 60 ms). A fresh install never holds 6 or 160, so a value equal
             // to the old default is the old default and nothing a player chose on purpose is worth
             // keeping at it. The ZoomPreset line only exists in a 2.4+ file, so this runs once.
@@ -523,6 +549,19 @@ namespace CarturMapPins
                 if (MapZoomDurationMs.Value == 160)
                     MapZoomDurationMs.Value = 60;
             }
+
+            // Sections read in their numbered order, and a setting that depends on a switch greys out while
+            // the switch is off (Configuration Managers that follow ReadOnly live; the others read it when the
+            // menu opens). Both before ShowSettingsText, which swaps the descriptions for translated ones.
+            Sections.Sort(Config);
+            Gate(ClusterClickAction, () => ClusterPins.Value);
+            Gate(MixedCategoryClusters, () => ClusterPins.Value);
+            Gate(SpiderfyMaxPins, () => ClusterPins.Value && ClusterClickAction.Value == ClusterClick.Spiderfy);
+            Gate(SmartLabelPlacement, () => HideCollidingLabels.Value);
+            foreach (ConfigEntryBase zoomSetting in new ConfigEntryBase[] { MapZoomStepPercent, MapZoomDurationMs, PrecisionZoomPercent, PrecisionZoomKey, CursorCenteredZoom, ZoomPreset })
+                Gate(zoomSetting, () => SmoothMapZoom.Value);
+            Config.SettingChanged += (_, __) => RefreshGates();
+            RefreshGates();
 
             // Before any pin is placed: an unregistered token would be drawn as
             // "[carturpins_frost_cave]", and Token() deliberately refuses to emit one it has not
@@ -693,7 +732,7 @@ namespace CarturMapPins
             if (style == ZoomStyle.None)
                 return;
             MapZoomStepPercent.Value = style == ZoomStyle.Smooth ? 6f : style == ZoomStyle.Fast ? 25f : 50f;
-            MapZoomDurationMs.Value = style == ZoomStyle.Smooth ? 160 : 60;
+            MapZoomDurationMs.Value = style == ZoomStyle.Smooth ? 160 : style == ZoomStyle.Explorer ? 120 : 60;
             Log.LogInfo($"Applied the {style} zoom preset.");
             if (ZoomPreset.Value == style)
                 ZoomPreset.Value = ZoomStyle.None;
@@ -766,6 +805,22 @@ namespace CarturMapPins
         }
 
         /// ConfigurationManager reads these by duck typing, so they cost nothing when it is absent.
+        private static readonly List<KeyValuePair<ConfigEntryBase, System.Func<bool>>> Gates = new List<KeyValuePair<ConfigEntryBase, System.Func<bool>>>();
+
+        /// A setting that only does something while another is on. The tag's ReadOnly follows it.
+        private static void Gate(ConfigEntryBase entry, System.Func<bool> on) =>
+            Gates.Add(new KeyValuePair<ConfigEntryBase, System.Func<bool>>(entry, on));
+
+        private static void RefreshGates()
+        {
+            foreach (KeyValuePair<ConfigEntryBase, System.Func<bool>> gate in Gates)
+            {
+                ConfigurationManagerAttributes tag = ConfigText.TagOf(gate.Key);
+                if (tag != null)
+                    tag.ReadOnly = !gate.Value();
+            }
+        }
+
         private static ConfigurationManagerAttributes Attr(bool? browsable = null, bool advanced = false, int order = 0) =>
             new ConfigurationManagerAttributes { Browsable = browsable, IsAdvanced = advanced, Order = order };
 
@@ -899,7 +954,8 @@ namespace CarturMapPins
         public static ConfigEntry<bool> ClusterPins;
         public static ConfigEntry<bool> SmoothMapZoom, CursorCenteredZoom, MixedCategoryClusters;
         public static ConfigEntry<ClusterClick> ClusterClickAction;
-        public static ConfigEntry<bool> EnableClusterSpiderfy, SmartLabelPlacement;
+        public static ConfigEntry<bool> SmartLabelPlacement;
+        public static ConfigEntry<int> ClusterActionVersion;
         public static ConfigEntry<int> SpiderfyMaxPins;
         public static ConfigEntry<float> MapZoomStepPercent, PrecisionZoomPercent;
         public static ConfigEntry<int> MapZoomDurationMs;
@@ -940,6 +996,23 @@ namespace CarturMapPins
             Log.LogInfo($"HideLabelsFromZoom {old} (straight scale) is {HideLabelsFromZoom.Value} on the new log scale; same zoom.");
         }
         public static ConfigEntry<float> ShrinkPinsFromZoom;
+        public static ConfigEntry<int> PinSizeScale;
+
+        /// Moves the pin size settings of a pre-2.5 file to what 2.5 means, once, when the zoom limits are
+        /// known. A start point still at the old default (15, straight scale) takes the new default; any
+        /// other value keeps the same zoom on the log scale. A near size still at 0.75, the 2.3 default
+        /// that totya found too small, goes to 1.
+        internal static void ConvertPinSize(Minimap map)
+        {
+            float old = ShrinkPinsFromZoom.Value;
+            ShrinkPinsFromZoom.Value = System.Math.Abs(old - 15f) < 0.001f
+                ? 25f
+                : UnityEngine.Mathf.Clamp(UnityEngine.Mathf.Round(ZoomMath.OldPercentToLog(old, map.m_minZoom, map.m_maxZoom) * 10f) / 10f, 0f, 100f);
+            if (System.Math.Abs(ZoomedInPinScale.Value - 0.75f) < 0.001f)
+                ZoomedInPinScale.Value = 1f;
+            PinSizeScale.Value = 1;
+            Log.LogInfo($"Pin size: ShrinkPinsFromZoom {old} (straight scale) is {ShrinkPinsFromZoom.Value} on the log scale; ZoomedInPinScale {ZoomedInPinScale.Value}.");
+        }
         public static ConfigEntry<bool> MergeRepeatedPins;
         public static ConfigEntry<float> ZoomedInPinScale;
         public static ConfigEntry<float> ZoomedOutPinScale;

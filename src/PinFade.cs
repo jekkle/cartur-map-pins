@@ -198,7 +198,13 @@ namespace CarturMapPins
         private static void Postfix(Minimap __instance, Vector3 pos, float radius, bool mustBeVisible,
                                     ref Minimap.PinData __result)
         {
-            if (!mustBeVisible || __result == null || !Crowding.OutOfSight(__result))
+            // A badge is drawn at the middle of its group, but the game measures to the leader's own pin. Left
+            // alone, a click on the leader's old spot (which looks empty now) ticked a pin nobody could see
+            // there, and a click on the badge found a neighbour (the review of 2.5, and totya's X on a pin that
+            // stayed after reopening the map). So while any badge is displaced the nearest drawn pin is found
+            // here, measured to where each is drawn.
+            bool displaced = Clusters.HasGroups && __instance.m_mode == Minimap.MapMode.Large;
+            if (!mustBeVisible || (!displaced && (__result == null || !Crowding.OutOfSight(__result))))
                 return;
 
             List<Minimap.PinData> pins = MinimapAccess.GetPins(__instance);
@@ -213,7 +219,7 @@ namespace CarturMapPins
                     if (!pin.m_uiElement || !pin.m_uiElement.gameObject.activeInHierarchy)
                         continue;
 
-                    float distance = Utils.DistanceXZ(pos, pin.m_pos);
+                    float distance = Utils.DistanceXZ(pos, Clusters.CentreOf(pin));
                     if (distance < radius && distance < bestDistance)
                     {
                         best = pin;

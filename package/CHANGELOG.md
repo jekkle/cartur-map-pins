@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.5.0
+
+Almost all of this comes from totya's tests of 2.4.0.
+
+**A badge is drawn at the middle of its group.** It used to sit on the leftmost pin of the group, which read as the wrong place. The pins themselves, and everything saved about them, stay where they are; only the badge's marker moves. Clicking, hovering and the fan-out follow where the badge is drawn, and a click on the spot the badge used to be on is looked up where things are now drawn, not where the leader pin is. That mismatch is the most likely reason a pin got an X after a badge was clicked and kept it after the map was reopened; it was found by reading the code, not reproduced. A click on a badge that has just dissolved (the groups are rebuilt as the map zooms) is now ignored for a third of a second instead of ticking the pin under it.
+
+**Hovering a badge shows rows.** The list is now one shaded row per name with the count and the nearest distance in their own columns, drawn above the pin names that used to print across it. The click list sits above them too.
+
+**Click actions.** `EnableClusterSpiderfy` is gone. `ClusterClickAction` set to Spiderfy now fans a small cluster out and lists a bigger one (over `SpiderfyMaxPins`). A file that had Spiderfy chosen with the switch off was getting the list, so it becomes Inspector once.
+
+**Pin size follows the zoom you use.** `ShrinkPinsFromZoom` is on a log scale like `HideLabelsFromZoom`, so the shrinking is spread over normal zooms and not the last stretch before the whole world shows. The default is 25. An older value is converted once, keeping the same zoom; the old default of 15 takes the new one. `ZoomedInPinScale` is 0.5 to 1 with a default of 1 (a saved 0.75 moves to 1 once, a saved value below 0.5 becomes 0.5), `ZoomedOutPinScale` is a 0.2 to 1 slider.
+
+**Names hide in one notch at small steps.** A notch that would stop within one step below `HideLabelsFromZoom` when zooming out now lands just past it, the same as the zoom-in snap.
+
+**Settings menu.** The sections are listed in their numbered order (02a was after 04), the three pin size settings have a page of their own (02d. Pin Size), and `ClusterPins` is first on its page. Settings that need another switch (the cluster options, the zoom options, `SmartLabelPlacement`) grey out while it is off in Shudnal's Configuration Manager; the others read that when the menu opens. Every setting has a one-sentence explanation first when you hover it, and the same sentence leads its comment in the .cfg. Page titles and the choices of a setting (for example Zoom, Inspector, Spiderfy) can be translated with `cat.<page>=` and `val.<Key>.<Value>=` lines in the translation file; what is saved stays the English value. `HiddenPins` says that capital letters do not matter. The Explorer zoom preset is 50% over 120 ms.
+
+**Smaller.** The hint bar stops at the pin picker only when the picker is on the bar's band of the screen, so a picker moved up takes nothing from it. Hugin's buttons grow around their middle on hover, so none of them drifts.
+
+Tested in the game (Valheim 1.0.20, 1280x720, Debug build): the badge sits at the mean of its members' markers (off by 0 px in a group of 4 and a group of 6); a click on a badge with the list, the fan-out and the zoom action ticked nothing and the zoom action halved the zoom; a click on the badge leader's old spot ticked nothing; the settings pages come out in numbered order; at a 2% step one wheel notch took the zoom from 0.0159 past the 0.0163 name limit (to 0.0166), where it used to take two; pins are smaller at zoom 0.5 than at 0.1; the hover rows and the fan-out draw. Not tested: the Release build in game, Hugin's hover change, a picker moved up off the hint bar, other resolutions, a crowded spot with map labels beside the list, Configuration Managers other than Shudnal's, controller, multiplayer, the translated page titles and choices, and whether the X on a pin is gone for the player who reported it.
+
 ## 2.4.0
 
 All of this comes from totya's tests of 2.2.0 and 2.3.0.

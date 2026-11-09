@@ -1115,10 +1115,23 @@ namespace CarturMapPins
             public void OnPointerUp(PointerEventData e) => _pressTarget = 1f;
 #endif
 
+            // Scaling about a corner pivot moves the middle: the store icons (pivot top left) slid down and right
+            // on hover while Not now and Next (pivot bottom right) slid up and left (totya, 2.4.0). The rest
+            // position is read while at scale 1 and the position is offset to keep the middle where it was.
+            private Vector2 _restPos, _wrote;
+            private bool _wroteAny;
+
             private void Update()
             {
-                if (Mathf.Approximately(_t, _target) && Mathf.Approximately(_press, _pressTarget))
+                var rect = transform as RectTransform;
+                bool settled = Mathf.Approximately(_t, _target) && Mathf.Approximately(_press, _pressTarget);
+                if (settled)
+                {
+                    if (rect != null && Mathf.Approximately(transform.localScale.x, 1f))
+                        _restPos = rect.anchoredPosition;
+                    _wroteAny = false;
                     return;
+                }
                 float k = 1f - Mathf.Exp(-Speed * Time.unscaledDeltaTime);
                 _t = Mathf.Abs(_t - _target) < 0.01f ? _target : Mathf.Lerp(_t, _target, k);
                 _press = Mathf.Abs(_press - _pressTarget) < 0.002f ? _pressTarget : Mathf.Lerp(_press, _pressTarget, k);
@@ -1126,6 +1139,15 @@ namespace CarturMapPins
                     _back.color = Color.Lerp(_rest, _hover, _t);
                 float s = Mathf.Lerp(1f, _grow, _t) * _press;
                 transform.localScale = new Vector3(s, s, 1f);
+                if (rect != null && rect.anchorMin == rect.anchorMax)
+                {
+                    // A layout moved the row since the last frame: its rest position moved by the same amount.
+                    if (_wroteAny && rect.anchoredPosition != _wrote)
+                        _restPos += rect.anchoredPosition - _wrote;
+                    _wrote = _restPos - (s - 1f) * new Vector2((0.5f - rect.pivot.x) * rect.rect.width, (0.5f - rect.pivot.y) * rect.rect.height);
+                    rect.anchoredPosition = _wrote;
+                    _wroteAny = true;
+                }
             }
         }
 
