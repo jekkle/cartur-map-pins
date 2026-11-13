@@ -85,11 +85,13 @@ namespace CarturMapPins
                 // The same luck the other way round: zooming out, a notch that stops a hair under the limit
                 // leaves the names showing and the next notch hides them (totya, 2.4.0: at a 2% step with a
                 // limit of 2, two notches to hide). A notch that would stop within one step below the limit
-                // lands just past it.
+                // lands just past it. "Under" includes the 1% band LabelCrowding keeps round the line: after
+                // the zoom-in snap rests at 0.985 of the line, a 2% notch out reaches 1.005, which is above
+                // the line but still inside the band, so the names stayed and it took a second notch (totya, 2.5.0).
                 if (wheel < 0f && limit < 100f && Plugin.HideLabelsScale.Value != 0)
                 {
                     float line = ZoomMath.ZoomAtLogPercent(limit, map.m_minZoom, map.m_maxZoom);
-                    if (before <= line && _target <= line && _target * (1f + percent) > line)
+                    if (before <= line && _target <= line * 1.015f && _target * (1f + percent) > line)
                         _target = Mathf.Clamp(line * 1.015f, map.m_minZoom, map.m_maxZoom);
                 }
                 _focus = false;

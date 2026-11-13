@@ -38,7 +38,13 @@ namespace CarturMapPins
         /// read from the installed DLL), and UpdatePins is where vanilla resets every pin's colour
         /// and where this mod paints the looted-chest half opacity back on. Editing a pin in place
         /// touches neither, so the change waits for the next time the map happens to move.
-        public static void RequestPinUpdate(Minimap map) => PinUpdateRequiredField?.SetValue(map, true);
+        // Minimap.instance is null on the main menu, and FieldInfo.SetValue on an instance field throws
+        // TargetException for a null target - so a setting changed in F1 before a world loads spammed the log.
+        public static void RequestPinUpdate(Minimap map)
+        {
+            if (map != null)
+                PinUpdateRequiredField?.SetValue(map, true);
+        }
 
         public static List<Minimap.PinData> GetPins(Minimap map)
         {

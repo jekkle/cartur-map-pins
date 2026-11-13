@@ -586,6 +586,11 @@ namespace CarturMapPins
             words.textWrappingMode = TextWrappingModes.Normal;
             words.fontStyle = FontStyles.Italic;
             words.text = Welcome;
+            // The rows start at fixed offsets below this box, so a longer text (another language, a bigger font) ran
+            // over them (totya, 2.5.0). The text shrinks to fit its box instead, never below 12.
+            words.enableAutoSizing = true;
+            words.fontSizeMax = 20f;
+            words.fontSizeMin = 12f;
 
             Label(_grid, "Heading", 15f, Bronze, TextAlignmentOptions.BottomLeft, new Vector2(0f, -170f), new Vector2(788f, 30f))
                 .text = "SHARING AT THE CARTOGRAPHY TABLE";
@@ -621,6 +626,9 @@ namespace CarturMapPins
                                          new Vector2(0f, -330f), new Vector2(788f, 60f));
             more.textWrappingMode = TextWrappingModes.Normal;
             more.text = MoreSettings + " Press Next to choose what gets a pin.";
+            more.enableAutoSizing = true;
+            more.fontSizeMax = 15f;
+            more.fontSizeMin = 10f;
 
             // New default colours: on = each NEW pin gets the colour of what it marks; the button gives the
             // pins already on the map the same colours (owner, 2026-10-27).

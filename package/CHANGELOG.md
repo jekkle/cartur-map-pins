@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.5.1
+
+**Clicking a fanned-out icon works.** With `ClusterClickAction` on Spiderfy, a click on one of the fanned icons never reached it: the click went through to the map, which put an X on the nearest regular pin (the X that stayed after reopening the map when a pin sat under the icon) and never took you to the pin you clicked. A click on a fanned icon now closes the fan and glides the map to that pin, and the pin under it is left alone.
+
+**Pointing at the middle of a badge always picks the badge.** Another pin a few pixels from the middle of a badge could win the hover and the click. The middle of a badge now wins; further out it still competes with the pins beside it.
+
+**Inspector: the pin you pick gets a ring.** A pulsing ring marks the pin for two and a half seconds after you pick it from the list, so you can see where the map went.
+
+**Names hide in one notch at a 2% zoom step too.** After names appear on the way in, one notch back out hides them. It took two before.
+
+**No more `TargetException` in the log when you change a setting in the main menu.** The pin refresh ran with no map yet.
+
+**The English translation template follows the mod's version.** `carturpins_names_english_template.txt` is rewritten when the mod updates, so changed descriptions show up in it, and the old file is kept beside it as `.old`.
+
+**Hugin's welcome page fits its text.** The introduction shrinks (down to size 12) to stay inside its box instead of running over the sharing options below it.
+
+Tested in the game (Valheim 1.0.20, 1280x720, Release build): a regular pin parked under a fanned icon, then a click on the icon: the fan closed, the map glided from zoom 0.35 to 0.03 and no pin got an X; the badge sweep, the ring (present for 2.5 seconds, then gone) and the zoom case (names shown, one notch out, names gone) passed; the menu call returns without an exception; the template was rewritten with the old one kept. Not tested: a real mouse click on a fanned icon (the click was made by calling the map's click handler), the welcome page with a very long translation, multiplayer.
+
 ## 2.5.0
 
 Almost all of this comes from totya's tests of 2.4.0.

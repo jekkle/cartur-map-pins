@@ -18,6 +18,8 @@ namespace CarturMapPins
         private static readonly List<GameObject> Spread = new List<GameObject>();
         private static readonly List<GameObject> Legs = new List<GameObject>();
         private static readonly List<RectTransform> Hit = new List<RectTransform>();
+        private static readonly List<Minimap.PinData> HitPin = new List<Minimap.PinData>();
+        private static IReadOnlyList<Minimap.PinData> _group;
         private static Minimap.PinData _leader;
         private static Vector2 _centre;
         private static float _zoom;
@@ -52,6 +54,8 @@ namespace CarturMapPins
             _zoom = map.LargeZoom;
             _centre = anchor.rectTransform.localPosition;
             Hit.Clear();
+            HitPin.Clear();
+            _group = group;
 
             float icon = anchor.rectTransform.rect.width * anchor.rectTransform.localScale.x;
             float ring = Mathf.Max(icon * 2.4f, group.Count * icon * 1.6f / (2f * Mathf.PI));
@@ -104,6 +108,7 @@ namespace CarturMapPins
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() => { Close(); ClusterInspector.FocusSeparated(map, pin, group); });
                 Hit.Add(node);
+                HitPin.Add(pin);
             }
             for (int i = group.Count; i < Spread.Count; i++)
             {
@@ -140,6 +145,28 @@ namespace CarturMapPins
             }
             if (ZInput.GetMouseButtonDown(0) && !Over())
                 Close();
+        }
+
+        /// A click on a fanned icon. The icons are buttons, but a raycast at one reaches only the map (measured:
+        /// raycast order at an icon was map, OutsideMapClick, large; the button was never in it), so the click
+        /// fell through to Minimap.OnMapLeftClick, which ticked the nearest pin - the X - and never navigated
+        /// (totya, 2.5.0). The click is answered here instead, from where the icons are drawn, and the map's own
+        /// handler is skipped for it by Patch_Cluster_LeftClick.
+        public static bool TryClick(Minimap map)
+        {
+            if (!IsOpen)
+                return false;
+            for (int i = 0; i < Hit.Count; i++)
+            {
+                if (Hit[i] == null || !RectTransformUtility.RectangleContainsScreenPoint(Hit[i], ZInput.pointerPosition, null))
+                    continue;
+                Minimap.PinData pin = HitPin[i];
+                IReadOnlyList<Minimap.PinData> group = _group;
+                Close();
+                ClusterInspector.FocusSeparated(map, pin, group);
+                return true;
+            }
+            return false;
         }
 
         private static bool Over()

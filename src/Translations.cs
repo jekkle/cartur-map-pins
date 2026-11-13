@@ -266,21 +266,37 @@ namespace CarturMapPins
         /// The English list, written once so a translator has the keys to work from - copy it to
         /// carturpins_names_<language>.txt and translate the right-hand side.
         ///
-        /// Never overwritten: somebody might have edited it in place before realising it is the
-        /// template.
+        /// Rewritten only when a newer version wrote it, and the old one is kept as .old: somebody might
+        /// have edited it in place before realising it is the template.
         private static void WriteTemplate(string directory)
         {
             string path = Path.Combine(directory, "carturpins_names_english_template.txt");
+            // AppendMissing only adds keys, so a sentence reworded in an update stayed stale in the file. The
+            // first line says which version wrote it; an older one is kept as .old and the template rewritten.
+            string stamp = "# Cartur's Map Pins " + Plugin.PluginVersion + " - pin name translations.";
             if (File.Exists(path))
             {
-                AppendMissing(path);
-                return;
+                try
+                {
+                    using (var reader = new StreamReader(path, Encoding.UTF8))
+                        if (reader.ReadLine()?.Trim() == stamp)
+                        {
+                            AppendMissing(path);
+                            return;
+                        }
+                    File.Copy(path, path + ".old", true);
+                }
+                catch (Exception e)
+                {
+                    Plugin.Log.LogWarning($"Could not refresh the translation template: {e.Message}");
+                    return;
+                }
             }
 
             try
             {
                 var sb = new StringBuilder();
-                sb.AppendLine("# Cartur's Map Pins - pin name translations.");
+                sb.AppendLine(stamp);
                 sb.AppendLine("# Copy this file to carturpins_names_<language>.txt, using the same");
                 sb.AppendLine("# language name Valheim uses (swedish, german, french, russian...),");
                 sb.AppendLine("# and translate the text to the right of each '='.");

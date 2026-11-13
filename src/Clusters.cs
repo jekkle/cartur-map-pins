@@ -486,6 +486,8 @@ namespace CarturMapPins
         [HarmonyPriority(Priority.First)]
         private static bool Prefix(Minimap __instance)
         {
+            if (ClusterSpiderfy.TryClick(__instance))
+                return false;
             Minimap.PinData pin = PinHover.Current;
             bool shift = ZInput.GetKey(KeyCode.LeftShift, false) || ZInput.GetKey(KeyCode.RightShift, false);
 #if DIAGNOSTICS

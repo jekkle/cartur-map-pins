@@ -46,8 +46,11 @@ namespace CarturMapPins
                     float reach = rect.rect.width * 0.5f * rect.localScale.x;
                     float distance = Vector2.Distance((Vector2)rect.localPosition, cursor);
                     // A badge sits on top of unrelated pins at the middle of its group; pointing at it means it.
+                    // Halving its distance was not enough: a pin standing 3 px off the badge's middle still won
+                    // over a cursor 3 px from it (measured, dense test map; totya, 2.5.0, a spawner pin under a
+                    // mushroom badge). The central 60% of a badge always wins; further out it competes, halved.
                     if (Clusters.CountOf(pin) > 1)
-                        distance *= 0.5f;
+                        distance = distance < reach * 0.6f ? 0f : distance * 0.5f;
                     if (distance < reach && distance < best)
                     {
                         best = distance;

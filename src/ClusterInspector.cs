@@ -124,6 +124,8 @@ namespace CarturMapPins
         /// Every frame from the Minimap.Update postfix.
         public static void Tick()
         {
+            if (_ring != null)
+                PulseRing();
             if (!IsOpen)
                 return;
             // A click anywhere but on the panel puts it away. Opening a different cluster reopens it
@@ -231,6 +233,48 @@ namespace CarturMapPins
             if (nearest < float.MaxValue && metres > 0f)
                 zoom = Mathf.Min(zoom, zoom * (nearest / 2.6f) / metres);
             SmoothZoom.FocusOn(map, pin.m_pos, zoom);
+            Ring(pin);
+        }
+
+        // totya, 2.5.0: picking a pin from the list moved the map with nothing marking which pin it was. A ring
+        // is parented to the pin's own icon so it follows the pin while the map glides, and it pulses for 2.5 s.
+        private static GameObject _ring;
+        private static float _ringStart;
+
+        private static void Ring(Minimap.PinData pin)
+        {
+            if (_ring != null)
+                Object.Destroy(_ring);
+            if (pin?.m_iconElement == null)
+                return;
+            _ring = new GameObject("CarturPins_FocusRing", typeof(RectTransform), typeof(UnityEngine.UI.Image));
+            _ring.transform.SetParent(pin.m_iconElement.transform, false);
+            var image = _ring.GetComponent<UnityEngine.UI.Image>();
+            image.sprite = IconGrid.Ring();
+            image.color = new Color(1f, 0.85f, 0.3f, 1f);
+            image.raycastTarget = false;
+            _ringStart = Time.unscaledTime;
+            PulseRing();
+        }
+
+        private static void PulseRing()
+        {
+            float age = Time.unscaledTime - _ringStart;
+            if (_ring == null)
+                return;
+            if (age > 2.5f)
+            {
+                Object.Destroy(_ring);
+                _ring = null;
+                return;
+            }
+            // Size is relative to the icon, which the map scales as it zooms.
+            var rect = (RectTransform)_ring.transform;
+            RectTransform icon = (RectTransform)rect.parent;
+            float size = icon.rect.width * (1.9f + 0.35f * Mathf.Sin(age * 8f));
+            rect.sizeDelta = new Vector2(size, size);
+            rect.anchoredPosition = Vector2.zero;
+            _ring.GetComponent<UnityEngine.UI.Image>().color = new Color(1f, 0.85f, 0.3f, Mathf.Clamp01((2.5f - age) * 2f));
         }
 
         private static void Clamp()
