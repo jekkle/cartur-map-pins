@@ -149,6 +149,9 @@ namespace CarturMapPins
                         Plugin.Log.LogInfo($"Re-worded {reworded} pin(s) into the current language.");
                 });
 
+                // Before icon recovery, which is what puts an icon on the pins this step adopts.
+                MigrationStep("Better Map import", () => BetterMapImport.Run());
+
                 // Before the subtype step, which judges a pin by the icon it wears: a pin flattened to
                 // the circle by a session without the mod wears none it recognises.
                 MigrationStep("Icon recovery", () =>

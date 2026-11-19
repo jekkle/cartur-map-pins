@@ -44,6 +44,10 @@ With **New default colours** on (`General / NewDefaultColours`), every new pin t
 
 Opacity works the same way. Click the percentage next to a kind's colour in Hugin's menu to step it through 100, 75, 50 and 25; it is saved when you press Done, applies to new pins, and **Apply to existing pins** applies it to pins you have not faded yourself. Each kind's opacity is a setting under *Kind Opacity*.
 
+Moving over from Better Map? Take it off your mod list and load the world once. Map Pins turns the pins Better Map left behind (ore, tar pits, leviathans, dungeons, spawners, vegvisirs, beehives, boss altars, drake nests and other pickables) into its own, with their icons. Pins you placed yourself are not touched. Portals, loot, sap and giant remains stay as they are.
+
+To give every kind one look, open a kind's colour window in Hugin's menu and press **Colour to all** or **Opacity to all**, then **Apply to existing pins**.
+
 ![The colour wheel in the pin editor](https://raw.githubusercontent.com/jekkle/cartur-map-pins/master/docs/images/colour-wheel-2.0.jpg)
 
 ## On the map screen

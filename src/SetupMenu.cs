@@ -897,7 +897,7 @@ namespace CarturMapPins
             ClosePicker();
             _colourItem = item;
             RectTransform box = Box(_panel, "ColourPicker", new Color(0.03f, 0.03f, 0.025f, 1f),
-                                    new Vector2(ColourWheel.Width + 28f, ColourWheel.Height + 72f));
+                                    new Vector2(ColourWheel.Width + 28f, ColourWheel.Height + 118f));
             box.anchorMin = box.anchorMax = box.pivot = new Vector2(1f, 1f);
             box.anchoredPosition = new Vector2(-24f, -100f);
             _picker = box.gameObject;
@@ -912,6 +912,20 @@ namespace CarturMapPins
 
             ColourWheel wheel = ColourWheel.Build(box, -46f, code => { item.Colour = code; Refresh(); });
             wheel.Show(item.Colour);
+
+            // The colour and opacity of this row to every row (owner, 2026-11-19): setting every kind to one
+            // look otherwise takes a click per row.
+            Button(box, "Colour to all", new Vector2(14f, 8f), 130f, false, () => ForAllItems(i => i.Colour = item.Colour), anchorLeft: true).fontSize = 15f;
+            Button(box, "Opacity to all", new Vector2(152f, 8f), 130f, false,
+                   () => ForAllItems(i => { if (i.OpacityEntry != null) i.Opacity = item.Opacity; }), anchorLeft: true).fontSize = 15f;
+            Refresh();
+        }
+
+        private static void ForAllItems(System.Action<Item> set)
+        {
+            foreach (Item i in _pages.SelectMany(p => p.Items))
+                if (i.ColourKey != null)
+                    set(i);
             Refresh();
         }
 

@@ -16,7 +16,7 @@ namespace CarturMapPins
     {
         public const string PluginGuid = "com.jekkle.valheim.carturmappins";
         public const string PluginName = "Cartur's Map Pins";
-        public const string PluginVersion = "2.5.1";
+        public const string PluginVersion = "2.6.0";
 
         internal static ManualLogSource Log;
 
@@ -374,7 +374,7 @@ namespace CarturMapPins
             BindKinds(PinCategory.Chest, "Chest Site", Subtypes.ChestSites);
             BindKinds(PinCategory.Chest, "Chest Site", Subtypes.BuriedChests);
             Bind(PinCategory.Landmark, false, Minimap.PinType.Icon2, 10f,
-                "Surface landmarks with nothing inside them - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
+                "Surface landmarks you see from outside, with no cave or crypt to go into (some have a spawner or a chest nearby) - wells, shipwrecks, dolmens, stone circles, swamp huts, abandoned houses. OFF by default: these are numerous and decorative, and pinning all of them buries the map. Individual kinds have their own switches in Landmark Types.",
                 iconIndex: 45);   // stone circle; per-kind icons override it
             BindKinds(PinCategory.Landmark, "Landmark", Subtypes.Landmarks);
             Bind(PinCategory.Runestone, true, Minimap.PinType.Icon2, 5f,

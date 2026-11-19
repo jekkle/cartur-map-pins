@@ -62,7 +62,7 @@ namespace CarturMapPins
             { PinCategory.Camp, "A camp, village or fortress." },
             { PinCategory.BossAltar, "A boss's summoning place." },
             { PinCategory.Miniboss, "A miniboss." },
-            { PinCategory.Landmark, "A landmark with nothing inside it." },
+            { PinCategory.Landmark, "A landmark on the surface, with no cave or crypt to go into." },
             { PinCategory.Spawner, "A spawner that keeps making creatures until you break it." },
             { PinCategory.Trader, "A trader." },
             { PinCategory.Portal, "Your portals, named with the tag you gave them." },

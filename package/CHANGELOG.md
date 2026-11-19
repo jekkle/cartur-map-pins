@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.6.0
+
+**Better Map's pins come over.** If you used Better Map (xtavim) and have taken it off your mod list, Map Pins now turns the pins it left on your map into its own, with their icons, the first time you load the world. Better Map keeps a list of what it pinned, which is how its pins are told from yours: pins you placed yourself are not touched, and a pin you deleted stays deleted. Converted: ore, tar pits, leviathans, drake nests and other pickables, dungeons, spawners, vegvisirs, beehives and boss altars. Left as they are, because there is no matching kind here: portals, loot, sap and giant remains. It does nothing while Better Map is still loaded. The log says how many pins were taken over.
+
+**Colour to all and Opacity to all.** The colour window in Hugin's menu has two new buttons. They give every kind the colour, or the opacity, of the kind you opened. Setting every pin to white is: pick white, press Colour to all, press Apply to existing pins.
+
+**The Landmark text no longer says "nothing inside".** Some landmarks have a spawner or a chest near them. It now says a landmark on the surface with no cave or crypt to go into.
+
+Tested in the game (Valheim 1.0.20, Release build): the import on 238 pins taken from a real Better Map save, with the names and slots they were saved with: 235 converted, the 3 portals were left, a second load converted none, and two pins placed by hand were unchanged. Colour to all was pressed and every kind took the colour. Not tested: Opacity to all, walking past a converted pin to see whether a second pin appears, a real Better Map install, multiplayer.
+
 ## 2.5.1
 
 **Clicking a fanned-out icon works.** With `ClusterClickAction` on Spiderfy, a click on one of the fanned icons never reached it: the click went through to the map, which put an X on the nearest regular pin (the X that stayed after reopening the map when a pin sat under the icon) and never took you to the pin you clicked. A click on a fanned icon now closes the fan and glides the map to that pin, and the pin under it is left alone.
