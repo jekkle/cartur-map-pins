@@ -41,9 +41,27 @@ namespace CarturMapPins
         /// Hold longer than any real frame; a hitch must not teleport the zoom.
         private const float MaxStep = 0.05f;
 
+        /// SeneaL UI smooths the map zoom itself: its MapView takes LargeZoom before UpdateMap, and after it
+        /// reads the result as the target and eases LargeZoom to it. Our Tick moves LargeZoom inside UpdateMap
+        /// as well, so with both loaded the zoom did not move at all (measured, SeneaL UI 1.2.8: three wheel
+        /// notches left it at 0.1000, and 0.0512 without SeneaL). One of the two has to stand down, and it is us.
+        private static readonly bool SeneaLZooms = BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey("seneaL.valheim.ui");
+        private static bool _seneaLLogged;
+
         internal static void Tick(Minimap map, Player player, bool takeInput)
         {
             float zoom = map.LargeZoom;
+            if (SeneaLZooms)
+            {
+                if (!_seneaLLogged)
+                {
+                    _seneaLLogged = true;
+                    Plugin.Log.LogInfo("SeneaL UI is loaded and smooths the map zoom itself - smooth zoom here is off.");
+                }
+                Rest(zoom);
+                Settled = false;
+                return;
+            }
             if (!Plugin.SmoothMapZoom.Value || map.m_mode != Minimap.MapMode.Large || !takeInput || player == null ||
                 MapOffset == null || Minimap.InTextInput() || ZInput.IsGamepadActive())
             {

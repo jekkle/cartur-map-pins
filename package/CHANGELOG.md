@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+
+**Works with SeneaL UI again.** SeneaL smooths the map zoom itself, and so did Map Pins, so with both loaded the map would not zoom in or out. Map Pins' smooth zoom now steps aside when SeneaL UI is loaded and SeneaL's own zoom runs. The log says so when it happens. Your zoom step settings do not apply while SeneaL UI is loaded.
+
+Tested in the game (Valheim 1.0.20, Release build) with SeneaL UI 1.2.8: three wheel notches in and three out both zoom, and without the change the zoom stayed where it was. Also checked: Opacity to all sets every kind. Not tested: other SeneaL versions.
+
 ## 2.6.0
 
 **Better Map's pins come over.** If you used Better Map (xtavim) and have taken it off your mod list, Map Pins now turns the pins it left on your map into its own, with their icons, the first time you load the world. Better Map keeps a list of what it pinned, which is how its pins are told from yours: pins you placed yourself are not touched, and a pin you deleted stays deleted. Converted: ore, tar pits, leviathans, drake nests and other pickables, dungeons, spawners, vegvisirs, beehives and boss altars. Left as they are, because there is no matching kind here: portals, loot, sap and giant remains. It does nothing while Better Map is still loaded. The log says how many pins were taken over.
